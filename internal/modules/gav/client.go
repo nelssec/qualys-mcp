@@ -303,7 +303,8 @@ type V2AssetResponse struct {
 			} `json:"hardware,omitempty"`
 		} `json:"asset"`
 	} `json:"assetListData"`
-	HasMore bool `json:"hasMore"`
+	HasMore          bool   `json:"hasMore"`
+	LastSeenAssetId  interface{} `json:"lastSeenAssetId,omitempty"`
 }
 
 func (c *Client) GetEOLAssets(ctx context.Context, limit int) ([]EOLAsset, error) {
@@ -317,44 +318,67 @@ func (c *Client) GetEOLAssets(ctx context.Context, limit int) ([]EOLAsset, error
 
 	filterJSON, _ := json.Marshal(filterReq)
 
-	params := url.Values{}
-	params.Set("pageSize", fmt.Sprintf("%d", limit))
-
-	data, err := c.classicHTTP.Post(ctx, endpoint+"?"+params.Encode(), strings.NewReader(string(filterJSON)), "application/json")
-	if err != nil {
-		return nil, err
-	}
-
-	var resp V2AssetResponse
-	if err := json.Unmarshal(data, &resp); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-
 	var result []EOLAsset
-	for _, a := range resp.AssetListData.Asset {
-		osName := ""
-		if a.OperatingSystem.Name != "" {
-			osName = a.OperatingSystem.Name
-			if a.OperatingSystem.Version != "" {
-				osName = osName + " " + a.OperatingSystem.Version
-			}
+	var lastSeenID interface{}
+	pageSize := 300
+	if limit > 0 && limit < pageSize {
+		pageSize = limit
+	}
+
+	for {
+		params := url.Values{}
+		params.Set("pageSize", fmt.Sprintf("%d", pageSize))
+		if lastSeenID != nil {
+			params.Set("lastSeenAssetId", fmt.Sprintf("%v", lastSeenID))
 		}
 
-		asset := EOLAsset{
-			AssetID:     a.AssetID,
-			IP:          a.Address,
-			Hostname:    a.DnsHostName,
-			OS:          osName,
-			Criticality: a.Criticality,
+		data, err := c.classicHTTP.Post(ctx, endpoint+"?"+params.Encode(), strings.NewReader(string(filterJSON)), "application/json")
+		if err != nil {
+			return nil, err
 		}
-		if a.OperatingSystem.Lifecycle.Stage != "" {
-			asset.OSLifecycle = &OSLifecycle{
-				Stage:   a.OperatingSystem.Lifecycle.Stage,
-				EOLDate: a.OperatingSystem.Lifecycle.EolDate,
-				EOSDate: a.OperatingSystem.Lifecycle.EosDate,
+
+		var resp V2AssetResponse
+		if err := json.Unmarshal(data, &resp); err != nil {
+			return nil, fmt.Errorf("parse response: %w", err)
+		}
+
+		for _, a := range resp.AssetListData.Asset {
+			osName := ""
+			if a.OperatingSystem.Name != "" {
+				osName = a.OperatingSystem.Name
+				if a.OperatingSystem.Version != "" {
+					osName = osName + " " + a.OperatingSystem.Version
+				}
 			}
+
+			asset := EOLAsset{
+				AssetID:     a.AssetID,
+				IP:          a.Address,
+				Hostname:    a.DnsHostName,
+				OS:          osName,
+				Criticality: a.Criticality,
+			}
+			if a.OperatingSystem.Lifecycle.Stage != "" {
+				asset.OSLifecycle = &OSLifecycle{
+					Stage:   a.OperatingSystem.Lifecycle.Stage,
+					EOLDate: a.OperatingSystem.Lifecycle.EolDate,
+					EOSDate: a.OperatingSystem.Lifecycle.EosDate,
+				}
+			}
+			result = append(result, asset)
 		}
-		result = append(result, asset)
+
+		if !resp.HasMore || resp.LastSeenAssetId == nil {
+			break
+		}
+		if limit > 0 && len(result) >= limit {
+			break
+		}
+		lastSeenID = resp.LastSeenAssetId
+	}
+
+	if limit > 0 && len(result) > limit {
+		result = result[:limit]
 	}
 
 	return result, nil
@@ -371,44 +395,67 @@ func (c *Client) GetEOSAssets(ctx context.Context, limit int) ([]EOLAsset, error
 
 	filterJSON, _ := json.Marshal(filterReq)
 
-	params := url.Values{}
-	params.Set("pageSize", fmt.Sprintf("%d", limit))
-
-	data, err := c.classicHTTP.Post(ctx, endpoint+"?"+params.Encode(), strings.NewReader(string(filterJSON)), "application/json")
-	if err != nil {
-		return nil, err
-	}
-
-	var resp V2AssetResponse
-	if err := json.Unmarshal(data, &resp); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-
 	var result []EOLAsset
-	for _, a := range resp.AssetListData.Asset {
-		osName := ""
-		if a.OperatingSystem.Name != "" {
-			osName = a.OperatingSystem.Name
-			if a.OperatingSystem.Version != "" {
-				osName = osName + " " + a.OperatingSystem.Version
-			}
+	var lastSeenID interface{}
+	pageSize := 300
+	if limit > 0 && limit < pageSize {
+		pageSize = limit
+	}
+
+	for {
+		params := url.Values{}
+		params.Set("pageSize", fmt.Sprintf("%d", pageSize))
+		if lastSeenID != nil {
+			params.Set("lastSeenAssetId", fmt.Sprintf("%v", lastSeenID))
 		}
 
-		asset := EOLAsset{
-			AssetID:     a.AssetID,
-			IP:          a.Address,
-			Hostname:    a.DnsHostName,
-			OS:          osName,
-			Criticality: a.Criticality,
+		data, err := c.classicHTTP.Post(ctx, endpoint+"?"+params.Encode(), strings.NewReader(string(filterJSON)), "application/json")
+		if err != nil {
+			return nil, err
 		}
-		if a.OperatingSystem.Lifecycle.Stage != "" {
-			asset.OSLifecycle = &OSLifecycle{
-				Stage:   a.OperatingSystem.Lifecycle.Stage,
-				EOLDate: a.OperatingSystem.Lifecycle.EolDate,
-				EOSDate: a.OperatingSystem.Lifecycle.EosDate,
+
+		var resp V2AssetResponse
+		if err := json.Unmarshal(data, &resp); err != nil {
+			return nil, fmt.Errorf("parse response: %w", err)
+		}
+
+		for _, a := range resp.AssetListData.Asset {
+			osName := ""
+			if a.OperatingSystem.Name != "" {
+				osName = a.OperatingSystem.Name
+				if a.OperatingSystem.Version != "" {
+					osName = osName + " " + a.OperatingSystem.Version
+				}
 			}
+
+			asset := EOLAsset{
+				AssetID:     a.AssetID,
+				IP:          a.Address,
+				Hostname:    a.DnsHostName,
+				OS:          osName,
+				Criticality: a.Criticality,
+			}
+			if a.OperatingSystem.Lifecycle.Stage != "" {
+				asset.OSLifecycle = &OSLifecycle{
+					Stage:   a.OperatingSystem.Lifecycle.Stage,
+					EOLDate: a.OperatingSystem.Lifecycle.EolDate,
+					EOSDate: a.OperatingSystem.Lifecycle.EosDate,
+				}
+			}
+			result = append(result, asset)
 		}
-		result = append(result, asset)
+
+		if !resp.HasMore || resp.LastSeenAssetId == nil {
+			break
+		}
+		if limit > 0 && len(result) >= limit {
+			break
+		}
+		lastSeenID = resp.LastSeenAssetId
+	}
+
+	if limit > 0 && len(result) > limit {
+		result = result[:limit]
 	}
 
 	return result, nil
@@ -425,36 +472,59 @@ func (c *Client) GetEOLHardware(ctx context.Context, limit int) ([]EOLAsset, err
 
 	filterJSON, _ := json.Marshal(filterReq)
 
-	params := url.Values{}
-	params.Set("pageSize", fmt.Sprintf("%d", limit))
-
-	data, err := c.classicHTTP.Post(ctx, endpoint+"?"+params.Encode(), strings.NewReader(string(filterJSON)), "application/json")
-	if err != nil {
-		return nil, err
-	}
-
-	var resp V2AssetResponse
-	if err := json.Unmarshal(data, &resp); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-
 	var result []EOLAsset
-	for _, a := range resp.AssetListData.Asset {
-		asset := EOLAsset{
-			AssetID:     a.AssetID,
-			IP:          a.Address,
-			Hostname:    a.DnsHostName,
-			OS:          a.OperatingSystem.Name,
-			Criticality: a.Criticality,
+	var lastSeenID interface{}
+	pageSize := 300
+	if limit > 0 && limit < pageSize {
+		pageSize = limit
+	}
+
+	for {
+		params := url.Values{}
+		params.Set("pageSize", fmt.Sprintf("%d", pageSize))
+		if lastSeenID != nil {
+			params.Set("lastSeenAssetId", fmt.Sprintf("%v", lastSeenID))
 		}
-		if a.Hardware.Lifecycle.Stage != "" {
-			asset.HWLifecycle = &HWLifecycle{
-				Stage:   a.Hardware.Lifecycle.Stage,
-				EOSDate: a.Hardware.Lifecycle.EosDate,
-				OBSDate: a.Hardware.Lifecycle.ObsDate,
+
+		data, err := c.classicHTTP.Post(ctx, endpoint+"?"+params.Encode(), strings.NewReader(string(filterJSON)), "application/json")
+		if err != nil {
+			return nil, err
+		}
+
+		var resp V2AssetResponse
+		if err := json.Unmarshal(data, &resp); err != nil {
+			return nil, fmt.Errorf("parse response: %w", err)
+		}
+
+		for _, a := range resp.AssetListData.Asset {
+			asset := EOLAsset{
+				AssetID:     a.AssetID,
+				IP:          a.Address,
+				Hostname:    a.DnsHostName,
+				OS:          a.OperatingSystem.Name,
+				Criticality: a.Criticality,
 			}
+			if a.Hardware.Lifecycle.Stage != "" {
+				asset.HWLifecycle = &HWLifecycle{
+					Stage:   a.Hardware.Lifecycle.Stage,
+					EOSDate: a.Hardware.Lifecycle.EosDate,
+					OBSDate: a.Hardware.Lifecycle.ObsDate,
+				}
+			}
+			result = append(result, asset)
 		}
-		result = append(result, asset)
+
+		if !resp.HasMore || resp.LastSeenAssetId == nil {
+			break
+		}
+		if limit > 0 && len(result) >= limit {
+			break
+		}
+		lastSeenID = resp.LastSeenAssetId
+	}
+
+	if limit > 0 && len(result) > limit {
+		result = result[:limit]
 	}
 
 	return result, nil

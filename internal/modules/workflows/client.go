@@ -610,20 +610,39 @@ func (c *Client) PrioritizeExternalRisk(ctx context.Context, tagName string, min
 }
 
 type TechDebtSummary struct {
-	Stats              TechDebtStats           `json:"stats"`
-	EOLOperatingSystems []OSDebtItem           `json:"eolOperatingSystems"`
-	EOLHardware        []HardwareDebtItem      `json:"eolHardware,omitempty"`
-	EOLContainerImages []ContainerDebtItem     `json:"eolContainerImages,omitempty"`
-	TopAffectedAssets  []TechDebtAsset         `json:"topAffectedAssets"`
-	ReductionPlan      TechDebtReductionPlan   `json:"reductionPlan"`
+	Stats               TechDebtStats           `json:"stats"`
+	ByLifecycleStage    LifecycleBreakdown      `json:"byLifecycleStage"`
+	ByCriticality       CriticalityBreakdown    `json:"byCriticality"`
+	EOLOperatingSystems []OSDebtItem            `json:"eolOperatingSystems"`
+	EOLHardware         []HardwareDebtItem      `json:"eolHardware,omitempty"`
+	EOLContainerImages  []ContainerDebtItem     `json:"eolContainerImages,omitempty"`
+	TopAffectedAssets   []TechDebtAsset         `json:"topAffectedAssets"`
+	CriticalAssets      []TechDebtAsset         `json:"criticalAssets,omitempty"`
+	ReductionPlan       TechDebtReductionPlan   `json:"reductionPlan"`
 }
 
 type TechDebtStats struct {
 	TotalAssets           int     `json:"totalAssets"`
 	AssetsWithEOLOS       int     `json:"assetsWithEolOs"`
+	AssetsWithEOSOS       int     `json:"assetsWithEosOs"`
 	AssetsWithEOLHardware int     `json:"assetsWithEolHardware"`
 	EOLContainerImages    int     `json:"eolContainerImages"`
 	TechDebtPercentage    float64 `json:"techDebtPercentage"`
+	UniqueOSVersions      int     `json:"uniqueEolOsVersions"`
+}
+
+type LifecycleBreakdown struct {
+	EOL    int `json:"eol"`
+	EOLEOS int `json:"eolEos"`
+	EOS    int `json:"hardwareEos"`
+	OBS    int `json:"hardwareObsolete"`
+}
+
+type CriticalityBreakdown struct {
+	Critical int `json:"critical"`
+	High     int `json:"high"`
+	Medium   int `json:"medium"`
+	Low      int `json:"low"`
 }
 
 type OSDebtItem struct {
@@ -639,6 +658,7 @@ type HardwareDebtItem struct {
 	Stage        string `json:"stage"`
 	AssetCount   int    `json:"assetCount"`
 	EOSDate      string `json:"eosDate,omitempty"`
+	OBSDate      string `json:"obsDate,omitempty"`
 }
 
 type ContainerDebtItem struct {
@@ -679,7 +699,7 @@ func (c *Client) GetTechDebtSummary(ctx context.Context, reductionTarget float64
 		reductionTarget = 30.0
 	}
 	if limit <= 0 {
-		limit = 100
+		limit = 0
 	}
 
 	summary := &TechDebtSummary{
@@ -689,9 +709,11 @@ func (c *Client) GetTechDebtSummary(ctx context.Context, reductionTarget float64
 	}
 
 	osCounts := make(map[string]*OSDebtItem)
+	hwCounts := make(map[string]*HardwareDebtItem)
+	var criticalAssets []TechDebtAsset
 
 	if c.gav != nil {
-		allAssets, err := c.gav.ListAssets(ctx, "", limit*2)
+		allAssets, err := c.gav.ListAssets(ctx, "", 300)
 		if err == nil {
 			summary.Stats.TotalAssets = len(allAssets)
 		}
@@ -703,6 +725,16 @@ func (c *Client) GetTechDebtSummary(ctx context.Context, reductionTarget float64
 				osName := ""
 				if os, ok := asset.OS.(string); ok {
 					osName = os
+				}
+
+				stage := ""
+				if asset.OSLifecycle != nil {
+					stage = asset.OSLifecycle.Stage
+					if strings.Contains(stage, "EOS") {
+						summary.ByLifecycleStage.EOLEOS++
+					} else if stage == "EOL" {
+						summary.ByLifecycleStage.EOL++
+					}
 				}
 
 				if osName != "" {
@@ -742,27 +774,69 @@ func (c *Client) GetTechDebtSummary(ctx context.Context, reductionTarget float64
 					crit = int(cr)
 				}
 
-				stage := ""
-				if asset.OSLifecycle != nil {
-					stage = asset.OSLifecycle.Stage
+				switch crit {
+				case 5:
+					summary.ByCriticality.Critical++
+				case 4:
+					summary.ByCriticality.High++
+				case 3:
+					summary.ByCriticality.Medium++
+				default:
+					summary.ByCriticality.Low++
 				}
 
-				if len(summary.TopAffectedAssets) < 15 {
-					summary.TopAffectedAssets = append(summary.TopAffectedAssets, TechDebtAsset{
-						AssetID:     assetID,
-						IP:          ip,
-						Hostname:    hostname,
-						OS:          osName,
-						OSStage:     stage,
-						Criticality: crit,
-					})
+				debtAsset := TechDebtAsset{
+					AssetID:     assetID,
+					IP:          ip,
+					Hostname:    hostname,
+					OS:          osName,
+					OSStage:     stage,
+					Criticality: crit,
+				}
+
+				if crit >= 4 {
+					criticalAssets = append(criticalAssets, debtAsset)
+				}
+
+				if len(summary.TopAffectedAssets) < 20 {
+					summary.TopAffectedAssets = append(summary.TopAffectedAssets, debtAsset)
 				}
 			}
+		}
+
+		eosAssets, err := c.gav.GetEOSAssets(ctx, limit)
+		if err == nil {
+			summary.Stats.AssetsWithEOSOS = len(eosAssets)
 		}
 
 		eolHW, err := c.gav.GetEOLHardware(ctx, limit)
 		if err == nil {
 			summary.Stats.AssetsWithEOLHardware = len(eolHW)
+			for _, asset := range eolHW {
+				if asset.HWLifecycle != nil {
+					hwName := "Unknown Hardware"
+					if os, ok := asset.OS.(string); ok && os != "" {
+						hwName = os
+					}
+
+					if asset.HWLifecycle.Stage == "EOS" {
+						summary.ByLifecycleStage.EOS++
+					} else if asset.HWLifecycle.Stage == "OBS" {
+						summary.ByLifecycleStage.OBS++
+					}
+
+					if _, exists := hwCounts[hwName]; !exists {
+						hwCounts[hwName] = &HardwareDebtItem{
+							Name:       hwName,
+							Stage:      asset.HWLifecycle.Stage,
+							AssetCount: 0,
+							EOSDate:    asset.HWLifecycle.EOSDate,
+							OBSDate:    asset.HWLifecycle.OBSDate,
+						}
+					}
+					hwCounts[hwName].AssetCount++
+				}
+			}
 		}
 	}
 
@@ -786,7 +860,7 @@ func (c *Client) GetTechDebtSummary(ctx context.Context, reductionTarget float64
 					BaseOS:     img.BaseOS,
 					EOLDate:    img.EOLDate,
 				})
-				if len(summary.EOLContainerImages) >= 10 {
+				if len(summary.EOLContainerImages) >= 15 {
 					break
 				}
 			}
@@ -807,8 +881,38 @@ func (c *Client) GetTechDebtSummary(ctx context.Context, reductionTarget float64
 			}
 		}
 	}
-	for i := 0; i < len(sortableOS) && i < 15; i++ {
+	for i := 0; i < len(sortableOS) && i < 20; i++ {
 		summary.EOLOperatingSystems = append(summary.EOLOperatingSystems, *sortableOS[i].item)
+	}
+	summary.Stats.UniqueOSVersions = len(osCounts)
+
+	type hwSort struct {
+		item *HardwareDebtItem
+	}
+	var sortableHW []hwSort
+	for _, item := range hwCounts {
+		sortableHW = append(sortableHW, hwSort{item})
+	}
+	for i := 0; i < len(sortableHW)-1; i++ {
+		for j := i + 1; j < len(sortableHW); j++ {
+			if sortableHW[j].item.AssetCount > sortableHW[i].item.AssetCount {
+				sortableHW[i], sortableHW[j] = sortableHW[j], sortableHW[i]
+			}
+		}
+	}
+	for i := 0; i < len(sortableHW) && i < 15; i++ {
+		summary.EOLHardware = append(summary.EOLHardware, *sortableHW[i].item)
+	}
+
+	for i := 0; i < len(criticalAssets)-1; i++ {
+		for j := i + 1; j < len(criticalAssets); j++ {
+			if criticalAssets[j].Criticality > criticalAssets[i].Criticality {
+				criticalAssets[i], criticalAssets[j] = criticalAssets[j], criticalAssets[i]
+			}
+		}
+	}
+	for i := 0; i < len(criticalAssets) && i < 15; i++ {
+		summary.CriticalAssets = append(summary.CriticalAssets, criticalAssets[i])
 	}
 
 	if summary.Stats.TotalAssets > 0 {
