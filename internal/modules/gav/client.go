@@ -333,7 +333,7 @@ type V2AssetResponse struct {
 }
 
 func (c *Client) GetEOLAssets(ctx context.Context, limit int) ([]EOLAsset, error) {
-	endpoint := fmt.Sprintf("%s/rest/2.0/search/am/asset", c.classicURL)
+	endpoint := fmt.Sprintf("%s/rest/2.0/search/am/asset", c.gatewayURL)
 
 	filterReq := LifecycleFilterRequest{
 		Filters: []LifecycleFilter{
@@ -357,7 +357,7 @@ func (c *Client) GetEOLAssets(ctx context.Context, limit int) ([]EOLAsset, error
 			params.Set("lastSeenAssetId", fmt.Sprintf("%v", lastSeenID))
 		}
 
-		data, err := c.classicHTTP.Post(ctx, endpoint+"?"+params.Encode(), strings.NewReader(string(filterJSON)), "application/json")
+		data, err := c.http.Post(ctx, endpoint+"?"+params.Encode(), strings.NewReader(string(filterJSON)), "application/json")
 		if err != nil {
 			return nil, err
 		}
@@ -410,7 +410,7 @@ func (c *Client) GetEOLAssets(ctx context.Context, limit int) ([]EOLAsset, error
 }
 
 func (c *Client) GetEOSAssets(ctx context.Context, limit int) ([]EOLAsset, error) {
-	endpoint := fmt.Sprintf("%s/rest/2.0/search/am/asset", c.classicURL)
+	endpoint := fmt.Sprintf("%s/rest/2.0/search/am/asset", c.gatewayURL)
 
 	filterReq := LifecycleFilterRequest{
 		Filters: []LifecycleFilter{
@@ -434,7 +434,7 @@ func (c *Client) GetEOSAssets(ctx context.Context, limit int) ([]EOLAsset, error
 			params.Set("lastSeenAssetId", fmt.Sprintf("%v", lastSeenID))
 		}
 
-		data, err := c.classicHTTP.Post(ctx, endpoint+"?"+params.Encode(), strings.NewReader(string(filterJSON)), "application/json")
+		data, err := c.http.Post(ctx, endpoint+"?"+params.Encode(), strings.NewReader(string(filterJSON)), "application/json")
 		if err != nil {
 			return nil, err
 		}
@@ -487,7 +487,7 @@ func (c *Client) GetEOSAssets(ctx context.Context, limit int) ([]EOLAsset, error
 }
 
 func (c *Client) GetEOLHardware(ctx context.Context, limit int) ([]EOLAsset, error) {
-	endpoint := fmt.Sprintf("%s/rest/2.0/search/am/asset", c.classicURL)
+	endpoint := fmt.Sprintf("%s/rest/2.0/search/am/asset", c.gatewayURL)
 
 	filterReq := LifecycleFilterRequest{
 		Filters: []LifecycleFilter{
@@ -511,7 +511,7 @@ func (c *Client) GetEOLHardware(ctx context.Context, limit int) ([]EOLAsset, err
 			params.Set("lastSeenAssetId", fmt.Sprintf("%v", lastSeenID))
 		}
 
-		data, err := c.classicHTTP.Post(ctx, endpoint+"?"+params.Encode(), strings.NewReader(string(filterJSON)), "application/json")
+		data, err := c.http.Post(ctx, endpoint+"?"+params.Encode(), strings.NewReader(string(filterJSON)), "application/json")
 		if err != nil {
 			return nil, err
 		}
