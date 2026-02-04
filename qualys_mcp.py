@@ -14,8 +14,15 @@ mcp = FastMCP("qualys-mcp")
 
 USERNAME = os.environ.get('QUALYS_USERNAME', '')
 PASSWORD = os.environ.get('QUALYS_PASSWORD', '')
-BASE_URL = os.environ.get('QUALYS_BASE_URL', '').rstrip('/')
-GATEWAY_URL = os.environ.get('QUALYS_GATEWAY_URL', '').rstrip('/')
+
+def normalize_url(url):
+    url = url.strip().rstrip('/')
+    if url and not url.startswith('http'):
+        url = f"https://{url}"
+    return url
+
+BASE_URL = normalize_url(os.environ.get('QUALYS_BASE_URL', ''))
+GATEWAY_URL = normalize_url(os.environ.get('QUALYS_GATEWAY_URL', ''))
 BASIC_AUTH = base64.b64encode(f"{USERNAME}:{PASSWORD}".encode()).decode()
 BEARER_TOKEN = None
 
