@@ -2,23 +2,6 @@
 
 A lightweight MCP server for Qualys security data - **12 tools** that answer your security questions.
 
-## Installation
-
-```bash
-pip install qualys-mcp
-```
-
-## Quick Start
-
-```bash
-export QUALYS_USERNAME="your-username"
-export QUALYS_PASSWORD="your-password"
-export QUALYS_BASE_URL="https://qualysapi.qualys.com"
-export QUALYS_GATEWAY_URL="https://gateway.qg1.apps.qualys.com"
-
-qualys-mcp
-```
-
 ## Claude Desktop Config
 
 Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
@@ -27,7 +10,8 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "qualys": {
-      "command": "qualys-mcp",
+      "command": "uvx",
+      "args": ["qualys-mcp"],
       "env": {
         "QUALYS_USERNAME": "your-username",
         "QUALYS_PASSWORD": "your-password",
@@ -37,6 +21,22 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
     }
   }
 }
+```
+
+Requires [uv](https://docs.astral.sh/uv/): `brew install uv` or `curl -LsSf https://astral.sh/uv/install.sh | sh`
+
+## Alternative Installation
+
+```bash
+# Install globally
+pip install qualys-mcp
+
+# Run directly
+export QUALYS_USERNAME="your-username"
+export QUALYS_PASSWORD="your-password"
+export QUALYS_BASE_URL="https://qualysapi.qualys.com"
+export QUALYS_GATEWAY_URL="https://gateway.qg1.apps.qualys.com"
+qualys-mcp
 ```
 
 ## Tools
