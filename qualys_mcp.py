@@ -543,7 +543,8 @@ def get_tech_debt(days_until_eol: int = 0) -> dict:
         'currentEOL': [],
         'currentEOS': [],
         'approachingEOL': [],
-        'byOS': []
+        'byOS': [],
+        'debug': {'stages_seen': set(), 'parse_errors': 0}
     }
 
     assets = get_eol_assets("EOL,EOL/EOS,EOS", 500)
@@ -557,22 +558,26 @@ def get_tech_debt(days_until_eol: int = 0) -> dict:
     for a in assets:
         os_info = a.get('operatingSystem', {})
         if not isinstance(os_info, dict):
+            result['debug']['parse_errors'] += 1
             continue
 
-        os_name = os_info.get('osName', 'Unknown')
+        os_name = os_info.get('osName', '') or 'Unknown'
         lc = os_info.get('lifecycle', {})
         if not isinstance(lc, dict):
+            result['debug']['parse_errors'] += 1
             continue
 
-        stage = lc.get('stage', '')
-        eol_date = lc.get('eolDate', '')
-        eos_date = lc.get('eosDate', '')
+        stage = (lc.get('stage', '') or '').upper()
+        result['debug']['stages_seen'].add(stage)
+        eol_date = lc.get('eolDate', '') or ''
+        eos_date = lc.get('eosDate', '') or ''
 
         asset_info = {
             'assetId': a.get('assetId'),
             'ip': a.get('address', ''),
             'hostname': a.get('dnsName', ''),
             'os': os_name,
+            'stage': stage,
             'eolDate': eol_date,
             'eosDate': eos_date
         }
@@ -580,12 +585,12 @@ def get_tech_debt(days_until_eol: int = 0) -> dict:
         if os_name not in os_data:
             os_data[os_name] = {'eol': 0, 'eos': 0, 'approaching': 0, 'eolDate': eol_date, 'eosDate': eos_date}
 
-        if stage == 'EOL':
+        if 'EOL' in stage and 'EOS' not in stage:
             result['stats']['currentEOL'] += 1
             os_data[os_name]['eol'] += 1
             if len(result['currentEOL']) < 20:
                 result['currentEOL'].append(asset_info)
-        elif stage in ('EOS', 'EOL/EOS'):
+        elif 'EOS' in stage or 'EOL/EOS' in stage:
             result['stats']['currentEOS'] += 1
             os_data[os_name]['eos'] += 1
             if len(result['currentEOS']) < 20:
@@ -610,6 +615,7 @@ def get_tech_debt(days_until_eol: int = 0) -> dict:
         if v['eol'] + v['eos'] + v['approaching'] > 0
     ]
 
+    result['debug']['stages_seen'] = list(result['debug']['stages_seen'])
     return result
 
 
