@@ -132,14 +132,17 @@ def get_eol_assets(stage_filter="EOL,EOL/EOS", limit=500):
             data = json.loads(resp.read())
             assets = []
             for a in data.get('assetListData', {}).get('asset', []):
-                os_info = a.get('operatingSystem', {})
-                lifecycle = os_info.get('lifecycle', {})
+                os_info = a.get('operatingSystem', {}) or {}
+                lifecycle = os_info.get('lifecycle', {}) or {}
+                os_name = os_info.get('osName', '') or os_info.get('fullName', '') or ''
+                if os_info.get('version'):
+                    os_name = f"{os_name} {os_info.get('version', '')}".strip()
                 assets.append({
                     'assetId': a.get('assetId'),
                     'address': a.get('address', ''),
                     'dnsName': a.get('dnsHostName', ''),
                     'operatingSystem': {
-                        'osName': f"{os_info.get('name', '')} {os_info.get('version', '')}".strip(),
+                        'osName': os_name,
                         'lifecycle': {
                             'stage': lifecycle.get('stage', ''),
                             'eolDate': lifecycle.get('eolDate', ''),
@@ -789,6 +792,57 @@ def get_webapp_vulns(severity: int = 4, limit: int = 50) -> dict:
     result['stats']['webApps'] = len(webapp_vulns)
     result['vulns'] = sorted(result['vulns'], key=lambda x: x['severity'], reverse=True)[:limit]
     result['byWebApp'] = sorted(webapp_vulns.values(), key=lambda x: (x['critical'], x['high'], x['total']), reverse=True)[:20]
+    return result
+
+
+@mcp.tool()
+def debug_api(endpoint: str = "eol") -> dict:
+    """Debug API connectivity. Use endpoint='eol' to test EOL query, 'assets' for basic assets, 'auth' for auth test."""
+    result = {'endpoint': endpoint, 'gateway_url': GATEWAY_URL, 'base_url': BASE_URL}
+
+    if endpoint == 'auth':
+        token = get_bearer_token()
+        result['token_obtained'] = bool(token)
+        result['token_preview'] = token[:20] + '...' if token else None
+        return result
+
+    if endpoint == 'assets':
+        assets = get_assets(5)
+        result['count'] = len(assets)
+        result['sample'] = assets[:2] if assets else []
+        return result
+
+    if endpoint == 'eol':
+        url = f"{GATEWAY_URL}/rest/2.0/search/am/asset?pageSize=5"
+        token = get_bearer_token()
+        result['token_obtained'] = bool(token)
+
+        filter_body = json.dumps({
+            "filters": [
+                {"field": "operatingSystem.lifecycle.stage", "operator": "IN", "value": "EOL,EOL/EOS,EOS"}
+            ]
+        })
+        result['request_url'] = url
+        result['request_body'] = filter_body
+
+        req = Request(url, data=filter_body.encode(), method='POST')
+        req.add_header('Authorization', f'Bearer {token}' if token else f'Basic {BASIC_AUTH}')
+        req.add_header('Content-Type', 'application/json')
+        req.add_header('X-Requested-With', 'qualys-mcp')
+
+        try:
+            with urlopen(req, timeout=60) as resp:
+                raw = resp.read()
+                result['response_code'] = resp.status
+                result['response_length'] = len(raw)
+                data = json.loads(raw)
+                result['has_assetListData'] = 'assetListData' in data
+                result['asset_count'] = len(data.get('assetListData', {}).get('asset', []))
+                if result['asset_count'] > 0:
+                    result['sample_asset'] = data['assetListData']['asset'][0]
+        except Exception as e:
+            result['error'] = str(e)
+
     return result
 
 
