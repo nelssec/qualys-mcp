@@ -7,6 +7,7 @@ import (
 
 	"github.com/nelssec/qualys-mcp/internal/common"
 	"github.com/nelssec/qualys-mcp/internal/modules/car"
+	"github.com/nelssec/qualys-mcp/internal/modules/container"
 	"github.com/nelssec/qualys-mcp/internal/modules/gav"
 	"github.com/nelssec/qualys-mcp/internal/modules/knowledgebase"
 	"github.com/nelssec/qualys-mcp/internal/modules/patch"
@@ -31,6 +32,12 @@ func New(gavClient *gav.Client, vmdrClient *vmdr.Client, kbClient *knowledgebase
 func NewWithWAS(gavClient *gav.Client, vmdrClient *vmdr.Client, kbClient *knowledgebase.Client, pmClient *patch.Client, carClient *car.Client, wasClient *was.Client) *Module {
 	return &Module{
 		client: NewClientWithWAS(gavClient, vmdrClient, kbClient, pmClient, carClient, wasClient),
+	}
+}
+
+func NewFull(gavClient *gav.Client, vmdrClient *vmdr.Client, kbClient *knowledgebase.Client, pmClient *patch.Client, carClient *car.Client, wasClient *was.Client, containerClient *container.Client) *Module {
+	return &Module{
+		client: NewClientFull(gavClient, vmdrClient, kbClient, pmClient, carClient, wasClient, containerClient),
 	}
 }
 
@@ -60,6 +67,15 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 			mcp.WithBoolean("include_web_apps", mcp.Description("Include WAS findings (default: true)")),
 		),
 		m.prioritizeExternalRisk,
+	)
+
+	s.AddTool(
+		mcp.NewTool("get_tech_debt_summary",
+			mcp.WithDescription("RECOMMENDED for tech debt reduction. Analyze End-of-Life (EOL) and End-of-Support (EOS) software across your environment. Returns: stats on affected assets, EOL/EOS software by type with asset counts, EOL container images, top affected assets, and a prioritized reduction plan. Ask 'reduce tech debt by 30%' to get an actionable plan."),
+			mcp.WithNumber("reduction_target", mcp.Description("Target reduction percentage (default: 30). Returns a plan showing which software to upgrade first to hit this target.")),
+			mcp.WithNumber("limit", mcp.Description("Maximum assets to analyze (default: 100)")),
+		),
+		m.getTechDebtSummary,
 	)
 }
 
@@ -117,6 +133,26 @@ func (m *Module) prioritizeExternalRisk(ctx context.Context, req mcp.CallToolReq
 	result, err := m.client.PrioritizeExternalRisk(ctx, tagName, minSeverity, limit, includeWebApps)
 	if err != nil {
 		return newToolResultError(fmt.Sprintf("Failed to prioritize external risk: %v", err)), nil
+	}
+
+	data, _ := json.MarshalIndent(result, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+func (m *Module) getTechDebtSummary(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	reductionTarget := 30.0
+	if r, ok := req.Params.Arguments["reduction_target"].(float64); ok {
+		reductionTarget = r
+	}
+
+	limit := 100
+	if l, ok := req.Params.Arguments["limit"].(float64); ok {
+		limit = int(l)
+	}
+
+	result, err := m.client.GetTechDebtSummary(ctx, reductionTarget, limit)
+	if err != nil {
+		return newToolResultError(fmt.Sprintf("Failed to get tech debt summary: %v", err)), nil
 	}
 
 	data, _ := json.MarshalIndent(result, "", "  ")

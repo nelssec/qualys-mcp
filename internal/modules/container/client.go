@@ -273,6 +273,63 @@ func (f *VulnContainerFilter) ToQQL() string {
 	return result
 }
 
+type EOLImage struct {
+	ImageID    string      `json:"imageId"`
+	Repository interface{} `json:"repo,omitempty"`
+	Tag        interface{} `json:"tag,omitempty"`
+	Created    string      `json:"created,omitempty"`
+	BaseOS     string      `json:"osName,omitempty"`
+	EOLDate    string      `json:"eolDate,omitempty"`
+	IsEOL      bool        `json:"isEol"`
+}
+
+type EOLImagesResponse struct {
+	Data []struct {
+		ImageID    string      `json:"imageId"`
+		SHA        string      `json:"sha,omitempty"`
+		Registry   interface{} `json:"registry,omitempty"`
+		Repository interface{} `json:"repo,omitempty"`
+		Tag        interface{} `json:"tag,omitempty"`
+		Created    string      `json:"created,omitempty"`
+		OSName     string      `json:"osName,omitempty"`
+		IsEOL      bool        `json:"isEol"`
+		EOLDate    string      `json:"eolDate,omitempty"`
+	} `json:"data"`
+}
+
+func (c *Client) GetEOLImages(ctx context.Context, limit int) ([]EOLImage, error) {
+	endpoint := fmt.Sprintf("%s/csapi/v1.3/images", c.gatewayURL)
+
+	params := url.Values{}
+	params.Set("pageSize", fmt.Sprintf("%d", limit))
+	params.Set("filter", "isEol:true")
+
+	data, err := c.http.Get(ctx, endpoint+"?"+params.Encode())
+	if err != nil {
+		return nil, err
+	}
+
+	var resp EOLImagesResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return nil, fmt.Errorf("parse response: %w", err)
+	}
+
+	var result []EOLImage
+	for _, img := range resp.Data {
+		result = append(result, EOLImage{
+			ImageID:    img.ImageID,
+			Repository: img.Repository,
+			Tag:        img.Tag,
+			Created:    img.Created,
+			BaseOS:     img.OSName,
+			EOLDate:    img.EOLDate,
+			IsEOL:      img.IsEOL,
+		})
+	}
+
+	return result, nil
+}
+
 func (c *Client) ListVulnerableContainers(ctx context.Context, filter VulnContainerFilter, limit int) ([]VulnerableContainer, error) {
 	containers, err := c.ListContainers(ctx, "state:RUNNING", 500)
 	if err != nil {

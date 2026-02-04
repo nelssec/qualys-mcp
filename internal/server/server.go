@@ -76,6 +76,7 @@ func (s *Server) registerModules() {
 	var pmClient *patch.Client
 	var carClient *car.Client
 	var wasClient *was.Client
+	var containerClient *container.Client
 
 	if s.config.IsModuleEnabled("vmdr") {
 		vmdrClient = vmdr.NewClient(s.http, s.config.BaseURL)
@@ -84,7 +85,8 @@ func (s *Server) registerModules() {
 	}
 
 	if s.config.IsModuleEnabled("container") && s.gatewayHTTP != nil {
-		containerModule := container.New(s.gatewayHTTP, s.config.GatewayURL)
+		containerClient = container.NewClient(s.gatewayHTTP, s.config.GatewayURL)
+		containerModule := container.NewWithClient(containerClient)
 		containerModule.RegisterTools(s.mcp)
 	}
 
@@ -144,7 +146,7 @@ func (s *Server) registerModules() {
 	}
 
 	if s.config.IsModuleEnabled("workflows") {
-		workflowsModule := workflows.NewWithWAS(gavClient, vmdrClient, kbClient, pmClient, carClient, wasClient)
+		workflowsModule := workflows.NewFull(gavClient, vmdrClient, kbClient, pmClient, carClient, wasClient, containerClient)
 		workflowsModule.RegisterTools(s.mcp)
 	}
 }

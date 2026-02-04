@@ -14,7 +14,7 @@ A secure, production-ready Model Context Protocol (MCP) server for Qualys APIs, 
 
 ## Features
 
-- **69 MCP Tools** across 13 Qualys modules
+- **70 MCP Tools** across 13 Qualys modules
 - **Multi-Cloud Support** - AWS, Azure, GCP, and OCI
 - **MCP Gateway** with authentication, authorization, and audit logging
 - **JWT/OIDC Authentication** - integrate with Okta, Azure AD, or any OIDC provider
@@ -40,8 +40,8 @@ A secure, production-ready Model Context Protocol (MCP) server for Qualys APIs, 
 | Compliance | 4 | Policy compliance, scans, exceptions |
 | CertView | 5 | SSL/TLS certificates, expiration, endpoints |
 | CAR | 6 | Custom assessment and remediation scripts |
-| Workflows | 3 | Cross-module risk summaries, remediation plans, external risk prioritization |
-| **Total** | **69** | |
+| Workflows | 4 | Cross-module risk summaries, remediation plans, external risk prioritization, tech debt analysis |
+| **Total** | **70** | |
 
 ## Quick Start
 
@@ -152,6 +152,12 @@ go build -o mcp-gateway ./cmd/gateway
 ```
 "What should I fix first on my internet-facing assets?"
 → Returns prioritized list combining web app vulns, infrastructure vulns, and top risk assets (~2-3k tokens)
+```
+
+### Tech Debt Reduction
+```
+"Help me reduce my tech debt by 30%"
+→ Analyzes EOL/EOS software across assets and containers, returns prioritized upgrade plan to hit target
 ```
 
 ## Architecture
@@ -393,6 +399,7 @@ export QUALYS_GATEWAY_URL=https://gateway.custom.qualys.com
 | `get_asset_risk_summary` | Comprehensive risk summary for an asset (GAV + VMDR + KB + PM) |
 | `get_remediation_plan` | Full remediation plan for a CVE/QID (affected assets, patches, scripts) |
 | `prioritize_external_risk` | Token-optimized prioritized remediation list for internet-facing assets (GAV + VMDR + WAS + KB) |
+| `get_tech_debt_summary` | Tech debt analysis: EOL/EOS software, affected assets, reduction plan (GAV + Container Security) |
 
 ## Security
 

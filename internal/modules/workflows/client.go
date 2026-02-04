@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/nelssec/qualys-mcp/internal/modules/car"
+	"github.com/nelssec/qualys-mcp/internal/modules/container"
 	"github.com/nelssec/qualys-mcp/internal/modules/gav"
 	"github.com/nelssec/qualys-mcp/internal/modules/knowledgebase"
 	"github.com/nelssec/qualys-mcp/internal/modules/patch"
@@ -15,12 +16,13 @@ import (
 )
 
 type Client struct {
-	gav  *gav.Client
-	vmdr *vmdr.Client
-	kb   *knowledgebase.Client
-	pm   *patch.Client
-	car  *car.Client
-	was  *was.Client
+	gav       *gav.Client
+	vmdr      *vmdr.Client
+	kb        *knowledgebase.Client
+	pm        *patch.Client
+	car       *car.Client
+	was       *was.Client
+	container *container.Client
 }
 
 func NewClient(gavClient *gav.Client, vmdrClient *vmdr.Client, kbClient *knowledgebase.Client, pmClient *patch.Client, carClient *car.Client) *Client {
@@ -41,6 +43,18 @@ func NewClientWithWAS(gavClient *gav.Client, vmdrClient *vmdr.Client, kbClient *
 		pm:   pmClient,
 		car:  carClient,
 		was:  wasClient,
+	}
+}
+
+func NewClientFull(gavClient *gav.Client, vmdrClient *vmdr.Client, kbClient *knowledgebase.Client, pmClient *patch.Client, carClient *car.Client, wasClient *was.Client, containerClient *container.Client) *Client {
+	return &Client{
+		gav:       gavClient,
+		vmdr:      vmdrClient,
+		kb:        kbClient,
+		pm:        pmClient,
+		car:       carClient,
+		was:       wasClient,
+		container: containerClient,
 	}
 }
 
@@ -593,4 +607,261 @@ func (c *Client) PrioritizeExternalRisk(ctx context.Context, tagName string, min
 	}
 
 	return result, nil
+}
+
+type TechDebtSummary struct {
+	Stats              TechDebtStats           `json:"stats"`
+	EOLSoftwareByType  []SoftwareDebtItem      `json:"eolSoftwareByType"`
+	EOSSoftwareByType  []SoftwareDebtItem      `json:"eosSoftwareByType"`
+	EOLContainerImages []ContainerDebtItem     `json:"eolContainerImages,omitempty"`
+	TopAffectedAssets  []TechDebtAsset         `json:"topAffectedAssets"`
+	ReductionPlan      TechDebtReductionPlan   `json:"reductionPlan"`
+}
+
+type TechDebtStats struct {
+	TotalAssets           int     `json:"totalAssets"`
+	AssetsWithEOL         int     `json:"assetsWithEolSoftware"`
+	AssetsWithEOS         int     `json:"assetsWithEosSoftware"`
+	EOLSoftwareInstances  int     `json:"eolSoftwareInstances"`
+	EOSSoftwareInstances  int     `json:"eosSoftwareInstances"`
+	EOLContainerImages    int     `json:"eolContainerImages"`
+	TechDebtPercentage    float64 `json:"techDebtPercentage"`
+}
+
+type SoftwareDebtItem struct {
+	Name         string `json:"name"`
+	Version      string `json:"version,omitempty"`
+	Category     string `json:"category,omitempty"`
+	AssetCount   int    `json:"assetCount"`
+	EOLDate      string `json:"eolDate,omitempty"`
+	EOSDate      string `json:"eosDate,omitempty"`
+	UpgradePath  string `json:"upgradePath,omitempty"`
+}
+
+type ContainerDebtItem struct {
+	ImageID    string `json:"imageId"`
+	Repository string `json:"repository"`
+	Tag        string `json:"tag,omitempty"`
+	BaseOS     string `json:"baseOs,omitempty"`
+	EOLDate    string `json:"eolDate,omitempty"`
+}
+
+type TechDebtAsset struct {
+	AssetID       string   `json:"assetId"`
+	IP            string   `json:"ip,omitempty"`
+	Hostname      string   `json:"hostname,omitempty"`
+	Criticality   int      `json:"criticality"`
+	EOLCount      int      `json:"eolSoftwareCount"`
+	EOSCount      int      `json:"eosSoftwareCount"`
+	TopEOLSoftware []string `json:"topEolSoftware,omitempty"`
+}
+
+type TechDebtReductionPlan struct {
+	TargetPercentage    float64              `json:"targetReductionPercentage"`
+	CurrentDebt         int                  `json:"currentDebtInstances"`
+	TargetDebt          int                  `json:"targetDebtInstances"`
+	InstancesToFix      int                  `json:"instancesToFix"`
+	PrioritizedActions  []TechDebtAction     `json:"prioritizedActions"`
+}
+
+type TechDebtAction struct {
+	Priority     int    `json:"priority"`
+	Software     string `json:"software"`
+	AssetCount   int    `json:"assetCount"`
+	Action       string `json:"action"`
+	Impact       string `json:"impact"`
+}
+
+func (c *Client) GetTechDebtSummary(ctx context.Context, reductionTarget float64, limit int) (*TechDebtSummary, error) {
+	if reductionTarget <= 0 {
+		reductionTarget = 30.0
+	}
+	if limit <= 0 {
+		limit = 100
+	}
+
+	summary := &TechDebtSummary{
+		ReductionPlan: TechDebtReductionPlan{
+			TargetPercentage: reductionTarget,
+		},
+	}
+
+	softwareCounts := make(map[string]int)
+	eolSoftwareList := make(map[string]*SoftwareDebtItem)
+	eosSoftwareList := make(map[string]*SoftwareDebtItem)
+
+	if c.gav != nil {
+		allAssets, err := c.gav.ListAssets(ctx, "", limit*2)
+		if err == nil {
+			summary.Stats.TotalAssets = len(allAssets)
+		}
+
+		eolAssets, err := c.gav.GetEOLSoftware(ctx, limit)
+		if err == nil {
+			summary.Stats.AssetsWithEOL = len(eolAssets)
+			for _, asset := range eolAssets {
+				for _, sw := range asset.EOLSoftware {
+					summary.Stats.EOLSoftwareInstances++
+					softwareCounts[sw]++
+					if _, exists := eolSoftwareList[sw]; !exists {
+						eolSoftwareList[sw] = &SoftwareDebtItem{
+							Name:       sw,
+							AssetCount: 0,
+						}
+					}
+					eolSoftwareList[sw].AssetCount++
+				}
+
+				assetID := ""
+				if id, ok := asset.AssetID.(float64); ok {
+					assetID = fmt.Sprintf("%.0f", id)
+				} else if id, ok := asset.AssetID.(string); ok {
+					assetID = id
+				}
+
+				ip := ""
+				if addr, ok := asset.IP.(string); ok {
+					ip = addr
+				}
+
+				hostname := ""
+				if h, ok := asset.Hostname.(string); ok {
+					hostname = h
+				}
+
+				crit := 2
+				if c, ok := asset.Criticality.(float64); ok {
+					crit = int(c)
+				}
+
+				if len(summary.TopAffectedAssets) < 15 {
+					topSw := asset.EOLSoftware
+					if len(topSw) > 3 {
+						topSw = topSw[:3]
+					}
+					summary.TopAffectedAssets = append(summary.TopAffectedAssets, TechDebtAsset{
+						AssetID:        assetID,
+						IP:             ip,
+						Hostname:       hostname,
+						Criticality:    crit,
+						EOLCount:       len(asset.EOLSoftware),
+						TopEOLSoftware: topSw,
+					})
+				}
+			}
+		}
+
+		eosAssets, err := c.gav.GetEOSSoftware(ctx, limit)
+		if err == nil {
+			summary.Stats.AssetsWithEOS = len(eosAssets)
+			for _, asset := range eosAssets {
+				for _, sw := range asset.EOSSoftware {
+					summary.Stats.EOSSoftwareInstances++
+					if _, exists := eosSoftwareList[sw]; !exists {
+						eosSoftwareList[sw] = &SoftwareDebtItem{
+							Name:       sw,
+							AssetCount: 0,
+						}
+					}
+					eosSoftwareList[sw].AssetCount++
+				}
+			}
+		}
+	}
+
+	if c.container != nil {
+		eolImages, err := c.container.GetEOLImages(ctx, limit)
+		if err == nil {
+			summary.Stats.EOLContainerImages = len(eolImages)
+			for _, img := range eolImages {
+				repo := ""
+				if r, ok := img.Repository.(string); ok {
+					repo = r
+				}
+				tag := ""
+				if t, ok := img.Tag.(string); ok {
+					tag = t
+				}
+				summary.EOLContainerImages = append(summary.EOLContainerImages, ContainerDebtItem{
+					ImageID:    img.ImageID,
+					Repository: repo,
+					Tag:        tag,
+					BaseOS:     img.BaseOS,
+					EOLDate:    img.EOLDate,
+				})
+				if len(summary.EOLContainerImages) >= 10 {
+					break
+				}
+			}
+		}
+	}
+
+	type swSort struct {
+		item *SoftwareDebtItem
+	}
+	var sortableEOL []swSort
+	for _, item := range eolSoftwareList {
+		sortableEOL = append(sortableEOL, swSort{item})
+	}
+	for i := 0; i < len(sortableEOL)-1; i++ {
+		for j := i + 1; j < len(sortableEOL); j++ {
+			if sortableEOL[j].item.AssetCount > sortableEOL[i].item.AssetCount {
+				sortableEOL[i], sortableEOL[j] = sortableEOL[j], sortableEOL[i]
+			}
+		}
+	}
+	for i := 0; i < len(sortableEOL) && i < 15; i++ {
+		summary.EOLSoftwareByType = append(summary.EOLSoftwareByType, *sortableEOL[i].item)
+	}
+
+	var sortableEOS []swSort
+	for _, item := range eosSoftwareList {
+		sortableEOS = append(sortableEOS, swSort{item})
+	}
+	for i := 0; i < len(sortableEOS)-1; i++ {
+		for j := i + 1; j < len(sortableEOS); j++ {
+			if sortableEOS[j].item.AssetCount > sortableEOS[i].item.AssetCount {
+				sortableEOS[i], sortableEOS[j] = sortableEOS[j], sortableEOS[i]
+			}
+		}
+	}
+	for i := 0; i < len(sortableEOS) && i < 15; i++ {
+		summary.EOSSoftwareByType = append(summary.EOSSoftwareByType, *sortableEOS[i].item)
+	}
+
+	if summary.Stats.TotalAssets > 0 {
+		affectedAssets := summary.Stats.AssetsWithEOL
+		if summary.Stats.AssetsWithEOS > affectedAssets {
+			affectedAssets = summary.Stats.AssetsWithEOS
+		}
+		summary.Stats.TechDebtPercentage = float64(affectedAssets) / float64(summary.Stats.TotalAssets) * 100
+	}
+
+	totalDebt := summary.Stats.EOLSoftwareInstances + summary.Stats.EOSSoftwareInstances
+	summary.ReductionPlan.CurrentDebt = totalDebt
+	summary.ReductionPlan.InstancesToFix = int(float64(totalDebt) * (reductionTarget / 100))
+	summary.ReductionPlan.TargetDebt = totalDebt - summary.ReductionPlan.InstancesToFix
+
+	priority := 1
+	fixedSoFar := 0
+	for _, sw := range sortableEOL {
+		if fixedSoFar >= summary.ReductionPlan.InstancesToFix {
+			break
+		}
+		action := TechDebtAction{
+			Priority:   priority,
+			Software:   sw.item.Name,
+			AssetCount: sw.item.AssetCount,
+			Action:     "Upgrade to supported version",
+			Impact:     fmt.Sprintf("Fixes %d instances (%.1f%% of target)", sw.item.AssetCount, float64(sw.item.AssetCount)/float64(summary.ReductionPlan.InstancesToFix)*100),
+		}
+		summary.ReductionPlan.PrioritizedActions = append(summary.ReductionPlan.PrioritizedActions, action)
+		fixedSoFar += sw.item.AssetCount
+		priority++
+		if priority > 10 {
+			break
+		}
+	}
+
+	return summary, nil
 }
