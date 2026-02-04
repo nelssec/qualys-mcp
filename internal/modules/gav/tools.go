@@ -31,18 +31,18 @@ func NewWithClient(client *Client) *Module {
 func (m *Module) RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcp.NewTool("gav_list_assets",
-			mcp.WithDescription("List assets from Qualys Global AssetView. Shows asset inventory across your environment."),
+			mcp.WithDescription("List assets from Global AssetView. For risk-focused queries, use gav_get_high_risk_assets instead."),
 			mcp.WithString("filter", mcp.Description("QQL filter expression")),
-			mcp.WithNumber("limit", mcp.Description("Maximum number of assets to return (default 100)")),
+			mcp.WithNumber("limit", mcp.Description("Maximum assets to return (default 50)")),
 		),
 		m.listAssets,
 	)
 
 	s.AddTool(
 		mcp.NewTool("gav_search_assets",
-			mcp.WithDescription("Search assets using Qualys Query Language. Find assets by IP, hostname, OS, tags, or cloud attributes."),
+			mcp.WithDescription("Search assets using QQL. For risk-focused queries, use gav_get_high_risk_assets instead."),
 			mcp.WithString("query", mcp.Required(), mcp.Description("QQL query (e.g., 'operatingSystem:Windows and tags.name:Production')")),
-			mcp.WithNumber("limit", mcp.Description("Maximum number of results (default 100)")),
+			mcp.WithNumber("limit", mcp.Description("Maximum results (default 50)")),
 		),
 		m.searchAssets,
 	)
@@ -64,19 +64,19 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("gav_get_assets_by_tag",
-			mcp.WithDescription("Get all assets that have a specific tag assigned."),
+			mcp.WithDescription("Get assets with a specific tag assigned."),
 			mcp.WithString("tag_id", mcp.Required(), mcp.Description("The tag ID to filter by")),
-			mcp.WithNumber("limit", mcp.Description("Maximum number of assets to return (default 100)")),
+			mcp.WithNumber("limit", mcp.Description("Maximum assets to return (default 50)")),
 		),
 		m.getAssetsByTag,
 	)
 
 	s.AddTool(
 		mcp.NewTool("gav_get_high_risk_assets",
-			mcp.WithDescription("Get assets with high TruRisk scores. TruRisk is an overall risk score (0-1000) that combines vulnerability severity, asset criticality, and threat intelligence."),
-			mcp.WithNumber("min_trurisk", mcp.Description("Minimum TruRisk score (1-1000). Higher scores indicate higher risk. Suggested: 850+ for critical, 700+ for high risk.")),
+			mcp.WithDescription("RECOMMENDED for risk queries. Get assets with high TruRisk scores. Returns focused list of truly high-risk assets. Default: TruRisk 700+, limit 25."),
+			mcp.WithNumber("min_trurisk", mcp.Description("Minimum TruRisk score (default 700). Use 850+ for critical only.")),
 			mcp.WithNumber("min_criticality", mcp.Description("Minimum asset criticality (1-5, where 5 is most critical)")),
-			mcp.WithNumber("limit", mcp.Description("Maximum number of assets to return (default 100)")),
+			mcp.WithNumber("limit", mcp.Description("Maximum assets to return (default 25)")),
 		),
 		m.getHighRiskAssets,
 	)
@@ -84,7 +84,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 func (m *Module) listAssets(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	filter, _ := req.Params.Arguments["filter"].(string)
-	limit := 100
+	limit := 50
 	if l, ok := req.Params.Arguments["limit"].(float64); ok {
 		limit = int(l)
 	}
@@ -104,7 +104,7 @@ func (m *Module) searchAssets(ctx context.Context, req mcp.CallToolRequest) (*mc
 		return newToolResultError("query is required"), nil
 	}
 
-	limit := 100
+	limit := 50
 	if l, ok := req.Params.Arguments["limit"].(float64); ok {
 		limit = int(l)
 	}
@@ -149,7 +149,7 @@ func (m *Module) getAssetsByTag(ctx context.Context, req mcp.CallToolRequest) (*
 		return newToolResultError("tag_id is required"), nil
 	}
 
-	limit := 100
+	limit := 50
 	if l, ok := req.Params.Arguments["limit"].(float64); ok {
 		limit = int(l)
 	}
@@ -164,7 +164,7 @@ func (m *Module) getAssetsByTag(ctx context.Context, req mcp.CallToolRequest) (*
 }
 
 func (m *Module) getHighRiskAssets(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	minTruRisk := 0
+	minTruRisk := 700
 	if t, ok := req.Params.Arguments["min_trurisk"].(float64); ok {
 		minTruRisk = int(t)
 	}
@@ -174,11 +174,7 @@ func (m *Module) getHighRiskAssets(ctx context.Context, req mcp.CallToolRequest)
 		minCriticality = int(c)
 	}
 
-	if minTruRisk == 0 && minCriticality == 0 {
-		return newToolResultError("at least one filter (min_trurisk or min_criticality) is required"), nil
-	}
-
-	limit := 100
+	limit := 25
 	if l, ok := req.Params.Arguments["limit"].(float64); ok {
 		limit = int(l)
 	}

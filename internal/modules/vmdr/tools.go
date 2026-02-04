@@ -50,13 +50,13 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("vmdr_search_detections",
-			mcp.WithDescription("Search vulnerability detections across all hosts. Auto-selects output mode based on query: QID specified=full, severity/status filter=brief, no filters=stats. Override with output_mode parameter."),
+			mcp.WithDescription("Search detections across hosts. For overview, use vmdr_get_detection_summary instead. Auto-selects output mode: QID=full, severity filter=brief, no filters=stats."),
 			mcp.WithString("qids", mcp.Description("QID or comma-separated list of QIDs to search for")),
-			mcp.WithNumber("severity", mcp.Description("Filter by minimum severity (1-5, where 5 is critical)")),
-			mcp.WithNumber("qds_min", mcp.Description("Filter by minimum QDS (Qualys Detection Score) from 1-100")),
-			mcp.WithNumber("limit", mcp.Description("Maximum number of results (default 100)")),
-			mcp.WithString("status", mcp.Description("Filter by detection status: Active, Fixed, New")),
-			mcp.WithString("output_mode", mcp.Description("Override auto mode: 'full' (all data), 'brief' (minimal fields), 'stats' (counts only)")),
+			mcp.WithNumber("severity", mcp.Description("Minimum severity (1-5). Recommended: 5 for critical only")),
+			mcp.WithNumber("qds_min", mcp.Description("Minimum QDS (1-100). Recommended: 90+ for high risk")),
+			mcp.WithNumber("limit", mcp.Description("Maximum results (default 50)")),
+			mcp.WithString("status", mcp.Description("Filter by status: Active, Fixed, New")),
+			mcp.WithString("output_mode", mcp.Description("Override: 'full', 'brief', 'stats'")),
 		),
 		m.searchDetections,
 	)
@@ -166,7 +166,7 @@ func (m *Module) searchDetections(ctx context.Context, req mcp.CallToolRequest) 
 		qdsMin = int(q)
 	}
 
-	limit := 100
+	limit := 50
 	if l, ok := req.Params.Arguments["limit"].(float64); ok {
 		limit = int(l)
 	}

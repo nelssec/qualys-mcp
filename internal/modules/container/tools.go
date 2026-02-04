@@ -69,14 +69,14 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("cs_list_vulnerable_containers",
-			mcp.WithDescription("List running containers that have vulnerabilities matching specified criteria. Correlates running containers with their image vulnerabilities. Supports filtering by severity, QDS, TruRisk, CVE, or custom QQL."),
-			mcp.WithNumber("severity", mcp.Description("Vulnerability severity level (1-5, where 5 is critical)")),
-			mcp.WithNumber("qds", mcp.Description("Minimum QDS (Qualys Detection Score) from 1-100. Higher scores indicate higher risk.")),
-			mcp.WithString("qds_severity", mcp.Description("QDS severity level: CRITICAL, HIGH, MEDIUM, or LOW")),
-			mcp.WithNumber("trurisk", mcp.Description("Minimum TruRisk score from 1-1000. Higher scores indicate higher overall risk.")),
-			mcp.WithString("cve", mcp.Description("Filter by specific CVE ID (e.g., 'CVE-2024-1234')")),
-			mcp.WithString("filter", mcp.Description("Custom QQL filter for advanced queries (e.g., 'vulnerabilities.typeDetected:CONFIRMED')")),
-			mcp.WithNumber("limit", mcp.Description("Maximum number of containers to return (default 100)")),
+			mcp.WithDescription("RECOMMENDED for container risk. List running containers with vulnerabilities. Default severity:5 (critical). Returns focused list."),
+			mcp.WithNumber("severity", mcp.Description("Severity (1-5). Default: 5 (critical only)")),
+			mcp.WithNumber("qds", mcp.Description("Minimum QDS (1-100). Recommended: 90+")),
+			mcp.WithString("qds_severity", mcp.Description("QDS level: CRITICAL, HIGH, MEDIUM, LOW")),
+			mcp.WithNumber("trurisk", mcp.Description("Minimum TruRisk (1-1000). Recommended: 700+")),
+			mcp.WithString("cve", mcp.Description("Specific CVE ID (e.g., 'CVE-2024-1234')")),
+			mcp.WithString("filter", mcp.Description("Custom QQL filter")),
+			mcp.WithNumber("limit", mcp.Description("Maximum containers (default 25)")),
 		),
 		m.listVulnerableContainers,
 	)
@@ -84,7 +84,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 func (m *Module) listImages(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	filter, _ := req.Params.Arguments["filter"].(string)
-	limit := 100
+	limit := 50
 	if l, ok := req.Params.Arguments["limit"].(float64); ok {
 		limit = int(l)
 	}
@@ -124,7 +124,7 @@ func (m *Module) getImageVulnerabilities(ctx context.Context, req mcp.CallToolRe
 
 func (m *Module) listContainers(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	filter, _ := req.Params.Arguments["filter"].(string)
-	limit := 100
+	limit := 50
 	if l, ok := req.Params.Arguments["limit"].(float64); ok {
 		limit = int(l)
 	}
@@ -144,7 +144,7 @@ func (m *Module) searchImages(ctx context.Context, req mcp.CallToolRequest) (*mc
 		return newToolResultError("query is required"), nil
 	}
 
-	limit := 100
+	limit := 50
 	if l, ok := req.Params.Arguments["limit"].(float64); ok {
 		limit = int(l)
 	}
@@ -174,7 +174,9 @@ func (m *Module) getImageDetails(ctx context.Context, req mcp.CallToolRequest) (
 }
 
 func (m *Module) listVulnerableContainers(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	filter := VulnContainerFilter{}
+	filter := VulnContainerFilter{
+		Severity: 5,
+	}
 
 	if severity, ok := req.Params.Arguments["severity"].(float64); ok {
 		filter.Severity = int(severity)
@@ -195,11 +197,7 @@ func (m *Module) listVulnerableContainers(ctx context.Context, req mcp.CallToolR
 		filter.CustomQQL = customFilter
 	}
 
-	if filter.Severity == 0 && filter.QDS == 0 && filter.QDSSeverity == "" && filter.TruRisk == 0 && filter.CVE == "" && filter.CustomQQL == "" {
-		return newToolResultError("at least one filter (severity, qds, qds_severity, trurisk, cve, or filter) is required"), nil
-	}
-
-	limit := 100
+	limit := 25
 	if l, ok := req.Params.Arguments["limit"].(float64); ok {
 		limit = int(l)
 	}
