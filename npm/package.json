@@ -1,6 +1,6 @@
 {
   "name": "@nelssec/qualys-mcp",
-  "version": "1.0.16",
+  "version": "1.0.17",
   "description": "MCP server for Qualys security APIs - enables natural language interaction with vulnerability, asset, and cloud security data",
   "keywords": [
     "mcp",
