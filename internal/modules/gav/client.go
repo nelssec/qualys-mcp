@@ -319,9 +319,8 @@ func (c *Client) GetEOLAssets(ctx context.Context, limit int) ([]EOLAsset, error
 
 	params := url.Values{}
 	params.Set("pageSize", fmt.Sprintf("%d", limit))
-	params.Set("filter", string(filterJSON))
 
-	data, err := c.classicHTTP.Post(ctx, endpoint+"?"+params.Encode(), nil, "application/json")
+	data, err := c.classicHTTP.Post(ctx, endpoint+"?"+params.Encode(), strings.NewReader(string(filterJSON)), "application/json")
 	if err != nil {
 		return nil, err
 	}
@@ -374,9 +373,8 @@ func (c *Client) GetEOSAssets(ctx context.Context, limit int) ([]EOLAsset, error
 
 	params := url.Values{}
 	params.Set("pageSize", fmt.Sprintf("%d", limit))
-	params.Set("filter", string(filterJSON))
 
-	data, err := c.classicHTTP.Post(ctx, endpoint+"?"+params.Encode(), nil, "application/json")
+	data, err := c.classicHTTP.Post(ctx, endpoint+"?"+params.Encode(), strings.NewReader(string(filterJSON)), "application/json")
 	if err != nil {
 		return nil, err
 	}
@@ -429,9 +427,8 @@ func (c *Client) GetEOLHardware(ctx context.Context, limit int) ([]EOLAsset, err
 
 	params := url.Values{}
 	params.Set("pageSize", fmt.Sprintf("%d", limit))
-	params.Set("filter", string(filterJSON))
 
-	data, err := c.classicHTTP.Post(ctx, endpoint+"?"+params.Encode(), nil, "application/json")
+	data, err := c.classicHTTP.Post(ctx, endpoint+"?"+params.Encode(), strings.NewReader(string(filterJSON)), "application/json")
 	if err != nil {
 		return nil, err
 	}
