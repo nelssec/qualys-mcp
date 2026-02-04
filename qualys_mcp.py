@@ -112,6 +112,46 @@ def get_assets(limit=100, qql=None):
         return []
 
 
+def get_eol_assets(stage_filter="EOL,EOL/EOS", limit=500):
+    url = f"{GATEWAY_URL}/rest/2.0/search/am/asset?pageSize={limit}"
+    token = get_bearer_token()
+
+    filter_body = json.dumps({
+        "filters": [
+            {"field": "operatingSystem.lifecycle.stage", "operator": "IN", "value": stage_filter}
+        ]
+    })
+
+    req = Request(url, data=filter_body.encode(), method='POST')
+    req.add_header('Authorization', f'Bearer {token}' if token else f'Basic {BASIC_AUTH}')
+    req.add_header('Content-Type', 'application/json')
+    req.add_header('X-Requested-With', 'qualys-mcp')
+
+    try:
+        with urlopen(req, timeout=60) as resp:
+            data = json.loads(resp.read())
+            assets = []
+            for a in data.get('assetListData', {}).get('asset', []):
+                os_info = a.get('operatingSystem', {})
+                lifecycle = os_info.get('lifecycle', {})
+                assets.append({
+                    'assetId': a.get('assetId'),
+                    'address': a.get('address', ''),
+                    'dnsName': a.get('dnsHostName', ''),
+                    'operatingSystem': {
+                        'osName': f"{os_info.get('name', '')} {os_info.get('version', '')}".strip(),
+                        'lifecycle': {
+                            'stage': lifecycle.get('stage', ''),
+                            'eolDate': lifecycle.get('eolDate', ''),
+                            'eosDate': lifecycle.get('eosDate', '')
+                        }
+                    }
+                })
+            return assets
+    except Exception as e:
+        return []
+
+
 def get_images(limit=100, severity=None):
     url = f"{GATEWAY_URL}/csapi/v1.3/images?pageSize={limit}"
     if severity:
@@ -484,7 +524,7 @@ def get_tech_debt(days_until_eol: int = 0) -> dict:
         'byOS': []
     }
 
-    assets = get_assets(500)
+    assets = get_eol_assets("EOL,EOL/EOS,EOS", 500)
     result['stats']['total'] = len(assets)
 
     today = datetime.utcnow().date()
@@ -523,7 +563,7 @@ def get_tech_debt(days_until_eol: int = 0) -> dict:
             os_data[os_name]['eol'] += 1
             if len(result['currentEOL']) < 20:
                 result['currentEOL'].append(asset_info)
-        elif stage == 'EOS':
+        elif stage in ('EOS', 'EOL/EOS'):
             result['stats']['currentEOS'] += 1
             os_data[os_name]['eos'] += 1
             if len(result['currentEOS']) < 20:
