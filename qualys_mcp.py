@@ -32,10 +32,10 @@ def get_bearer_token():
     if BEARER_TOKEN:
         return BEARER_TOKEN
     try:
-        req = Request(f"{GATEWAY_URL}/auth", method='POST')
-        req.add_header('Authorization', f'Basic {BASIC_AUTH}')
+        auth_data = urlencode({'username': USERNAME, 'password': PASSWORD, 'token': 'true'}).encode()
+        req = Request(f"{GATEWAY_URL}/auth", data=auth_data, method='POST')
         req.add_header('Content-Type', 'application/x-www-form-urlencoded')
-        with urlopen(req, data=b'', timeout=30) as resp:
+        with urlopen(req, timeout=30) as resp:
             BEARER_TOKEN = resp.read().decode().strip()
             return BEARER_TOKEN
     except:
