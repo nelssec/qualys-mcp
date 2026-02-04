@@ -116,6 +116,22 @@ def get_assets(limit=100, qql=None):
         return []
 
 
+def get_eol_count(qql_filter):
+    """Get count of assets matching QQL filter (fast, no pagination)"""
+    token = get_bearer_token()
+    url = f"{GATEWAY_URL}/rest/2.0/count/am/asset"
+    filter_body = json.dumps({"filter": qql_filter})
+    req = Request(url, data=filter_body.encode(), method='POST')
+    req.add_header('Authorization', f'Bearer {token}' if token else f'Basic {BASIC_AUTH}')
+    req.add_header('Content-Type', 'application/json')
+    req.add_header('X-Requested-With', 'qualys-mcp')
+    try:
+        with urlopen(req, timeout=30) as resp:
+            return json.loads(resp.read()).get('count', 0)
+    except:
+        return 0
+
+
 def get_eol_assets_by_qql(qql_filter, limit=500):
     """Query assets using QQL filter syntax with pagination"""
     token = get_bearer_token()
@@ -158,81 +174,49 @@ def is_eol_stage(stage):
     return ('EOL' in s or 'EOS' in s) and s != 'NOT APPLICABLE'
 
 
-def get_all_eol_assets(limit=100):
-    """Get all EOL/EOS assets across OS, hardware, and software"""
-    results = {'os': [], 'hardware': [], 'software': []}
-    seen_ids = set()
+def get_eol_sample(qql_filter, limit=100):
+    """Get single page of assets (no pagination) and filter for EOL"""
+    token = get_bearer_token()
+    url = f"{GATEWAY_URL}/rest/2.0/search/am/asset?pageSize={limit}"
+    filter_body = json.dumps({"filter": qql_filter})
+    req = Request(url, data=filter_body.encode(), method='POST')
+    req.add_header('Authorization', f'Bearer {token}' if token else f'Basic {BASIC_AUTH}')
+    req.add_header('Content-Type', 'application/json')
+    req.add_header('X-Requested-With', 'qualys-mcp')
+    try:
+        with urlopen(req, timeout=30) as resp:
+            return json.loads(resp.read()).get('assetListData', {}).get('asset', [])
+    except:
+        return []
 
-    os_assets = get_eol_assets_by_qql("operatingSystem.lifecycle.stage:`EOL/EOS` or operatingSystem.lifecycle.stage:EOL or operatingSystem.lifecycle.stage:EOS", limit * 2)
-    for a in os_assets:
+
+def get_all_eol_assets(limit=15):
+    """Get EOL/EOS asset samples (fast, single page per query)"""
+    results = {'os': [], 'hardware': []}
+
+    for a in get_eol_sample("operatingSystem.lifecycle.stage:`EOL/EOS`", 100):
         os_info = a.get('operatingSystem', {}) or {}
         lifecycle = os_info.get('lifecycle', {}) or {}
         stage = lifecycle.get('stage', '')
-        if not is_eol_stage(stage):
-            continue
-        aid = a.get('assetId')
-        if aid in seen_ids:
-            continue
-        seen_ids.add(aid)
-        results['os'].append({
-            'assetId': aid,
-            'address': a.get('address', ''),
-            'dnsName': a.get('dnsHostName', '') or a.get('dnsName', ''),
-            'type': 'os',
-            'name': os_info.get('osName', '') or os_info.get('fullName', '') or 'Unknown',
-            'stage': stage,
-            'eolDate': lifecycle.get('eolDate', ''),
-            'eosDate': lifecycle.get('eosDate', '')
-        })
-        if len(results['os']) >= limit:
-            break
+        if is_eol_stage(stage) and len(results['os']) < limit:
+            results['os'].append({
+                'assetId': a.get('assetId'),
+                'address': a.get('address', ''),
+                'name': os_info.get('osName', '') or 'Unknown',
+                'stage': stage
+            })
 
-    seen_ids.clear()
-    hw_assets = get_eol_assets_by_qql("hardware.lifecycle.stage:`EOL/EOS` or hardware.lifecycle.stage:EOL or hardware.lifecycle.stage:EOS", limit * 2)
-    for a in hw_assets:
+    for a in get_eol_sample("hardware.lifecycle.stage:`EOL/EOS`", 100):
         hw_info = a.get('hardware', {}) or {}
         lifecycle = hw_info.get('lifecycle', {}) or {}
         stage = lifecycle.get('stage', '')
-        if not is_eol_stage(stage):
-            continue
-        aid = a.get('assetId')
-        if aid in seen_ids:
-            continue
-        seen_ids.add(aid)
-        results['hardware'].append({
-            'assetId': aid,
-            'address': a.get('address', ''),
-            'dnsName': a.get('dnsHostName', '') or a.get('dnsName', ''),
-            'type': 'hardware',
-            'name': hw_info.get('model', '') or hw_info.get('name', '') or 'Unknown',
-            'stage': stage,
-            'eolDate': lifecycle.get('eolDate', ''),
-            'eosDate': lifecycle.get('eosDate', '')
-        })
-        if len(results['hardware']) >= limit:
-            break
-
-    seen_ids.clear()
-    sw_assets = get_eol_assets_by_qql("software:(lifecycle.stage:`EOL/EOS` or lifecycle.stage:EOL or lifecycle.stage:EOS)", limit * 2)
-    for a in sw_assets:
-        aid = a.get('assetId')
-        if aid in seen_ids:
-            continue
-        seen_ids.add(aid)
-        sw_list = a.get('software', []) or []
-        eol_sw = [s for s in sw_list if is_eol_stage((s.get('lifecycle', {}) or {}).get('stage', ''))]
-        sw_names = [s.get('name', 'Unknown') for s in eol_sw[:3]]
-        results['software'].append({
-            'assetId': aid,
-            'address': a.get('address', ''),
-            'dnsName': a.get('dnsHostName', '') or a.get('dnsName', ''),
-            'type': 'software',
-            'name': ', '.join(sw_names) if sw_names else 'Has EOL software',
-            'stage': 'EOL',
-            'eolSoftwareCount': len(eol_sw)
-        })
-        if len(results['software']) >= limit:
-            break
+        if is_eol_stage(stage) and len(results['hardware']) < limit:
+            results['hardware'].append({
+                'assetId': a.get('assetId'),
+                'address': a.get('address', ''),
+                'name': hw_info.get('model', '') or 'Unknown',
+                'stage': stage
+            })
 
     return results
 
@@ -615,49 +599,14 @@ def get_asset_risk(asset_id: str) -> dict:
 
 @mcp.tool()
 def get_tech_debt(days_until_eol: int = 0) -> dict:
-    """Get EOL/EOS across OS, hardware, and software. Use days_until_eol to find items approaching end-of-life."""
-    result = {
-        'stats': {'osEOL': 0, 'osEOS': 0, 'hardwareEOL': 0, 'softwareEOL': 0, 'total': 0},
-        'os': [],
-        'hardware': [],
-        'software': [],
-        'byCategory': {}
-    }
+    """Get EOL/EOS operating systems and hardware. Returns sample assets with EOL/EOS status."""
+    result = {'os': [], 'hardware': []}
 
-    all_eol = get_all_eol_assets(300)
-
-    for item in all_eol['os']:
-        stage = (item.get('stage', '') or '').upper()
-        if 'EOL' in stage and 'EOS' not in stage:
-            result['stats']['osEOL'] += 1
-        else:
-            result['stats']['osEOS'] += 1
-        if len(result['os']) < 20:
-            result['os'].append(item)
-
-    for item in all_eol['hardware']:
-        result['stats']['hardwareEOL'] += 1
-        if len(result['hardware']) < 20:
-            result['hardware'].append(item)
-
-    sw_by_name = {}
-    for item in all_eol['software']:
-        name = item.get('name', 'Unknown')
-        if name not in sw_by_name:
-            sw_by_name[name] = {'name': name, 'version': item.get('version', ''), 'count': 0, 'stage': item.get('stage', '')}
-        sw_by_name[name]['count'] += 1
-        result['stats']['softwareEOL'] += 1
-
-    result['software'] = sorted(sw_by_name.values(), key=lambda x: x['count'], reverse=True)[:20]
-
-    result['stats']['total'] = (result['stats']['osEOL'] + result['stats']['osEOS'] +
-                                 result['stats']['hardwareEOL'] + result['stats']['softwareEOL'])
-
-    result['byCategory'] = {
-        'operatingSystem': len(all_eol['os']),
-        'hardware': len(all_eol['hardware']),
-        'software': len(all_eol['software'])
-    }
+    samples = get_all_eol_assets(15)
+    result['os'] = samples['os']
+    result['hardware'] = samples['hardware']
+    result['osCount'] = len(samples['os'])
+    result['hardwareCount'] = len(samples['hardware'])
 
     return result
 
