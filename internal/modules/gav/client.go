@@ -243,28 +243,29 @@ func (c *Client) GetHighRiskAssets(ctx context.Context, minTruRisk int, minCriti
 	return c.SearchAssets(ctx, filter, limit)
 }
 
-type EOLSoftware struct {
-	Name        string      `json:"name"`
-	Version     string      `json:"version,omitempty"`
-	Vendor      string      `json:"vendor,omitempty"`
-	EOLDate     string      `json:"eolDate,omitempty"`
-	EOSDate     string      `json:"eosDate,omitempty"`
-	IsSupported bool        `json:"isSupported"`
-	AssetCount  int         `json:"assetCount"`
-	Category    string      `json:"category,omitempty"`
-}
-
 type EOLAsset struct {
-	AssetID      interface{} `json:"assetId"`
-	IP           interface{} `json:"address,omitempty"`
-	Hostname     interface{} `json:"dnsHostName,omitempty"`
-	OS           interface{} `json:"operatingSystem,omitempty"`
-	Criticality  interface{} `json:"criticality,omitempty"`
-	EOLSoftware  []string    `json:"eolSoftware,omitempty"`
-	EOSSoftware  []string    `json:"eosSoftware,omitempty"`
+	AssetID     interface{} `json:"assetId"`
+	IP          interface{} `json:"address,omitempty"`
+	Hostname    interface{} `json:"dnsHostName,omitempty"`
+	OS          interface{} `json:"operatingSystem,omitempty"`
+	Criticality interface{} `json:"criticality,omitempty"`
+	OSLifecycle *OSLifecycle `json:"osLifecycle,omitempty"`
+	HWLifecycle *HWLifecycle `json:"hwLifecycle,omitempty"`
 }
 
-type SoftwareLifecycleResponse struct {
+type OSLifecycle struct {
+	Stage   string `json:"stage,omitempty"`
+	EOLDate string `json:"eolDate,omitempty"`
+	EOSDate string `json:"eosDate,omitempty"`
+}
+
+type HWLifecycle struct {
+	Stage   string `json:"stage,omitempty"`
+	EOSDate string `json:"eosDate,omitempty"`
+	OBSDate string `json:"obsDate,omitempty"`
+}
+
+type LifecycleResponse struct {
 	AssetListData struct {
 		Asset []struct {
 			AssetID     interface{} `json:"assetId"`
@@ -272,35 +273,41 @@ type SoftwareLifecycleResponse struct {
 			Hostname    interface{} `json:"dnsHostName,omitempty"`
 			OS          interface{} `json:"operatingSystem,omitempty"`
 			Criticality interface{} `json:"criticality,omitempty"`
-			Software    []struct {
-				Name      string `json:"name"`
+			OperatingSystem struct {
+				Name      string `json:"name,omitempty"`
 				Version   string `json:"version,omitempty"`
-				Vendor    string `json:"vendor,omitempty"`
-				Category  string `json:"category,omitempty"`
 				Lifecycle struct {
-					EOLDate     string `json:"eolDate,omitempty"`
-					EOSDate     string `json:"eosDate,omitempty"`
-					IsSupported bool   `json:"isSupported"`
+					Stage   string `json:"stage,omitempty"`
+					EOL     string `json:"eol,omitempty"`
+					EOS     string `json:"eos,omitempty"`
 				} `json:"lifecycle,omitempty"`
-			} `json:"software,omitempty"`
+			} `json:"operatingSystem,omitempty"`
+			Hardware struct {
+				Name      string `json:"name,omitempty"`
+				Model     string `json:"model,omitempty"`
+				Lifecycle struct {
+					Stage string `json:"stage,omitempty"`
+					EOS   string `json:"eos,omitempty"`
+					OBS   string `json:"obs,omitempty"`
+				} `json:"lifecycle,omitempty"`
+			} `json:"hardware,omitempty"`
 		} `json:"asset"`
 	} `json:"assetListData"`
 }
 
-func (c *Client) GetEOLSoftware(ctx context.Context, limit int) ([]EOLAsset, error) {
+func (c *Client) GetEOLAssets(ctx context.Context, limit int) ([]EOLAsset, error) {
 	endpoint := fmt.Sprintf("%s/am/v1/assets/host/list", c.gatewayURL)
 
 	params := url.Values{}
 	params.Set("pageSize", fmt.Sprintf("%d", limit))
-	params.Set("filter", "software.lifecycle.eolDate:[* TO now]")
-	params.Set("fields", "assetId,address,dnsHostName,operatingSystem,criticality,software")
+	params.Set("filter", "operatingSystem.lifecycle.stage:EOL or operatingSystem.lifecycle.stage:\"EOL/EOS\"")
 
 	data, err := c.http.Post(ctx, endpoint+"?"+params.Encode(), nil, "")
 	if err != nil {
 		return nil, err
 	}
 
-	var resp SoftwareLifecycleResponse
+	var resp LifecycleResponse
 	if err := json.Unmarshal(data, &resp); err != nil {
 		return nil, fmt.Errorf("parse response: %w", err)
 	}
@@ -314,33 +321,32 @@ func (c *Client) GetEOLSoftware(ctx context.Context, limit int) ([]EOLAsset, err
 			OS:          a.OS,
 			Criticality: a.Criticality,
 		}
-		for _, sw := range a.Software {
-			if sw.Lifecycle.EOLDate != "" {
-				asset.EOLSoftware = append(asset.EOLSoftware, fmt.Sprintf("%s %s", sw.Name, sw.Version))
+		if a.OperatingSystem.Lifecycle.Stage != "" {
+			asset.OSLifecycle = &OSLifecycle{
+				Stage:   a.OperatingSystem.Lifecycle.Stage,
+				EOLDate: a.OperatingSystem.Lifecycle.EOL,
+				EOSDate: a.OperatingSystem.Lifecycle.EOS,
 			}
 		}
-		if len(asset.EOLSoftware) > 0 {
-			result = append(result, asset)
-		}
+		result = append(result, asset)
 	}
 
 	return result, nil
 }
 
-func (c *Client) GetEOSSoftware(ctx context.Context, limit int) ([]EOLAsset, error) {
+func (c *Client) GetEOSAssets(ctx context.Context, limit int) ([]EOLAsset, error) {
 	endpoint := fmt.Sprintf("%s/am/v1/assets/host/list", c.gatewayURL)
 
 	params := url.Values{}
 	params.Set("pageSize", fmt.Sprintf("%d", limit))
-	params.Set("filter", "software.lifecycle.eosDate:[* TO now]")
-	params.Set("fields", "assetId,address,dnsHostName,operatingSystem,criticality,software")
+	params.Set("filter", "operatingSystem.lifecycle.stage:\"EOL/EOS\"")
 
 	data, err := c.http.Post(ctx, endpoint+"?"+params.Encode(), nil, "")
 	if err != nil {
 		return nil, err
 	}
 
-	var resp SoftwareLifecycleResponse
+	var resp LifecycleResponse
 	if err := json.Unmarshal(data, &resp); err != nil {
 		return nil, fmt.Errorf("parse response: %w", err)
 	}
@@ -354,33 +360,32 @@ func (c *Client) GetEOSSoftware(ctx context.Context, limit int) ([]EOLAsset, err
 			OS:          a.OS,
 			Criticality: a.Criticality,
 		}
-		for _, sw := range a.Software {
-			if sw.Lifecycle.EOSDate != "" {
-				asset.EOSSoftware = append(asset.EOSSoftware, fmt.Sprintf("%s %s", sw.Name, sw.Version))
+		if a.OperatingSystem.Lifecycle.Stage != "" {
+			asset.OSLifecycle = &OSLifecycle{
+				Stage:   a.OperatingSystem.Lifecycle.Stage,
+				EOLDate: a.OperatingSystem.Lifecycle.EOL,
+				EOSDate: a.OperatingSystem.Lifecycle.EOS,
 			}
 		}
-		if len(asset.EOSSoftware) > 0 {
-			result = append(result, asset)
-		}
+		result = append(result, asset)
 	}
 
 	return result, nil
 }
 
-func (c *Client) GetUnsupportedSoftwareAssets(ctx context.Context, limit int) ([]EOLAsset, error) {
+func (c *Client) GetEOLHardware(ctx context.Context, limit int) ([]EOLAsset, error) {
 	endpoint := fmt.Sprintf("%s/am/v1/assets/host/list", c.gatewayURL)
 
 	params := url.Values{}
 	params.Set("pageSize", fmt.Sprintf("%d", limit))
-	params.Set("filter", "software.isSupported:false")
-	params.Set("fields", "assetId,address,dnsHostName,operatingSystem,criticality,software")
+	params.Set("filter", "hardware.lifecycle.stage:EOS or hardware.lifecycle.stage:OBS")
 
 	data, err := c.http.Post(ctx, endpoint+"?"+params.Encode(), nil, "")
 	if err != nil {
 		return nil, err
 	}
 
-	var resp SoftwareLifecycleResponse
+	var resp LifecycleResponse
 	if err := json.Unmarshal(data, &resp); err != nil {
 		return nil, fmt.Errorf("parse response: %w", err)
 	}
@@ -394,14 +399,14 @@ func (c *Client) GetUnsupportedSoftwareAssets(ctx context.Context, limit int) ([
 			OS:          a.OS,
 			Criticality: a.Criticality,
 		}
-		for _, sw := range a.Software {
-			if !sw.Lifecycle.IsSupported {
-				asset.EOLSoftware = append(asset.EOLSoftware, fmt.Sprintf("%s %s", sw.Name, sw.Version))
+		if a.Hardware.Lifecycle.Stage != "" {
+			asset.HWLifecycle = &HWLifecycle{
+				Stage:   a.Hardware.Lifecycle.Stage,
+				EOSDate: a.Hardware.Lifecycle.EOS,
+				OBSDate: a.Hardware.Lifecycle.OBS,
 			}
 		}
-		if len(asset.EOLSoftware) > 0 {
-			result = append(result, asset)
-		}
+		result = append(result, asset)
 	}
 
 	return result, nil

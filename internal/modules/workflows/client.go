@@ -611,8 +611,8 @@ func (c *Client) PrioritizeExternalRisk(ctx context.Context, tagName string, min
 
 type TechDebtSummary struct {
 	Stats              TechDebtStats           `json:"stats"`
-	EOLSoftwareByType  []SoftwareDebtItem      `json:"eolSoftwareByType"`
-	EOSSoftwareByType  []SoftwareDebtItem      `json:"eosSoftwareByType"`
+	EOLOperatingSystems []OSDebtItem           `json:"eolOperatingSystems"`
+	EOLHardware        []HardwareDebtItem      `json:"eolHardware,omitempty"`
 	EOLContainerImages []ContainerDebtItem     `json:"eolContainerImages,omitempty"`
 	TopAffectedAssets  []TechDebtAsset         `json:"topAffectedAssets"`
 	ReductionPlan      TechDebtReductionPlan   `json:"reductionPlan"`
@@ -620,22 +620,25 @@ type TechDebtSummary struct {
 
 type TechDebtStats struct {
 	TotalAssets           int     `json:"totalAssets"`
-	AssetsWithEOL         int     `json:"assetsWithEolSoftware"`
-	AssetsWithEOS         int     `json:"assetsWithEosSoftware"`
-	EOLSoftwareInstances  int     `json:"eolSoftwareInstances"`
-	EOSSoftwareInstances  int     `json:"eosSoftwareInstances"`
+	AssetsWithEOLOS       int     `json:"assetsWithEolOs"`
+	AssetsWithEOLHardware int     `json:"assetsWithEolHardware"`
 	EOLContainerImages    int     `json:"eolContainerImages"`
 	TechDebtPercentage    float64 `json:"techDebtPercentage"`
 }
 
-type SoftwareDebtItem struct {
+type OSDebtItem struct {
 	Name         string `json:"name"`
-	Version      string `json:"version,omitempty"`
-	Category     string `json:"category,omitempty"`
+	Stage        string `json:"stage"`
 	AssetCount   int    `json:"assetCount"`
 	EOLDate      string `json:"eolDate,omitempty"`
 	EOSDate      string `json:"eosDate,omitempty"`
-	UpgradePath  string `json:"upgradePath,omitempty"`
+}
+
+type HardwareDebtItem struct {
+	Name         string `json:"name"`
+	Stage        string `json:"stage"`
+	AssetCount   int    `json:"assetCount"`
+	EOSDate      string `json:"eosDate,omitempty"`
 }
 
 type ContainerDebtItem struct {
@@ -647,26 +650,25 @@ type ContainerDebtItem struct {
 }
 
 type TechDebtAsset struct {
-	AssetID       string   `json:"assetId"`
-	IP            string   `json:"ip,omitempty"`
-	Hostname      string   `json:"hostname,omitempty"`
-	Criticality   int      `json:"criticality"`
-	EOLCount      int      `json:"eolSoftwareCount"`
-	EOSCount      int      `json:"eosSoftwareCount"`
-	TopEOLSoftware []string `json:"topEolSoftware,omitempty"`
+	AssetID       string `json:"assetId"`
+	IP            string `json:"ip,omitempty"`
+	Hostname      string `json:"hostname,omitempty"`
+	OS            string `json:"os,omitempty"`
+	OSStage       string `json:"osLifecycleStage,omitempty"`
+	Criticality   int    `json:"criticality"`
 }
 
 type TechDebtReductionPlan struct {
 	TargetPercentage    float64              `json:"targetReductionPercentage"`
-	CurrentDebt         int                  `json:"currentDebtInstances"`
-	TargetDebt          int                  `json:"targetDebtInstances"`
-	InstancesToFix      int                  `json:"instancesToFix"`
+	CurrentDebtAssets   int                  `json:"currentDebtAssets"`
+	TargetDebtAssets    int                  `json:"targetDebtAssets"`
+	AssetsToFix         int                  `json:"assetsToFix"`
 	PrioritizedActions  []TechDebtAction     `json:"prioritizedActions"`
 }
 
 type TechDebtAction struct {
 	Priority     int    `json:"priority"`
-	Software     string `json:"software"`
+	OS           string `json:"operatingSystem"`
 	AssetCount   int    `json:"assetCount"`
 	Action       string `json:"action"`
 	Impact       string `json:"impact"`
@@ -686,9 +688,7 @@ func (c *Client) GetTechDebtSummary(ctx context.Context, reductionTarget float64
 		},
 	}
 
-	softwareCounts := make(map[string]int)
-	eolSoftwareList := make(map[string]*SoftwareDebtItem)
-	eosSoftwareList := make(map[string]*SoftwareDebtItem)
+	osCounts := make(map[string]*OSDebtItem)
 
 	if c.gav != nil {
 		allAssets, err := c.gav.ListAssets(ctx, "", limit*2)
@@ -696,20 +696,28 @@ func (c *Client) GetTechDebtSummary(ctx context.Context, reductionTarget float64
 			summary.Stats.TotalAssets = len(allAssets)
 		}
 
-		eolAssets, err := c.gav.GetEOLSoftware(ctx, limit)
+		eolAssets, err := c.gav.GetEOLAssets(ctx, limit)
 		if err == nil {
-			summary.Stats.AssetsWithEOL = len(eolAssets)
+			summary.Stats.AssetsWithEOLOS = len(eolAssets)
 			for _, asset := range eolAssets {
-				for _, sw := range asset.EOLSoftware {
-					summary.Stats.EOLSoftwareInstances++
-					softwareCounts[sw]++
-					if _, exists := eolSoftwareList[sw]; !exists {
-						eolSoftwareList[sw] = &SoftwareDebtItem{
-							Name:       sw,
+				osName := ""
+				if os, ok := asset.OS.(string); ok {
+					osName = os
+				}
+
+				if osName != "" {
+					if _, exists := osCounts[osName]; !exists {
+						osCounts[osName] = &OSDebtItem{
+							Name:       osName,
 							AssetCount: 0,
 						}
+						if asset.OSLifecycle != nil {
+							osCounts[osName].Stage = asset.OSLifecycle.Stage
+							osCounts[osName].EOLDate = asset.OSLifecycle.EOLDate
+							osCounts[osName].EOSDate = asset.OSLifecycle.EOSDate
+						}
 					}
-					eolSoftwareList[sw].AssetCount++
+					osCounts[osName].AssetCount++
 				}
 
 				assetID := ""
@@ -730,42 +738,31 @@ func (c *Client) GetTechDebtSummary(ctx context.Context, reductionTarget float64
 				}
 
 				crit := 2
-				if c, ok := asset.Criticality.(float64); ok {
-					crit = int(c)
+				if cr, ok := asset.Criticality.(float64); ok {
+					crit = int(cr)
+				}
+
+				stage := ""
+				if asset.OSLifecycle != nil {
+					stage = asset.OSLifecycle.Stage
 				}
 
 				if len(summary.TopAffectedAssets) < 15 {
-					topSw := asset.EOLSoftware
-					if len(topSw) > 3 {
-						topSw = topSw[:3]
-					}
 					summary.TopAffectedAssets = append(summary.TopAffectedAssets, TechDebtAsset{
-						AssetID:        assetID,
-						IP:             ip,
-						Hostname:       hostname,
-						Criticality:    crit,
-						EOLCount:       len(asset.EOLSoftware),
-						TopEOLSoftware: topSw,
+						AssetID:     assetID,
+						IP:          ip,
+						Hostname:    hostname,
+						OS:          osName,
+						OSStage:     stage,
+						Criticality: crit,
 					})
 				}
 			}
 		}
 
-		eosAssets, err := c.gav.GetEOSSoftware(ctx, limit)
+		eolHW, err := c.gav.GetEOLHardware(ctx, limit)
 		if err == nil {
-			summary.Stats.AssetsWithEOS = len(eosAssets)
-			for _, asset := range eosAssets {
-				for _, sw := range asset.EOSSoftware {
-					summary.Stats.EOSSoftwareInstances++
-					if _, exists := eosSoftwareList[sw]; !exists {
-						eosSoftwareList[sw] = &SoftwareDebtItem{
-							Name:       sw,
-							AssetCount: 0,
-						}
-					}
-					eosSoftwareList[sw].AssetCount++
-				}
-			}
+			summary.Stats.AssetsWithEOLHardware = len(eolHW)
 		}
 	}
 
@@ -796,67 +793,53 @@ func (c *Client) GetTechDebtSummary(ctx context.Context, reductionTarget float64
 		}
 	}
 
-	type swSort struct {
-		item *SoftwareDebtItem
+	type osSort struct {
+		item *OSDebtItem
 	}
-	var sortableEOL []swSort
-	for _, item := range eolSoftwareList {
-		sortableEOL = append(sortableEOL, swSort{item})
+	var sortableOS []osSort
+	for _, item := range osCounts {
+		sortableOS = append(sortableOS, osSort{item})
 	}
-	for i := 0; i < len(sortableEOL)-1; i++ {
-		for j := i + 1; j < len(sortableEOL); j++ {
-			if sortableEOL[j].item.AssetCount > sortableEOL[i].item.AssetCount {
-				sortableEOL[i], sortableEOL[j] = sortableEOL[j], sortableEOL[i]
+	for i := 0; i < len(sortableOS)-1; i++ {
+		for j := i + 1; j < len(sortableOS); j++ {
+			if sortableOS[j].item.AssetCount > sortableOS[i].item.AssetCount {
+				sortableOS[i], sortableOS[j] = sortableOS[j], sortableOS[i]
 			}
 		}
 	}
-	for i := 0; i < len(sortableEOL) && i < 15; i++ {
-		summary.EOLSoftwareByType = append(summary.EOLSoftwareByType, *sortableEOL[i].item)
-	}
-
-	var sortableEOS []swSort
-	for _, item := range eosSoftwareList {
-		sortableEOS = append(sortableEOS, swSort{item})
-	}
-	for i := 0; i < len(sortableEOS)-1; i++ {
-		for j := i + 1; j < len(sortableEOS); j++ {
-			if sortableEOS[j].item.AssetCount > sortableEOS[i].item.AssetCount {
-				sortableEOS[i], sortableEOS[j] = sortableEOS[j], sortableEOS[i]
-			}
-		}
-	}
-	for i := 0; i < len(sortableEOS) && i < 15; i++ {
-		summary.EOSSoftwareByType = append(summary.EOSSoftwareByType, *sortableEOS[i].item)
+	for i := 0; i < len(sortableOS) && i < 15; i++ {
+		summary.EOLOperatingSystems = append(summary.EOLOperatingSystems, *sortableOS[i].item)
 	}
 
 	if summary.Stats.TotalAssets > 0 {
-		affectedAssets := summary.Stats.AssetsWithEOL
-		if summary.Stats.AssetsWithEOS > affectedAssets {
-			affectedAssets = summary.Stats.AssetsWithEOS
-		}
+		affectedAssets := summary.Stats.AssetsWithEOLOS + summary.Stats.AssetsWithEOLHardware
 		summary.Stats.TechDebtPercentage = float64(affectedAssets) / float64(summary.Stats.TotalAssets) * 100
 	}
 
-	totalDebt := summary.Stats.EOLSoftwareInstances + summary.Stats.EOSSoftwareInstances
-	summary.ReductionPlan.CurrentDebt = totalDebt
-	summary.ReductionPlan.InstancesToFix = int(float64(totalDebt) * (reductionTarget / 100))
-	summary.ReductionPlan.TargetDebt = totalDebt - summary.ReductionPlan.InstancesToFix
+	totalDebtAssets := summary.Stats.AssetsWithEOLOS
+	summary.ReductionPlan.CurrentDebtAssets = totalDebtAssets
+	summary.ReductionPlan.AssetsToFix = int(float64(totalDebtAssets) * (reductionTarget / 100))
+	summary.ReductionPlan.TargetDebtAssets = totalDebtAssets - summary.ReductionPlan.AssetsToFix
 
 	priority := 1
 	fixedSoFar := 0
-	for _, sw := range sortableEOL {
-		if fixedSoFar >= summary.ReductionPlan.InstancesToFix {
+	for _, os := range sortableOS {
+		if fixedSoFar >= summary.ReductionPlan.AssetsToFix {
 			break
+		}
+		impact := float64(os.item.AssetCount) / float64(summary.ReductionPlan.AssetsToFix) * 100
+		if impact > 100 {
+			impact = 100
 		}
 		action := TechDebtAction{
 			Priority:   priority,
-			Software:   sw.item.Name,
-			AssetCount: sw.item.AssetCount,
-			Action:     "Upgrade to supported version",
-			Impact:     fmt.Sprintf("Fixes %d instances (%.1f%% of target)", sw.item.AssetCount, float64(sw.item.AssetCount)/float64(summary.ReductionPlan.InstancesToFix)*100),
+			OS:         os.item.Name,
+			AssetCount: os.item.AssetCount,
+			Action:     "Upgrade to supported OS version",
+			Impact:     fmt.Sprintf("Fixes %d assets (%.1f%% of target)", os.item.AssetCount, impact),
 		}
 		summary.ReductionPlan.PrioritizedActions = append(summary.ReductionPlan.PrioritizedActions, action)
-		fixedSoFar += sw.item.AssetCount
+		fixedSoFar += os.item.AssetCount
 		priority++
 		if priority > 10 {
 			break
