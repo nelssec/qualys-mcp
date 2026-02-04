@@ -745,5 +745,9 @@ def get_webapp_vulns(severity: int = 4, limit: int = 50) -> dict:
     return result
 
 
-if __name__ == "__main__":
+def main():
     mcp.run()
+
+
+if __name__ == "__main__":
+    main()
