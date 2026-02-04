@@ -862,7 +862,10 @@ def debug_api(endpoint: str = "eol") -> dict:
                 result['has_assetListData'] = 'assetListData' in data
                 result['asset_count'] = len(data.get('assetListData', {}).get('asset', []))
                 if result['asset_count'] > 0:
-                    result['sample_asset'] = data['assetListData']['asset'][0]
+                    result['sample_asset_raw'] = data['assetListData']['asset'][0]
+                    parsed = get_eol_assets("EOL,EOL/EOS,EOS", 5)
+                    result['parsed_count'] = len(parsed)
+                    result['sample_asset_parsed'] = parsed[0] if parsed else None
         except Exception as e:
             result['error'] = str(e)
 
