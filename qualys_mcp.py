@@ -158,12 +158,12 @@ def is_eol_stage(stage):
     return ('EOL' in s or 'EOS' in s) and s != 'NOT APPLICABLE'
 
 
-def get_all_eol_assets(limit=300):
+def get_all_eol_assets(limit=100):
     """Get all EOL/EOS assets across OS, hardware, and software"""
     results = {'os': [], 'hardware': [], 'software': []}
     seen_ids = set()
 
-    os_assets = get_eol_assets_by_qql("operatingSystem.lifecycle.stage:`EOL/EOS` or operatingSystem.lifecycle.stage:EOL or operatingSystem.lifecycle.stage:EOS", limit * 5)
+    os_assets = get_eol_assets_by_qql("operatingSystem.lifecycle.stage:`EOL/EOS` or operatingSystem.lifecycle.stage:EOL or operatingSystem.lifecycle.stage:EOS", limit * 2)
     for a in os_assets:
         os_info = a.get('operatingSystem', {}) or {}
         lifecycle = os_info.get('lifecycle', {}) or {}
@@ -188,7 +188,7 @@ def get_all_eol_assets(limit=300):
             break
 
     seen_ids.clear()
-    hw_assets = get_eol_assets_by_qql("hardware.lifecycle.stage:`EOL/EOS` or hardware.lifecycle.stage:EOL or hardware.lifecycle.stage:EOS", limit * 5)
+    hw_assets = get_eol_assets_by_qql("hardware.lifecycle.stage:`EOL/EOS` or hardware.lifecycle.stage:EOL or hardware.lifecycle.stage:EOS", limit * 2)
     for a in hw_assets:
         hw_info = a.get('hardware', {}) or {}
         lifecycle = hw_info.get('lifecycle', {}) or {}
@@ -213,7 +213,7 @@ def get_all_eol_assets(limit=300):
             break
 
     seen_ids.clear()
-    sw_assets = get_eol_assets_by_qql("software:(lifecycle.stage:`EOL/EOS` or lifecycle.stage:EOL or lifecycle.stage:EOS)", limit * 5)
+    sw_assets = get_eol_assets_by_qql("software:(lifecycle.stage:`EOL/EOS` or lifecycle.stage:EOL or lifecycle.stage:EOS)", limit * 2)
     for a in sw_assets:
         aid = a.get('assetId')
         if aid in seen_ids:
