@@ -411,14 +411,14 @@ def get_security_posture() -> dict:
         result['errors'].append('containers')
 
     try:
-        for p in ['aws']:
-            conns = get_connectors(p, 10)
-            result['cloud']['accounts'] += len(conns)
+        for p in ['aws', 'azure', 'gcp']:
+            conns = get_connectors(p, 5)
             if conns:
+                result['cloud']['accounts'] += len(conns)
                 acc = conns[0].get('awsAccountId') or conns[0].get('azureSubscriptionId') or conns[0].get('gcpProjectId')
                 if acc:
-                    result['cloud']['failedControls'] += len([e for e in get_evaluations(acc, p, 100) if e.get('result') in ['FAIL', 'FAILED']])
-                break
+                    evals = get_evaluations(acc, p, 100)
+                    result['cloud']['failedControls'] += len([e for e in evals if e.get('result') in ['FAIL', 'FAILED']])
     except:
         result['errors'].append('cloud')
 
