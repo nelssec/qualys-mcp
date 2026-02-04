@@ -1,0 +1,23 @@
+# Binaries (only at root level)
+/qualys-mcp
+/mcp-gateway
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binaries
+*.test
+*.out
+
+# Go workspace
+go.work
+go.work.sum
+
+# Environment files
+.env
+.env.local
+
+# OS files
+.DS_Store

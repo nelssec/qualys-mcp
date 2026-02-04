@@ -1,0 +1,46 @@
+{
+  "name": "@nelssec/qualys-mcp",
+  "version": "1.0.7",
+  "description": "MCP server for Qualys security APIs - enables natural language interaction with vulnerability, asset, and cloud security data",
+  "keywords": [
+    "mcp",
+    "qualys",
+    "security",
+    "vulnerability",
+    "vmdr",
+    "claude",
+    "ai"
+  ],
+  "author": "Andrew Nelson <andrew@nelssec.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nelssec/qualys-mcp.git"
+  },
+  "homepage": "https://github.com/nelssec/qualys-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/nelssec/qualys-mcp/issues"
+  },
+  "bin": {
+    "qualys-mcp": "./bin/qualys-mcp"
+  },
+  "scripts": {
+    "postinstall": "node scripts/install.js"
+  },
+  "files": [
+    "bin",
+    "scripts"
+  ],
+  "engines": {
+    "node": ">=16"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ]
+}
