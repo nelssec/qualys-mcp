@@ -42,7 +42,7 @@ def get_bearer_token():
         return None
 
 
-def api_get(url, gateway=False):
+def api_get(url, gateway=False, timeout=30):
     req = Request(url)
     if gateway:
         token = get_bearer_token()
@@ -51,7 +51,7 @@ def api_get(url, gateway=False):
         req.add_header('Authorization', f'Basic {BASIC_AUTH}')
     req.add_header('X-Requested-With', 'qualys-mcp')
     try:
-        with urlopen(req, timeout=60) as resp:
+        with urlopen(req, timeout=timeout) as resp:
             return resp.read()
     except:
         return None
@@ -381,34 +381,49 @@ def get_security_posture() -> dict:
     health = 100
     result = {'healthScore': 0, 'assets': {'total': 0, 'highRisk': 0},
               'vulns': {'critical': 0, 'high': 0}, 'containers': {'total': 0, 'atRisk': 0},
-              'cloud': {'accounts': 0, 'failedControls': 0}}
+              'cloud': {'accounts': 0, 'failedControls': 0}, 'errors': []}
 
-    assets = get_assets(500)
-    result['assets']['total'] = len(assets)
-    result['assets']['highRisk'] = len([a for a in assets if a.get('assetRiskScore', 0) >= 700])
-    if assets:
-        health -= int(result['assets']['highRisk'] / len(assets) * 50)
+    try:
+        assets = get_assets(100)
+        result['assets']['total'] = len(assets)
+        result['assets']['highRisk'] = len([a for a in assets if a.get('assetRiskScore', 0) >= 700])
+        if assets:
+            health -= int(result['assets']['highRisk'] / len(assets) * 50)
+    except:
+        result['errors'].append('assets')
 
-    result['vulns']['critical'] = len(get_detections(5, 200))
-    result['vulns']['high'] = len(get_detections(4, 200))
-    if result['vulns']['critical'] > 50:
-        health -= 20
-    elif result['vulns']['critical'] > 10:
-        health -= 10
+    try:
+        result['vulns']['critical'] = len(get_detections(5, 100))
+        result['vulns']['high'] = len(get_detections(4, 100))
+        if result['vulns']['critical'] > 50:
+            health -= 20
+        elif result['vulns']['critical'] > 10:
+            health -= 10
+    except:
+        result['errors'].append('vulns')
 
-    imgs = get_images(500)
-    result['containers']['total'] = len(imgs)
-    vuln_ids = {i.get('imageId') for i in get_images(100, 5)}
-    result['containers']['atRisk'] = len([c for c in get_containers(500) if c.get('imageId') in vuln_ids])
+    try:
+        imgs = get_images(100)
+        result['containers']['total'] = len(imgs)
+        vuln_ids = {i.get('imageId') for i in get_images(50, 5)}
+        result['containers']['atRisk'] = len([c for c in get_containers(100) if c.get('imageId') in vuln_ids])
+    except:
+        result['errors'].append('containers')
 
-    for p in ['aws', 'azure', 'gcp']:
-        conns = get_connectors(p, 20)
-        result['cloud']['accounts'] += len(conns)
-        if conns:
-            acc = conns[0].get('awsAccountId') or conns[0].get('azureSubscriptionId') or conns[0].get('gcpProjectId')
-            if acc:
-                result['cloud']['failedControls'] += len([e for e in get_evaluations(acc, p, 500) if e.get('result') in ['FAIL', 'FAILED']])
+    try:
+        for p in ['aws']:
+            conns = get_connectors(p, 10)
+            result['cloud']['accounts'] += len(conns)
+            if conns:
+                acc = conns[0].get('awsAccountId') or conns[0].get('azureSubscriptionId') or conns[0].get('gcpProjectId')
+                if acc:
+                    result['cloud']['failedControls'] += len([e for e in get_evaluations(acc, p, 100) if e.get('result') in ['FAIL', 'FAILED']])
+                break
+    except:
+        result['errors'].append('cloud')
 
+    if not result['errors']:
+        del result['errors']
     result['healthScore'] = max(0, health)
     return result
 
