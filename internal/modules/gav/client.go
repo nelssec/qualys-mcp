@@ -309,7 +309,8 @@ type V2AssetResponse struct {
 			DnsHostName interface{} `json:"dnsHostName,omitempty"`
 			Criticality interface{} `json:"criticality,omitempty"`
 			OperatingSystem struct {
-				Name      string `json:"name,omitempty"`
+				Name      string `json:"osName,omitempty"`
+				FullName  string `json:"fullName,omitempty"`
 				Version   string `json:"version,omitempty"`
 				Lifecycle struct {
 					Stage   string `json:"stage,omitempty"`
@@ -328,7 +329,7 @@ type V2AssetResponse struct {
 			} `json:"hardware,omitempty"`
 		} `json:"asset"`
 	} `json:"assetListData"`
-	HasMore          bool   `json:"hasMore"`
+	HasMore          interface{} `json:"hasMore"`
 	LastSeenAssetId  interface{} `json:"lastSeenAssetId,omitempty"`
 }
 
@@ -393,7 +394,11 @@ func (c *Client) GetEOLAssets(ctx context.Context, limit int) ([]EOLAsset, error
 			result = append(result, asset)
 		}
 
-		if !resp.HasMore || resp.LastSeenAssetId == nil {
+		hasMore := false
+		if hm, ok := resp.HasMore.(float64); ok && hm > 0 {
+			hasMore = true
+		}
+		if !hasMore || resp.LastSeenAssetId == nil {
 			break
 		}
 		if limit > 0 && len(result) >= limit {
@@ -470,7 +475,11 @@ func (c *Client) GetEOSAssets(ctx context.Context, limit int) ([]EOLAsset, error
 			result = append(result, asset)
 		}
 
-		if !resp.HasMore || resp.LastSeenAssetId == nil {
+		hasMore := false
+		if hm, ok := resp.HasMore.(float64); ok && hm > 0 {
+			hasMore = true
+		}
+		if !hasMore || resp.LastSeenAssetId == nil {
 			break
 		}
 		if limit > 0 && len(result) >= limit {
@@ -539,7 +548,11 @@ func (c *Client) GetEOLHardware(ctx context.Context, limit int) ([]EOLAsset, err
 			result = append(result, asset)
 		}
 
-		if !resp.HasMore || resp.LastSeenAssetId == nil {
+		hasMore := false
+		if hm, ok := resp.HasMore.(float64); ok && hm > 0 {
+			hasMore = true
+		}
+		if !hasMore || resp.LastSeenAssetId == nil {
 			break
 		}
 		if limit > 0 && len(result) >= limit {
