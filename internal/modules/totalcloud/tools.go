@@ -22,6 +22,12 @@ func New(http *common.HTTPClient, gatewayURL string) *Module {
 	}
 }
 
+func NewWithClient(client *Client) *Module {
+	return &Module{
+		client: client,
+	}
+}
+
 func (m *Module) RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcp.NewTool("tc_list_connectors",

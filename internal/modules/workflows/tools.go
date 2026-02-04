@@ -7,10 +7,12 @@ import (
 
 	"github.com/nelssec/qualys-mcp/internal/common"
 	"github.com/nelssec/qualys-mcp/internal/modules/car"
+	"github.com/nelssec/qualys-mcp/internal/modules/compliance"
 	"github.com/nelssec/qualys-mcp/internal/modules/container"
 	"github.com/nelssec/qualys-mcp/internal/modules/gav"
 	"github.com/nelssec/qualys-mcp/internal/modules/knowledgebase"
 	"github.com/nelssec/qualys-mcp/internal/modules/patch"
+	"github.com/nelssec/qualys-mcp/internal/modules/totalcloud"
 	"github.com/nelssec/qualys-mcp/internal/modules/vmdr"
 	"github.com/nelssec/qualys-mcp/internal/modules/was"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -38,6 +40,12 @@ func NewWithWAS(gavClient *gav.Client, vmdrClient *vmdr.Client, kbClient *knowle
 func NewFull(gavClient *gav.Client, vmdrClient *vmdr.Client, kbClient *knowledgebase.Client, pmClient *patch.Client, carClient *car.Client, wasClient *was.Client, containerClient *container.Client) *Module {
 	return &Module{
 		client: NewClientFull(gavClient, vmdrClient, kbClient, pmClient, carClient, wasClient, containerClient),
+	}
+}
+
+func NewComplete(gavClient *gav.Client, vmdrClient *vmdr.Client, kbClient *knowledgebase.Client, pmClient *patch.Client, carClient *car.Client, wasClient *was.Client, containerClient *container.Client, tcClient *totalcloud.Client, pcClient *compliance.Client) *Module {
+	return &Module{
+		client: NewClientComplete(gavClient, vmdrClient, kbClient, pmClient, carClient, wasClient, containerClient, tcClient, pcClient),
 	}
 }
 
@@ -76,6 +84,53 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 			mcp.WithNumber("limit", mcp.Description("Maximum assets to analyze (default: 100)")),
 		),
 		m.getTechDebtSummary,
+	)
+
+	s.AddTool(
+		mcp.NewTool("get_weekly_priorities",
+			mcp.WithDescription("RECOMMENDED: Get prioritized security actions for the week. Combines VMDR vulnerabilities, container security, and patch data to provide: top critical items ranked by severity and asset impact, infrastructure vs container breakdown, effort classification (patch available vs config change vs upgrade needed). Ask 'what should my team fix this week?' to get actionable priorities."),
+			mcp.WithNumber("limit", mcp.Description("Maximum priority items to return (default: 10)")),
+		),
+		m.getWeeklyPriorities,
+	)
+
+	s.AddTool(
+		mcp.NewTool("investigate_cve",
+			mcp.WithDescription("Investigate a specific CVE across your environment. Returns: CVE details from KnowledgeBase, QIDs that detect this CVE, all affected hosts from VMDR, affected container images, available patches, remediation scripts, and manual fix steps. Use this when you need to know 'are we affected by CVE-XXXX?'"),
+			mcp.WithString("cve", mcp.Required(), mcp.Description("The CVE ID to investigate (e.g., 'CVE-2024-1234')")),
+		),
+		m.investigateCVE,
+	)
+
+	s.AddTool(
+		mcp.NewTool("get_security_posture",
+			mcp.WithDescription("Get an executive overview of your security posture. Returns: overall health score (0-100), asset inventory stats, vulnerability counts by severity, container security stats, cloud posture (failed controls by provider), and compliance status. Use this to answer 'how secure are we overall?'"),
+		),
+		m.getSecurityPosture,
+	)
+
+	s.AddTool(
+		mcp.NewTool("get_patch_status",
+			mcp.WithDescription("Get patching coverage analysis. Returns: patch coverage percentage, missing critical patches (count and list), assets missing patches sorted by criticality, recent patch job status, and patchable vs non-patchable vulnerability breakdown. Use this to answer 'what's our patching coverage?'"),
+			mcp.WithNumber("limit", mcp.Description("Maximum items to return per category (default: 20)")),
+		),
+		m.getPatchStatus,
+	)
+
+	s.AddTool(
+		mcp.NewTool("get_compliance_gaps",
+			mcp.WithDescription("Identify compliance gaps that may fail audits. Returns: policy compliance summary with pass/fail rates, top failing controls, assets with most compliance issues, and critical gaps with remediation guidance. Use this to answer 'what will fail our audit?'"),
+			mcp.WithNumber("limit", mcp.Description("Maximum items to return per category (default: 20)")),
+		),
+		m.getComplianceGaps,
+	)
+
+	s.AddTool(
+		mcp.NewTool("get_cloud_risk_summary",
+			mcp.WithDescription("Get cloud security posture across AWS, Azure, and GCP. Returns: cloud accounts overview, failed controls by severity, misconfigurations by resource type, container risks in cloud (EKS/GKE/AKS), recent CDR threat findings, and top risky cloud resources. Use this to answer 'what's our cloud security posture?'"),
+			mcp.WithNumber("limit", mcp.Description("Maximum items to return per category (default: 20)")),
+		),
+		m.getCloudRiskSummary,
 	)
 }
 
@@ -153,6 +208,91 @@ func (m *Module) getTechDebtSummary(ctx context.Context, req mcp.CallToolRequest
 	result, err := m.client.GetTechDebtSummary(ctx, reductionTarget, limit)
 	if err != nil {
 		return newToolResultError(fmt.Sprintf("Failed to get tech debt summary: %v", err)), nil
+	}
+
+	data, _ := json.MarshalIndent(result, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+func (m *Module) getWeeklyPriorities(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	limit := 10
+	if l, ok := req.Params.Arguments["limit"].(float64); ok {
+		limit = int(l)
+	}
+
+	result, err := m.client.GetWeeklyPriorities(ctx, limit)
+	if err != nil {
+		return newToolResultError(fmt.Sprintf("Failed to get weekly priorities: %v", err)), nil
+	}
+
+	data, _ := json.MarshalIndent(result, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+func (m *Module) investigateCVE(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	cve, ok := req.Params.Arguments["cve"].(string)
+	if !ok || cve == "" {
+		return newToolResultError("cve is required"), nil
+	}
+
+	result, err := m.client.InvestigateCVE(ctx, cve)
+	if err != nil {
+		return newToolResultError(fmt.Sprintf("Failed to investigate CVE: %v", err)), nil
+	}
+
+	data, _ := json.MarshalIndent(result, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+func (m *Module) getSecurityPosture(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	result, err := m.client.GetSecurityPosture(ctx)
+	if err != nil {
+		return newToolResultError(fmt.Sprintf("Failed to get security posture: %v", err)), nil
+	}
+
+	data, _ := json.MarshalIndent(result, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+func (m *Module) getPatchStatus(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	limit := 20
+	if l, ok := req.Params.Arguments["limit"].(float64); ok {
+		limit = int(l)
+	}
+
+	result, err := m.client.GetPatchStatus(ctx, limit)
+	if err != nil {
+		return newToolResultError(fmt.Sprintf("Failed to get patch status: %v", err)), nil
+	}
+
+	data, _ := json.MarshalIndent(result, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+func (m *Module) getComplianceGaps(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	limit := 20
+	if l, ok := req.Params.Arguments["limit"].(float64); ok {
+		limit = int(l)
+	}
+
+	result, err := m.client.GetComplianceGaps(ctx, limit)
+	if err != nil {
+		return newToolResultError(fmt.Sprintf("Failed to get compliance gaps: %v", err)), nil
+	}
+
+	data, _ := json.MarshalIndent(result, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+func (m *Module) getCloudRiskSummary(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	limit := 20
+	if l, ok := req.Params.Arguments["limit"].(float64); ok {
+		limit = int(l)
+	}
+
+	result, err := m.client.GetCloudRiskSummary(ctx, limit)
+	if err != nil {
+		return newToolResultError(fmt.Sprintf("Failed to get cloud risk summary: %v", err)), nil
 	}
 
 	data, _ := json.MarshalIndent(result, "", "  ")

@@ -77,6 +77,8 @@ func (s *Server) registerModules() {
 	var carClient *car.Client
 	var wasClient *was.Client
 	var containerClient *container.Client
+	var tcClient *totalcloud.Client
+	var pcClient *compliance.Client
 
 	if s.config.IsModuleEnabled("vmdr") {
 		vmdrClient = vmdr.NewClient(s.http, s.config.BaseURL)
@@ -103,7 +105,8 @@ func (s *Server) registerModules() {
 	}
 
 	if s.config.IsModuleEnabled("totalcloud") && s.gatewayHTTP != nil {
-		tcModule := totalcloud.New(s.gatewayHTTP, s.config.GatewayURL)
+		tcClient = totalcloud.NewClient(s.gatewayHTTP, s.config.GatewayURL)
+		tcModule := totalcloud.NewWithClient(tcClient)
 		tcModule.RegisterTools(s.mcp)
 	}
 
@@ -130,7 +133,8 @@ func (s *Server) registerModules() {
 	}
 
 	if s.config.IsModuleEnabled("compliance") {
-		pcModule := compliance.New(s.http, s.config.BaseURL)
+		pcClient = compliance.NewClient(s.http, s.config.BaseURL)
+		pcModule := compliance.NewWithClient(pcClient)
 		pcModule.RegisterTools(s.mcp)
 	}
 
@@ -146,7 +150,7 @@ func (s *Server) registerModules() {
 	}
 
 	if s.config.IsModuleEnabled("workflows") {
-		workflowsModule := workflows.NewFull(gavClient, vmdrClient, kbClient, pmClient, carClient, wasClient, containerClient)
+		workflowsModule := workflows.NewComplete(gavClient, vmdrClient, kbClient, pmClient, carClient, wasClient, containerClient, tcClient, pcClient)
 		workflowsModule.RegisterTools(s.mcp)
 	}
 }
