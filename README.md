@@ -14,7 +14,7 @@ A secure, production-ready Model Context Protocol (MCP) server for Qualys APIs, 
 
 ## Features
 
-- **61 MCP Tools** across 13 Qualys modules
+- **69 MCP Tools** across 13 Qualys modules
 - **Multi-Cloud Support** - AWS, Azure, GCP, and OCI
 - **MCP Gateway** with authentication, authorization, and audit logging
 - **JWT/OIDC Authentication** - integrate with Okta, Azure AD, or any OIDC provider
@@ -41,7 +41,7 @@ A secure, production-ready Model Context Protocol (MCP) server for Qualys APIs, 
 | CertView | 5 | SSL/TLS certificates, expiration, endpoints |
 | CAR | 6 | Custom assessment and remediation scripts |
 | Workflows | 3 | Cross-module risk summaries, remediation plans, external risk prioritization |
-| **Total** | **61** | |
+| **Total** | **69** | |
 
 ## Quick Start
 
