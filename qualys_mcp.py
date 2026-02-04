@@ -116,15 +116,12 @@ def get_assets(limit=100, qql=None):
         return []
 
 
-def get_eol_assets(stage_filter="EOL,EOL/EOS", limit=500):
+def get_eol_assets_by_qql(qql_filter, limit=500):
+    """Query assets using QQL filter syntax"""
     url = f"{GATEWAY_URL}/rest/2.0/search/am/asset?pageSize={limit}"
     token = get_bearer_token()
 
-    filter_body = json.dumps({
-        "filters": [
-            {"field": "operatingSystem.lifecycle.stage", "operator": "IN", "value": stage_filter}
-        ]
-    })
+    filter_body = json.dumps({"filter": qql_filter})
 
     req = Request(url, data=filter_body.encode(), method='POST')
     req.add_header('Authorization', f'Bearer {token}' if token else f'Basic {BASIC_AUTH}')
@@ -133,30 +130,57 @@ def get_eol_assets(stage_filter="EOL,EOL/EOS", limit=500):
 
     try:
         with urlopen(req, timeout=60) as resp:
-            data = json.loads(resp.read())
-            assets = []
-            for a in data.get('assetListData', {}).get('asset', []):
-                os_info = a.get('operatingSystem', {}) or {}
-                lifecycle = os_info.get('lifecycle', {}) or {}
-                os_name = os_info.get('osName', '') or os_info.get('fullName', '') or ''
-                if os_info.get('version'):
-                    os_name = f"{os_name} {os_info.get('version', '')}".strip()
-                assets.append({
-                    'assetId': a.get('assetId'),
-                    'address': a.get('address', ''),
-                    'dnsName': a.get('dnsHostName', ''),
-                    'operatingSystem': {
-                        'osName': os_name,
-                        'lifecycle': {
-                            'stage': lifecycle.get('stage', ''),
-                            'eolDate': lifecycle.get('eolDate', ''),
-                            'eosDate': lifecycle.get('eosDate', '')
-                        }
-                    }
-                })
-            return assets
-    except Exception as e:
+            return json.loads(resp.read()).get('assetListData', {}).get('asset', [])
+    except:
         return []
+
+
+def get_all_eol_assets(limit=300):
+    """Get all EOL/EOS assets across OS, hardware, and software"""
+    results = {'os': [], 'hardware': [], 'software': []}
+
+    os_assets = get_eol_assets_by_qql("operatingSystem.lifecycle.stage:EOL or operatingSystem.lifecycle.stage:EOS or operatingSystem.lifecycle.stage:`EOL/EOS`", limit)
+    for a in os_assets:
+        os_info = a.get('operatingSystem', {}) or {}
+        lifecycle = os_info.get('lifecycle', {}) or {}
+        results['os'].append({
+            'assetId': a.get('assetId'),
+            'address': a.get('address', ''),
+            'dnsName': a.get('dnsHostName', '') or a.get('dnsName', ''),
+            'type': 'os',
+            'name': os_info.get('osName', '') or os_info.get('fullName', '') or 'Unknown',
+            'stage': lifecycle.get('stage', ''),
+            'eolDate': lifecycle.get('eolDate', ''),
+            'eosDate': lifecycle.get('eosDate', '')
+        })
+
+    hw_assets = get_eol_assets_by_qql("hardware.lifecycle.stage:EOS or hardware.lifecycle.stage:EOL", limit)
+    for a in hw_assets:
+        hw_info = a.get('hardware', {}) or {}
+        lifecycle = hw_info.get('lifecycle', {}) or {}
+        results['hardware'].append({
+            'assetId': a.get('assetId'),
+            'address': a.get('address', ''),
+            'dnsName': a.get('dnsHostName', '') or a.get('dnsName', ''),
+            'type': 'hardware',
+            'name': hw_info.get('model', '') or hw_info.get('name', '') or 'Unknown',
+            'stage': lifecycle.get('stage', ''),
+            'eolDate': lifecycle.get('eolDate', ''),
+            'eosDate': lifecycle.get('eosDate', '')
+        })
+
+    sw_assets = get_eol_assets_by_qql("software:(lifecycle.stage:EOL)", limit)
+    for a in sw_assets:
+        results['software'].append({
+            'assetId': a.get('assetId'),
+            'address': a.get('address', ''),
+            'dnsName': a.get('dnsHostName', '') or a.get('dnsName', ''),
+            'type': 'software',
+            'name': 'Has EOL software',
+            'stage': 'EOL'
+        })
+
+    return results
 
 
 def get_images(limit=100, severity=None):
@@ -537,85 +561,50 @@ def get_asset_risk(asset_id: str) -> dict:
 
 @mcp.tool()
 def get_tech_debt(days_until_eol: int = 0) -> dict:
-    """Get EOL/EOS software across your environment. Use days_until_eol to find software approaching end-of-life (e.g., 90 for next 90 days). Returns current EOL/EOS plus upcoming."""
+    """Get EOL/EOS across OS, hardware, and software. Use days_until_eol to find items approaching end-of-life."""
     result = {
-        'stats': {'total': 0, 'currentEOL': 0, 'currentEOS': 0, 'approachingEOL': 0},
-        'currentEOL': [],
-        'currentEOS': [],
-        'approachingEOL': [],
-        'byOS': [],
-        'debug': {'stages_seen': set(), 'parse_errors': 0}
+        'stats': {'osEOL': 0, 'osEOS': 0, 'hardwareEOL': 0, 'softwareEOL': 0, 'total': 0},
+        'os': [],
+        'hardware': [],
+        'software': [],
+        'byCategory': {}
     }
 
-    assets = get_eol_assets("EOL,EOL/EOS,EOS", 500)
-    result['stats']['total'] = len(assets)
+    all_eol = get_all_eol_assets(300)
 
-    today = datetime.utcnow().date()
-    cutoff = today + timedelta(days=days_until_eol) if days_until_eol > 0 else None
-
-    os_data = {}
-
-    for a in assets:
-        os_info = a.get('operatingSystem', {})
-        if not isinstance(os_info, dict):
-            result['debug']['parse_errors'] += 1
-            continue
-
-        os_name = os_info.get('osName', '') or 'Unknown'
-        lc = os_info.get('lifecycle', {})
-        if not isinstance(lc, dict):
-            result['debug']['parse_errors'] += 1
-            continue
-
-        stage = (lc.get('stage', '') or '').upper()
-        result['debug']['stages_seen'].add(stage)
-        eol_date = lc.get('eolDate', '') or ''
-        eos_date = lc.get('eosDate', '') or ''
-
-        asset_info = {
-            'assetId': a.get('assetId'),
-            'ip': a.get('address', ''),
-            'hostname': a.get('dnsName', ''),
-            'os': os_name,
-            'stage': stage,
-            'eolDate': eol_date,
-            'eosDate': eos_date
-        }
-
-        if os_name not in os_data:
-            os_data[os_name] = {'eol': 0, 'eos': 0, 'approaching': 0, 'eolDate': eol_date, 'eosDate': eos_date}
-
+    for item in all_eol['os']:
+        stage = (item.get('stage', '') or '').upper()
         if 'EOL' in stage and 'EOS' not in stage:
-            result['stats']['currentEOL'] += 1
-            os_data[os_name]['eol'] += 1
-            if len(result['currentEOL']) < 20:
-                result['currentEOL'].append(asset_info)
-        elif 'EOS' in stage or 'EOL/EOS' in stage:
-            result['stats']['currentEOS'] += 1
-            os_data[os_name]['eos'] += 1
-            if len(result['currentEOS']) < 20:
-                result['currentEOS'].append(asset_info)
-        elif cutoff and eol_date:
-            try:
-                eol = datetime.strptime(eol_date[:10], '%Y-%m-%d').date()
-                if today < eol <= cutoff:
-                    result['stats']['approachingEOL'] += 1
-                    os_data[os_name]['approaching'] += 1
-                    days_left = (eol - today).days
-                    asset_info['daysUntilEOL'] = days_left
-                    if len(result['approachingEOL']) < 20:
-                        result['approachingEOL'].append(asset_info)
-            except:
-                pass
+            result['stats']['osEOL'] += 1
+        else:
+            result['stats']['osEOS'] += 1
+        if len(result['os']) < 20:
+            result['os'].append(item)
 
-    result['byOS'] = [
-        {'os': k, 'eolCount': v['eol'], 'eosCount': v['eos'], 'approachingCount': v['approaching'],
-         'eolDate': v['eolDate'], 'eosDate': v['eosDate']}
-        for k, v in sorted(os_data.items(), key=lambda x: x[1]['eol'] + x[1]['eos'] + x[1]['approaching'], reverse=True)[:15]
-        if v['eol'] + v['eos'] + v['approaching'] > 0
-    ]
+    for item in all_eol['hardware']:
+        result['stats']['hardwareEOL'] += 1
+        if len(result['hardware']) < 20:
+            result['hardware'].append(item)
 
-    result['debug']['stages_seen'] = list(result['debug']['stages_seen'])
+    sw_by_name = {}
+    for item in all_eol['software']:
+        name = item.get('name', 'Unknown')
+        if name not in sw_by_name:
+            sw_by_name[name] = {'name': name, 'version': item.get('version', ''), 'count': 0, 'stage': item.get('stage', '')}
+        sw_by_name[name]['count'] += 1
+        result['stats']['softwareEOL'] += 1
+
+    result['software'] = sorted(sw_by_name.values(), key=lambda x: x['count'], reverse=True)[:20]
+
+    result['stats']['total'] = (result['stats']['osEOL'] + result['stats']['osEOS'] +
+                                 result['stats']['hardwareEOL'] + result['stats']['softwareEOL'])
+
+    result['byCategory'] = {
+        'operatingSystem': len(all_eol['os']),
+        'hardware': len(all_eol['hardware']),
+        'software': len(all_eol['software'])
+    }
+
     return result
 
 
