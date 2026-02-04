@@ -137,6 +137,8 @@ func (c *Client) ListAssets(ctx context.Context, filter string, limit int) ([]As
 		hasMore := false
 		if hm, ok := resp.HasMore.(bool); ok {
 			hasMore = hm
+		} else if hm, ok := resp.HasMore.(float64); ok && hm > 0 {
+			hasMore = true
 		}
 
 		if !hasMore || resp.LastSeenAsset == nil {
