@@ -597,16 +597,62 @@ def get_asset_risk(asset_id: str) -> dict:
     return result
 
 
-@mcp.tool()
-def get_tech_debt(days_until_eol: int = 0) -> dict:
-    """Get EOL/EOS operating systems and hardware. Returns sample assets with EOL/EOS status."""
-    result = {'os': [], 'hardware': []}
+def get_criticality(asset):
+    """Extract criticality score from asset"""
+    crit = asset.get('criticality')
+    if isinstance(crit, dict):
+        return crit.get('score', 0) or 0
+    return crit or 0
 
-    samples = get_all_eol_assets(15)
-    result['os'] = samples['os']
-    result['hardware'] = samples['hardware']
-    result['osCount'] = len(samples['os'])
-    result['hardwareCount'] = len(samples['hardware'])
+
+@mcp.tool()
+def get_tech_debt(limit: int = 100) -> dict:
+    """Get all EOL/EOS operating systems and hardware, sorted by criticality and risk score."""
+    result = {'os': [], 'hardware': []}
+    seen = set()
+
+    for a in get_eol_assets_by_qql("operatingSystem.lifecycle.stage:`EOL/EOS`", limit * 10):
+        aid = a.get('assetId')
+        if aid in seen:
+            continue
+        os_info = a.get('operatingSystem', {}) or {}
+        lifecycle = os_info.get('lifecycle', {}) or {}
+        stage = lifecycle.get('stage', '')
+        if is_eol_stage(stage) and len(result['os']) < limit:
+            seen.add(aid)
+            result['os'].append({
+                'assetId': aid,
+                'address': a.get('address', ''),
+                'hostname': a.get('dnsHostName', '') or a.get('dnsName', ''),
+                'os': os_info.get('osName', '') or 'Unknown',
+                'stage': stage,
+                'criticality': get_criticality(a),
+                'riskScore': a.get('assetRiskScore') or 0
+            })
+
+    seen.clear()
+    for a in get_eol_assets_by_qql("hardware.lifecycle.stage:`EOL/EOS`", limit * 10):
+        aid = a.get('assetId')
+        if aid in seen:
+            continue
+        hw_info = a.get('hardware', {}) or {}
+        lifecycle = hw_info.get('lifecycle', {}) or {}
+        stage = lifecycle.get('stage', '')
+        if is_eol_stage(stage) and len(result['hardware']) < limit:
+            seen.add(aid)
+            result['hardware'].append({
+                'assetId': aid,
+                'address': a.get('address', ''),
+                'hostname': a.get('dnsHostName', '') or a.get('dnsName', ''),
+                'hardware': hw_info.get('model', '') or 'Unknown',
+                'stage': stage,
+                'criticality': get_criticality(a),
+                'riskScore': a.get('assetRiskScore') or 0
+            })
+
+    result['os'].sort(key=lambda x: (-x['criticality'], -x['riskScore']))
+    result['hardware'].sort(key=lambda x: (-x['criticality'], -x['riskScore']))
+    result['summary'] = {'osEOL': len(result['os']), 'hardwareEOL': len(result['hardware'])}
 
     return result
 
