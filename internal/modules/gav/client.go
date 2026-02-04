@@ -101,45 +101,70 @@ type TagListResponse struct {
 func (c *Client) ListAssets(ctx context.Context, filter string, limit int) ([]Asset, error) {
 	endpoint := fmt.Sprintf("%s/am/v1/assets/host/list", c.gatewayURL)
 
-	params := url.Values{}
-	params.Set("pageSize", fmt.Sprintf("%d", limit))
-	if filter != "" {
-		params.Set("filter", filter)
+	var result []Asset
+	var lastSeenID interface{}
+	pageSize := 300
+	if limit > 0 && limit < pageSize {
+		pageSize = limit
+	}
+	maxAssets := 10000
+	if limit > 0 && limit < maxAssets {
+		maxAssets = limit
 	}
 
-	data, err := c.http.Post(ctx, endpoint+"?"+params.Encode(), nil, "")
+	for {
+		params := url.Values{}
+		params.Set("pageSize", fmt.Sprintf("%d", pageSize))
+		if filter != "" {
+			params.Set("filter", filter)
+		}
+		if lastSeenID != nil {
+			params.Set("lastSeenAssetId", fmt.Sprintf("%v", lastSeenID))
+		}
+
+		data, err := c.http.Post(ctx, endpoint+"?"+params.Encode(), nil, "")
+		if err != nil {
+			return nil, err
+		}
+
+		var resp HostListResponse
+		if err := json.Unmarshal(data, &resp); err != nil {
+			return nil, fmt.Errorf("parse response: %w", err)
+		}
+
+		result = append(result, resp.AssetListData.Asset...)
+
+		hasMore := false
+		if hm, ok := resp.HasMore.(bool); ok {
+			hasMore = hm
+		}
+
+		if !hasMore || resp.LastSeenAsset == nil {
+			break
+		}
+		if len(result) >= maxAssets {
+			break
+		}
+		lastSeenID = resp.LastSeenAsset
+	}
+
+	if limit > 0 && len(result) > limit {
+		result = result[:limit]
+	}
+
+	return result, nil
+}
+
+func (c *Client) CountAssets(ctx context.Context, filter string) (int, error) {
+	assets, err := c.ListAssets(ctx, filter, 0)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-
-	var resp HostListResponse
-	if err := json.Unmarshal(data, &resp); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-
-	return resp.AssetListData.Asset, nil
+	return len(assets), nil
 }
 
 func (c *Client) SearchAssets(ctx context.Context, query string, limit int) ([]Asset, error) {
-	endpoint := fmt.Sprintf("%s/am/v1/assets/host/list", c.gatewayURL)
-
-	params := url.Values{}
-	params.Set("pageSize", fmt.Sprintf("%d", limit))
-	if query != "" {
-		params.Set("filter", query)
-	}
-
-	data, err := c.http.Post(ctx, endpoint+"?"+params.Encode(), nil, "")
-	if err != nil {
-		return nil, err
-	}
-
-	var resp HostListResponse
-	if err := json.Unmarshal(data, &resp); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-
-	return resp.AssetListData.Asset, nil
+	return c.ListAssets(ctx, query, limit)
 }
 
 func (c *Client) GetAssetDetails(ctx context.Context, assetID string) (*AssetDetails, error) {

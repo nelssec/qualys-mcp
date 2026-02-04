@@ -713,9 +713,9 @@ func (c *Client) GetTechDebtSummary(ctx context.Context, reductionTarget float64
 	var criticalAssets []TechDebtAsset
 
 	if c.gav != nil {
-		allAssets, err := c.gav.ListAssets(ctx, "", 300)
+		totalCount, err := c.gav.CountAssets(ctx, "")
 		if err == nil {
-			summary.Stats.TotalAssets = len(allAssets)
+			summary.Stats.TotalAssets = totalCount
 		}
 
 		eolAssets, err := c.gav.GetEOLAssets(ctx, limit)
