@@ -27,8 +27,10 @@ BASIC_AUTH = base64.b64encode(f"{USERNAME}:{PASSWORD}".encode()).decode()
 BEARER_TOKEN = None
 
 
+AUTH_ERROR = None
+
 def get_bearer_token():
-    global BEARER_TOKEN
+    global BEARER_TOKEN, AUTH_ERROR
     if BEARER_TOKEN:
         return BEARER_TOKEN
     try:
@@ -37,8 +39,10 @@ def get_bearer_token():
         req.add_header('Content-Type', 'application/x-www-form-urlencoded')
         with urlopen(req, timeout=30) as resp:
             BEARER_TOKEN = resp.read().decode().strip()
+            AUTH_ERROR = None
             return BEARER_TOKEN
-    except:
+    except Exception as e:
+        AUTH_ERROR = str(e)
         return None
 
 
@@ -816,9 +820,13 @@ def debug_api(endpoint: str = "eol") -> dict:
     result = {'endpoint': endpoint, 'gateway_url': GATEWAY_URL, 'base_url': BASE_URL}
 
     if endpoint == 'auth':
+        result['username_set'] = bool(USERNAME)
+        result['password_set'] = bool(PASSWORD)
+        result['auth_url'] = f"{GATEWAY_URL}/auth"
         token = get_bearer_token()
         result['token_obtained'] = bool(token)
         result['token_preview'] = token[:20] + '...' if token else None
+        result['auth_error'] = AUTH_ERROR
         return result
 
     if endpoint == 'assets':
