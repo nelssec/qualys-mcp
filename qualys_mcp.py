@@ -93,8 +93,12 @@ def get_cve_qids(cve):
         return []
 
 
-def get_assets(limit=100):
-    data = api_get(f"{GATEWAY_URL}/am/v1/assets?pageSize={limit}", gateway=True)
+def get_assets(limit=100, qql=None):
+    url = f"{GATEWAY_URL}/am/v1/assets?pageSize={limit}"
+    if qql:
+        from urllib.parse import quote
+        url += f"&filter={quote(qql)}"
+    data = api_get(url, gateway=True)
     try:
         return json.loads(data).get('assetListData', {}).get('asset', []) if data else []
     except:
@@ -144,6 +148,111 @@ def get_cdr(days=7, limit=100):
         return json.loads(data).get('content', []) if data else []
     except:
         return []
+
+
+def get_image_details(image_id):
+    data = api_get(f"{GATEWAY_URL}/csapi/v1.3/images/{image_id}", gateway=True)
+    try:
+        return json.loads(data) if data else None
+    except:
+        return None
+
+
+def get_image_vulns_api(image_id):
+    data = api_get(f"{GATEWAY_URL}/csapi/v1.3/images/{image_id}/vuln", gateway=True)
+    try:
+        return json.loads(data).get('data', []) if data else []
+    except:
+        return []
+
+
+def get_certificates(limit=100, days_expiring=None):
+    url = f"{GATEWAY_URL}/certview/v1/certificates?pageSize={limit}"
+    if days_expiring:
+        future = (datetime.utcnow() + timedelta(days=days_expiring)).strftime('%Y-%m-%d')
+        url += f"&filter=validTo:<{future}"
+    data = api_get(url, gateway=True)
+    try:
+        return json.loads(data).get('data', []) if data else []
+    except:
+        return []
+
+
+def get_fim_events(limit=100, days=7):
+    end = datetime.utcnow()
+    start = end - timedelta(days=days)
+    data = api_get(f"{BASE_URL}/fim/v2/events?filter=dateTime:[{start.strftime('%Y-%m-%dT%H:%M:%SZ')}...{end.strftime('%Y-%m-%dT%H:%M:%SZ')}]&pageSize={limit}")
+    try:
+        return json.loads(data).get('data', []) if data else []
+    except:
+        return []
+
+
+def get_edr_events(limit=100, severity=None):
+    url = f"{GATEWAY_URL}/edr/v1/events?pageSize={limit}"
+    if severity:
+        url += f"&filter=severity:{severity}"
+    data = api_get(url, gateway=True)
+    try:
+        return json.loads(data).get('data', []) if data else []
+    except:
+        return []
+
+
+def get_was_findings(limit=100, severity=None):
+    url = f"{BASE_URL}/qps/rest/3.0/search/was/finding"
+    criteria = "<ServiceRequest><filters><Criteria field=\"status\" operator=\"EQUALS\">ACTIVE</Criteria>"
+    if severity:
+        criteria += f"<Criteria field=\"severity\" operator=\"EQUALS\">{severity}</Criteria>"
+    criteria += f"</filters><preferences><limitResults>{limit}</limitResults></preferences></ServiceRequest>"
+
+    from urllib.request import Request
+    req = Request(url, data=criteria.encode(), method='POST')
+    req.add_header('Authorization', f'Basic {BASIC_AUTH}')
+    req.add_header('Content-Type', 'text/xml')
+    req.add_header('X-Requested-With', 'qualys-mcp')
+    try:
+        with urlopen(req, timeout=60) as resp:
+            root = ET.fromstring(resp.read())
+            findings = []
+            for f in root.findall('.//Finding'):
+                findings.append({
+                    'id': f.findtext('id', ''),
+                    'qid': f.findtext('qid', ''),
+                    'name': f.findtext('name', ''),
+                    'severity': int(f.findtext('severity', '0')),
+                    'url': f.findtext('url', ''),
+                    'webAppId': f.findtext('webApp/id', ''),
+                    'webAppName': f.findtext('webApp/name', '')
+                })
+            return findings
+    except:
+        return []
+
+
+def get_was_webapps(limit=100):
+    data = api_get(f"{BASE_URL}/qps/rest/3.0/count/was/webapp")
+    webapps = []
+    url = f"{BASE_URL}/qps/rest/3.0/search/was/webapp"
+    criteria = f"<ServiceRequest><preferences><limitResults>{limit}</limitResults></preferences></ServiceRequest>"
+
+    from urllib.request import Request
+    req = Request(url, data=criteria.encode(), method='POST')
+    req.add_header('Authorization', f'Basic {BASIC_AUTH}')
+    req.add_header('Content-Type', 'text/xml')
+    req.add_header('X-Requested-With', 'qualys-mcp')
+    try:
+        with urlopen(req, timeout=60) as resp:
+            root = ET.fromstring(resp.read())
+            for wa in root.findall('.//WebApp'):
+                webapps.append({
+                    'id': wa.findtext('id', ''),
+                    'name': wa.findtext('name', ''),
+                    'url': wa.findtext('url', '')
+                })
+    except:
+        pass
+    return webapps
 
 
 @mcp.tool()
@@ -358,28 +467,281 @@ def get_asset_risk(asset_id: str) -> dict:
 
 
 @mcp.tool()
-def get_tech_debt(reduction_target: float = 30) -> dict:
-    """Get EOL/EOS software tech debt and a plan to reduce it by target percentage."""
-    result = {'stats': {'total': 0, 'eol': 0, 'percent': 0}, 'eolSystems': [], 'plan': {'target': reduction_target, 'toFix': 0}}
+def get_tech_debt(days_until_eol: int = 0) -> dict:
+    """Get EOL/EOS software across your environment. Use days_until_eol to find software approaching end-of-life (e.g., 90 for next 90 days). Returns current EOL/EOS plus upcoming."""
+    result = {
+        'stats': {'total': 0, 'currentEOL': 0, 'currentEOS': 0, 'approachingEOL': 0},
+        'currentEOL': [],
+        'currentEOS': [],
+        'approachingEOL': [],
+        'byOS': []
+    }
 
     assets = get_assets(500)
     result['stats']['total'] = len(assets)
 
-    os_counts = {}
+    today = datetime.utcnow().date()
+    cutoff = today + timedelta(days=days_until_eol) if days_until_eol > 0 else None
+
+    os_data = {}
+
     for a in assets:
         os_info = a.get('operatingSystem', {})
-        if isinstance(os_info, dict):
-            lc = os_info.get('lifecycle', {})
-            if isinstance(lc, dict) and lc.get('stage') in ['EOL', 'EOS']:
-                result['stats']['eol'] += 1
-                name = os_info.get('osName', 'Unknown')
-                os_counts[name] = os_counts.get(name, 0) + 1
+        if not isinstance(os_info, dict):
+            continue
 
-    if result['stats']['total']:
-        result['stats']['percent'] = round(result['stats']['eol'] / result['stats']['total'] * 100, 1)
+        os_name = os_info.get('osName', 'Unknown')
+        lc = os_info.get('lifecycle', {})
+        if not isinstance(lc, dict):
+            continue
 
-    result['eolSystems'] = [{'os': k, 'count': v} for k, v in sorted(os_counts.items(), key=lambda x: x[1], reverse=True)[:10]]
-    result['plan']['toFix'] = int(result['stats']['eol'] * (reduction_target / 100))
+        stage = lc.get('stage', '')
+        eol_date = lc.get('eolDate', '')
+        eos_date = lc.get('eosDate', '')
+
+        asset_info = {
+            'assetId': a.get('assetId'),
+            'ip': a.get('address', ''),
+            'hostname': a.get('dnsName', ''),
+            'os': os_name,
+            'eolDate': eol_date,
+            'eosDate': eos_date
+        }
+
+        if os_name not in os_data:
+            os_data[os_name] = {'eol': 0, 'eos': 0, 'approaching': 0, 'eolDate': eol_date, 'eosDate': eos_date}
+
+        if stage == 'EOL':
+            result['stats']['currentEOL'] += 1
+            os_data[os_name]['eol'] += 1
+            if len(result['currentEOL']) < 20:
+                result['currentEOL'].append(asset_info)
+        elif stage == 'EOS':
+            result['stats']['currentEOS'] += 1
+            os_data[os_name]['eos'] += 1
+            if len(result['currentEOS']) < 20:
+                result['currentEOS'].append(asset_info)
+        elif cutoff and eol_date:
+            try:
+                eol = datetime.strptime(eol_date[:10], '%Y-%m-%d').date()
+                if today < eol <= cutoff:
+                    result['stats']['approachingEOL'] += 1
+                    os_data[os_name]['approaching'] += 1
+                    days_left = (eol - today).days
+                    asset_info['daysUntilEOL'] = days_left
+                    if len(result['approachingEOL']) < 20:
+                        result['approachingEOL'].append(asset_info)
+            except:
+                pass
+
+    result['byOS'] = [
+        {'os': k, 'eolCount': v['eol'], 'eosCount': v['eos'], 'approachingCount': v['approaching'],
+         'eolDate': v['eolDate'], 'eosDate': v['eosDate']}
+        for k, v in sorted(os_data.items(), key=lambda x: x[1]['eol'] + x[1]['eos'] + x[1]['approaching'], reverse=True)[:15]
+        if v['eol'] + v['eos'] + v['approaching'] > 0
+    ]
+
+    return result
+
+
+@mcp.tool()
+def get_image_vulns(image_id: str, limit: int = 50) -> dict:
+    """Get vulnerabilities for a specific container image. Returns severity breakdown and top vulns."""
+    result = {
+        'imageId': image_id,
+        'repo': '',
+        'tag': '',
+        'stats': {'critical': 0, 'high': 0, 'medium': 0, 'low': 0, 'total': 0},
+        'vulns': []
+    }
+
+    img = get_image_details(image_id)
+    if img:
+        result['repo'] = img.get('repo', '')
+        result['tag'] = img.get('tag', '')
+        result['created'] = img.get('created', '')
+
+    vulns = get_image_vulns_api(image_id)
+    for v in vulns[:limit]:
+        sev = v.get('severity', 0)
+        if sev == 5:
+            result['stats']['critical'] += 1
+        elif sev == 4:
+            result['stats']['high'] += 1
+        elif sev == 3:
+            result['stats']['medium'] += 1
+        else:
+            result['stats']['low'] += 1
+
+        result['vulns'].append({
+            'qid': v.get('qid'),
+            'cve': v.get('cveId', ''),
+            'severity': sev,
+            'title': v.get('title', ''),
+            'fixVersion': v.get('fixedVersion', '')
+        })
+
+    result['stats']['total'] = len(vulns)
+    result['vulns'] = sorted(result['vulns'], key=lambda x: x['severity'], reverse=True)[:limit]
+    return result
+
+
+@mcp.tool()
+def get_expiring_certs(days: int = 30, limit: int = 50) -> dict:
+    """Get SSL/TLS certificates expiring within specified days. Default 30 days."""
+    result = {
+        'days': days,
+        'stats': {'expiring': 0, 'expired': 0, 'valid': 0},
+        'expiring': [],
+        'expired': []
+    }
+
+    today = datetime.utcnow()
+    cutoff = today + timedelta(days=days)
+
+    certs = get_certificates(limit * 2, days)
+    for c in certs:
+        cert_info = {
+            'id': c.get('id', ''),
+            'subject': c.get('subject', {}).get('commonName', ''),
+            'issuer': c.get('issuer', {}).get('commonName', ''),
+            'validTo': c.get('validTo', ''),
+            'hosts': [h.get('hostname', '') for h in c.get('hosts', [])[:5]]
+        }
+
+        valid_to = c.get('validTo', '')
+        if valid_to:
+            try:
+                exp_date = datetime.strptime(valid_to[:10], '%Y-%m-%d')
+                days_left = (exp_date - today).days
+                cert_info['daysUntilExpiry'] = days_left
+
+                if days_left < 0:
+                    result['stats']['expired'] += 1
+                    if len(result['expired']) < limit:
+                        result['expired'].append(cert_info)
+                elif days_left <= days:
+                    result['stats']['expiring'] += 1
+                    if len(result['expiring']) < limit:
+                        result['expiring'].append(cert_info)
+                else:
+                    result['stats']['valid'] += 1
+            except:
+                pass
+
+    result['expiring'] = sorted(result['expiring'], key=lambda x: x.get('daysUntilExpiry', 999))
+    result['expired'] = sorted(result['expired'], key=lambda x: x.get('daysUntilExpiry', 0))
+    return result
+
+
+@mcp.tool()
+def get_threats(days: int = 7, limit: int = 50) -> dict:
+    """Get combined threat view from FIM (file integrity), EDR (endpoint), and CDR (cloud detection). Returns recent security events."""
+    result = {
+        'days': days,
+        'stats': {'fim': 0, 'edr': 0, 'cdr': 0, 'critical': 0, 'high': 0},
+        'fim': [],
+        'edr': [],
+        'cdr': []
+    }
+
+    fim_events = get_fim_events(limit, days)
+    for e in fim_events:
+        sev = e.get('severity', '')
+        if sev in ['CRITICAL', '5']:
+            result['stats']['critical'] += 1
+        elif sev in ['HIGH', '4']:
+            result['stats']['high'] += 1
+        result['fim'].append({
+            'action': e.get('action', ''),
+            'path': e.get('filePath', ''),
+            'hostname': e.get('hostname', ''),
+            'dateTime': e.get('dateTime', ''),
+            'severity': sev
+        })
+    result['stats']['fim'] = len(fim_events)
+
+    edr_events = get_edr_events(limit, 'Critical')
+    edr_events += get_edr_events(limit, 'High')
+    for e in edr_events[:limit]:
+        sev = e.get('severity', '')
+        if sev == 'Critical':
+            result['stats']['critical'] += 1
+        elif sev == 'High':
+            result['stats']['high'] += 1
+        result['edr'].append({
+            'type': e.get('eventType', ''),
+            'process': e.get('processName', ''),
+            'hostname': e.get('hostname', ''),
+            'dateTime': e.get('dateTime', ''),
+            'severity': sev
+        })
+    result['stats']['edr'] = len(edr_events)
+
+    cdr_findings = get_cdr(days, limit)
+    for f in cdr_findings:
+        sev = str(f.get('severity', ''))
+        if sev in ['CRITICAL', '5']:
+            result['stats']['critical'] += 1
+        elif sev in ['HIGH', '4']:
+            result['stats']['high'] += 1
+        result['cdr'].append({
+            'category': f.get('category', ''),
+            'resource': f.get('resourceId', ''),
+            'provider': f.get('cloudProvider', ''),
+            'dateTime': f.get('createdAt', ''),
+            'severity': sev
+        })
+    result['stats']['cdr'] = len(cdr_findings)
+
+    return result
+
+
+@mcp.tool()
+def get_webapp_vulns(severity: int = 4, limit: int = 50) -> dict:
+    """Get web application vulnerabilities from WAS scans. Default severity 4+ (high/critical)."""
+    result = {
+        'minSeverity': severity,
+        'stats': {'critical': 0, 'high': 0, 'medium': 0, 'total': 0, 'webApps': 0},
+        'vulns': [],
+        'byWebApp': []
+    }
+
+    findings = get_was_findings(limit * 2, severity)
+    webapp_vulns = {}
+
+    for f in findings:
+        sev = f.get('severity', 0)
+        if sev >= 5:
+            result['stats']['critical'] += 1
+        elif sev >= 4:
+            result['stats']['high'] += 1
+        elif sev >= 3:
+            result['stats']['medium'] += 1
+
+        webapp_id = f.get('webAppId', '')
+        webapp_name = f.get('webAppName', '')
+        if webapp_id:
+            if webapp_id not in webapp_vulns:
+                webapp_vulns[webapp_id] = {'id': webapp_id, 'name': webapp_name, 'critical': 0, 'high': 0, 'total': 0}
+            webapp_vulns[webapp_id]['total'] += 1
+            if sev >= 5:
+                webapp_vulns[webapp_id]['critical'] += 1
+            elif sev >= 4:
+                webapp_vulns[webapp_id]['high'] += 1
+
+        result['vulns'].append({
+            'qid': f.get('qid'),
+            'name': f.get('name', ''),
+            'severity': sev,
+            'url': f.get('url', ''),
+            'webApp': webapp_name
+        })
+
+    result['stats']['total'] = len(findings)
+    result['stats']['webApps'] = len(webapp_vulns)
+    result['vulns'] = sorted(result['vulns'], key=lambda x: x['severity'], reverse=True)[:limit]
+    result['byWebApp'] = sorted(webapp_vulns.values(), key=lambda x: (x['critical'], x['high'], x['total']), reverse=True)[:20]
     return result
 
 

@@ -1,6 +1,6 @@
 # Qualys MCP Server
 
-A lightweight MCP server for Qualys security data - **8 tools** that answer your security questions.
+A lightweight MCP server for Qualys security data - **12 tools** that answer your security questions.
 
 ## Quick Start
 
@@ -48,6 +48,10 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 | `get_cloud_risk` | What's our cloud security posture? |
 | `get_asset_risk` | Why is this asset risky? |
 | `get_tech_debt` | How do we reduce EOL software? |
+| `get_image_vulns` | What vulns are in this container image? |
+| `get_expiring_certs` | What certificates expire soon? |
+| `get_threats` | What threats have we detected? |
+| `get_webapp_vulns` | What web app vulns exist? |
 
 ## Qualys PODs
 
