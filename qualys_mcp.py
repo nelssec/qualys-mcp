@@ -85,7 +85,7 @@ def get_kb(qid):
     try:
         root = ET.fromstring(data)
         v = root.find('.//VULN')
-        if not v:
+        if v is None:
             return None
         return {'qid': qid, 'title': v.findtext('TITLE', ''), 'severity': int(v.findtext('SEVERITY_LEVEL', '0')),
                 'cves': [c.findtext('ID', '') for c in v.findall('.//CVE_LIST/CVE')],
@@ -95,7 +95,7 @@ def get_kb(qid):
 
 
 def get_cve_qids(cve):
-    data = api_get(f"{BASE_URL}/api/2.0/fo/knowledge_base/vuln/?action=list&details=Basic&cve_id={cve}")
+    data = api_get(f"{BASE_URL}/api/2.0/fo/knowledge_base/vuln/?action=list&details=Basic&cve={cve}", timeout=60)
     if not data:
         return []
     try:
@@ -415,8 +415,8 @@ def get_weekly_priorities(limit: int = 10) -> dict:
 
 @mcp.tool()
 def investigate_cve(cve: str) -> dict:
-    """Investigate if your environment is affected by a specific CVE. Returns affected hosts, images, and remediation."""
-    result = {'cve': cve, 'qids': [], 'affectedHosts': [], 'affectedImages': [], 'patchAvailable': False, 'fix': ''}
+    """Investigate if your environment is affected by a specific CVE. Returns QIDs, KB info, and remediation."""
+    result = {'cve': cve, 'qids': [], 'severity': 0, 'title': '', 'patchAvailable': False, 'solution': ''}
 
     qids = get_cve_qids(cve)
     result['qids'] = qids
@@ -424,20 +424,13 @@ def investigate_cve(cve: str) -> dict:
     if qids:
         kb = get_kb(qids[0])
         if kb:
+            result['title'] = kb.get('title', '')
+            result['severity'] = kb.get('severity', 0)
             result['patchAvailable'] = kb.get('patch_available', False)
-            result['fix'] = kb.get('solution', '')[:500]
+            result['solution'] = kb.get('solution', '')[:500]
+            result['cves'] = kb.get('cves', [])
 
-    for qid in qids[:2]:
-        for d in get_detections(1, 300):
-            if d['qid'] == qid:
-                result['affectedHosts'].append({'id': d['host_id'], 'ip': d['ip']})
-
-    for img in get_images(200):
-        if any(cve in str(v) for v in img.get('vulnerabilities', [])):
-            result['affectedImages'].append({'id': img.get('imageId'), 'repo': img.get('repo')})
-
-    result['totalHosts'] = len(result['affectedHosts'])
-    result['totalImages'] = len(result['affectedImages'])
+    result['note'] = f"Use VMDR to find affected hosts with QID {qids[0] if qids else 'N/A'}"
     return result
 
 
@@ -605,50 +598,81 @@ def get_criticality(asset):
     return crit or 0
 
 
+def fetch_all_eol(qql_filter, limit=1000, max_pages=50):
+    """Fetch EOL assets with pagination until limit or max_pages reached"""
+    token = get_bearer_token()
+    results = []
+    seen = set()
+    last_id = None
+
+    for _ in range(max_pages):
+        if len(results) >= limit:
+            break
+
+        url = f"{GATEWAY_URL}/rest/2.0/search/am/asset?pageSize=100"
+        if last_id:
+            url += f"&lastSeenAssetId={last_id}"
+
+        filter_body = json.dumps({"filter": qql_filter})
+        req = Request(url, data=filter_body.encode(), method='POST')
+        req.add_header('Authorization', f'Bearer {token}' if token else f'Basic {BASIC_AUTH}')
+        req.add_header('Content-Type', 'application/json')
+        req.add_header('X-Requested-With', 'qualys-mcp')
+
+        try:
+            with urlopen(req, timeout=30) as resp:
+                data = json.loads(resp.read())
+                assets = data.get('assetListData', {}).get('asset', [])
+                if not assets:
+                    break
+
+                for a in assets:
+                    aid = a.get('assetId')
+                    if aid in seen:
+                        continue
+                    seen.add(aid)
+
+                    if 'operatingSystem' in qql_filter:
+                        info = a.get('operatingSystem', {}) or {}
+                        name_field = 'os'
+                        name_val = info.get('osName', '') or 'Unknown'
+                    else:
+                        info = a.get('hardware', {}) or {}
+                        name_field = 'hardware'
+                        name_val = info.get('model', '') or 'Unknown'
+
+                    lifecycle = info.get('lifecycle', {}) or {}
+                    stage = lifecycle.get('stage', '')
+
+                    if is_eol_stage(stage):
+                        results.append({
+                            'assetId': aid,
+                            'address': a.get('address', ''),
+                            'hostname': a.get('dnsHostName', '') or a.get('dnsName', ''),
+                            name_field: name_val,
+                            'stage': stage,
+                            'criticality': get_criticality(a),
+                            'riskScore': a.get('assetRiskScore') or 0
+                        })
+
+                if not data.get('hasMore'):
+                    break
+                last_id = assets[-1].get('assetId')
+        except:
+            break
+
+    return results[:limit]
+
+
 @mcp.tool()
 def get_tech_debt(limit: int = 100) -> dict:
-    """Get all EOL/EOS operating systems and hardware, sorted by criticality and risk score."""
-    result = {'os': [], 'hardware': []}
-    seen = set()
+    """Get EOL/EOS systems sorted by criticality. Default 100 (~25s). Use limit=500 for more (~2min)."""
+    max_pages = max(5, (limit // 10) + 2)
 
-    for a in get_eol_assets_by_qql("operatingSystem.lifecycle.stage:`EOL/EOS`", limit * 10):
-        aid = a.get('assetId')
-        if aid in seen:
-            continue
-        os_info = a.get('operatingSystem', {}) or {}
-        lifecycle = os_info.get('lifecycle', {}) or {}
-        stage = lifecycle.get('stage', '')
-        if is_eol_stage(stage) and len(result['os']) < limit:
-            seen.add(aid)
-            result['os'].append({
-                'assetId': aid,
-                'address': a.get('address', ''),
-                'hostname': a.get('dnsHostName', '') or a.get('dnsName', ''),
-                'os': os_info.get('osName', '') or 'Unknown',
-                'stage': stage,
-                'criticality': get_criticality(a),
-                'riskScore': a.get('assetRiskScore') or 0
-            })
-
-    seen.clear()
-    for a in get_eol_assets_by_qql("hardware.lifecycle.stage:`EOL/EOS`", limit * 10):
-        aid = a.get('assetId')
-        if aid in seen:
-            continue
-        hw_info = a.get('hardware', {}) or {}
-        lifecycle = hw_info.get('lifecycle', {}) or {}
-        stage = lifecycle.get('stage', '')
-        if is_eol_stage(stage) and len(result['hardware']) < limit:
-            seen.add(aid)
-            result['hardware'].append({
-                'assetId': aid,
-                'address': a.get('address', ''),
-                'hostname': a.get('dnsHostName', '') or a.get('dnsName', ''),
-                'hardware': hw_info.get('model', '') or 'Unknown',
-                'stage': stage,
-                'criticality': get_criticality(a),
-                'riskScore': a.get('assetRiskScore') or 0
-            })
+    result = {
+        'os': fetch_all_eol("operatingSystem.lifecycle.stage:`EOL/EOS`", limit, max_pages),
+        'hardware': fetch_all_eol("hardware.lifecycle.stage:`EOL/EOS`", limit, max_pages)
+    }
 
     result['os'].sort(key=lambda x: (-x['criticality'], -x['riskScore']))
     result['hardware'].sort(key=lambda x: (-x['criticality'], -x['riskScore']))
