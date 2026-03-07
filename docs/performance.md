@@ -408,3 +408,65 @@ investigate_cve                    7.5       0.8          ✅
 | Parallelize cloud risk | ~20 | 3x for cloud queries |
 | Parallelize recommendations | ~15 | 2x |
 | **Total** | **~105 lines** | **2–10x across most tools** |
+
+---
+
+## 8. Implemented Changes (Issue #21)
+
+### Phase 1: Cache Fixes — Implemented
+
+| Fix | What Changed | Expected Warm Speedup |
+|-----|-------------|----------------------|
+| Detection cache key | Removed `limit` from key; always fetch 500, slice at return | 2–5x (cache hit for different limit values) |
+| KB TTL (1 hour) | `KB_CACHE_TIME` dict + TTL check in `get_kb` and `get_kb_batch` | Safety: prevents stale data >1h |
+| WAS cache (10 min) | `WAS_CACHE` + `WAS_CACHE_TIME` per key in `get_was_findings` | 10x (instant on 2nd call) |
+| Scanner cache (5 min) | `SCANNER_CACHE` + `SCANNER_CACHE_TIME` in `get_scanner_list` | 10x for `get_scanner_health` warm |
+| ETM result cache (1 hour) | `ETM_RESULT_CACHE` in `get_etm_findings`; async status returns `"creating"` | 10x for unfiltered ETM warm |
+| `cache_status()` extended | Now clears WAS, ETM, scanner, and QDS caches when `clear=True` | — |
+
+### Phase 2: Concurrency Fixes — Implemented
+
+| Fix | What Changed | Expected Cold Speedup |
+|-----|-------------|----------------------|
+| `get_cloud_risk` parallelized | Sequential `for p in providers` → parallel `_run_concurrent(aws=..., azure=..., gcp=...)` + parallel evals | ~3x: ~20s → ~6s |
+| `get_security_posture` cloud | Sequential provider loop → parallel connectors + parallel eval fetches | ~2x for cloud section |
+| `_get_first_cloud_evals` | Sequential 3-provider check → parallel connector fetch | ~3x for recommendations cloud check |
+
+### Phase 3: Enhanced Docstrings — Implemented
+
+| Tool | Enhancement |
+|------|------------|
+| `get_etm_findings` | 10+ QQL examples, all filter types, operator reference, async flow explanation |
+| `get_threat_intel` | All 12 RTI tag names with descriptions, common query examples |
+| `get_weekly_priorities` | "Use when / NOT for" routing hints |
+| `get_morning_report` | "Use when / NOT for" routing hints |
+| `get_security_posture` | "Use when / NOT for" routing hints |
+| `get_recommendations` | "Use when / NOT for" routing hints |
+| `get_cloud_risk` | Cross-reference to `get_cdr_findings` |
+| `get_cdr_findings` | "Use when" + cross-reference to `get_cloud_risk` |
+
+### Phase 4: Aggregator Tools — Implemented
+
+| New Tool | Description | Expected Latency |
+|----------|-------------|-----------------|
+| `get_asset_full_profile(asset_id)` | CSAM + ETM (cached or async) + VMDR host detections in parallel | ~5-8s cold, ~2s warm |
+| `get_risk_by_tag(tag, limit)` | 6 parallel CSAM count/search queries for tagged asset group | ~3s |
+| `get_environment_summary()` | 11 parallel CSAM count queries: OS, cloud, EOL, criticality | <3s |
+
+### Updated Tool Count
+
+**22 tools** (up from 19). New tools added to README Tools table and test_tools.sh.
+
+### Post-Implementation Targets (Estimated)
+
+| Tool | Before (warm) | After (warm) | Change |
+|------|--------------|--------------|--------|
+| `get_scanner_health` | 3–8s | <0.5s | Scanner 5-min cache |
+| `get_etm_findings` (unfiltered) | 5–10s | <0.5s | 1-hour ETM result cache |
+| `get_cloud_risk` | 15–30s cold | ~6s cold | Parallel providers |
+| `get_security_posture` (cloud section) | 8–15s | ~5s | Parallel cloud connectors |
+| `get_was_findings` | 5–30s | <0.1s warm | 10-min WAS cache |
+| WAS-based tools (2nd call) | 5–30s | <0.1s | WAS cache hit |
+| `get_environment_summary` | new | <3s | 11-way parallel CSAM |
+| `get_risk_by_tag` | new | ~3s | 6-way parallel CSAM |
+| `get_asset_full_profile` | new | ~5-8s cold / ~2s warm | 3-way parallel + ETM cache |
