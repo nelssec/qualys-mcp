@@ -32,10 +32,17 @@ BASIC_AUTH = base64.b64encode(f"{USERNAME}:{PASSWORD}".encode()).decode()
 BEARER_TOKEN = None
 BEARER_TOKEN_TIME = None
 KB_CACHE = {}
+KB_CACHE_TIME = {}  # {qid: datetime} for per-entry TTL (1 hour)
 DETECTION_CACHE = {}
 DETECTION_CACHE_TIME = None
 QDS_CACHE = {}
 QDS_CACHE_TIME = None
+WAS_CACHE = {}          # {cache_key: findings_list}
+WAS_CACHE_TIME = {}     # {cache_key: datetime}
+SCANNER_CACHE = None    # list of scanner dicts
+SCANNER_CACHE_TIME = None
+ETM_RESULT_CACHE = None     # last completed ETM report result dict
+ETM_RESULT_CACHE_TIME = None  # datetime of cache fill
 
 AUTH_ERROR = None
 AUTH_LOCK = Lock()
@@ -112,21 +119,24 @@ def api_get(url, gateway=False, timeout=30):
 def get_detections(severity=5, limit=200, use_cache=True, days=30, qds_min=0):
     """Get VMDR detections with hostname and QDS. Uses 5-minute cache.
     Best practices: filter_superseded_qids, vm_processed_after, qds_min.
-    Note: VMDR classic API is slow (~2min) for large environments."""
+    Note: VMDR classic API is slow (~2min) for large environments.
+    Cache key excludes limit — always fetches max 500 and slices at return."""
     global DETECTION_CACHE, DETECTION_CACHE_TIME
 
-    cache_key = f"{severity}_{limit}_{qds_min}"
+    # Cache key excludes limit so a call with limit=10 can reuse a limit=200 result
+    cache_key = f"detections_{severity}_{days}_{qds_min}"
     now = datetime.now(timezone.utc)
 
     if use_cache and cache_key in DETECTION_CACHE and DETECTION_CACHE_TIME:
         age = (now - DETECTION_CACHE_TIME).total_seconds()
         if age < 300:  # 5-minute cache
-            return DETECTION_CACHE[cache_key]
+            return DETECTION_CACHE[cache_key][:limit]
 
     after_date = (now - timedelta(days=days)).strftime('%Y-%m-%d')
+    # Always fetch max 500 to maximize cache utility for different limit values
     url = (
         f"{BASE_URL}/api/2.0/fo/asset/host/vm/detection/?action=list"
-        f"&severities={severity}&truncation_limit={limit}&status=Active"
+        f"&severities={severity}&truncation_limit=500&status=Active"
         f"&show_qds=1&filter_superseded_qids=1"
         f"&vm_processed_after={after_date}"
     )
@@ -164,7 +174,7 @@ def get_detections(severity=5, limit=200, use_cache=True, days=30, qds_min=0):
 
     DETECTION_CACHE[cache_key] = dets
     DETECTION_CACHE_TIME = now
-    return dets
+    return dets[:limit]
 
 
 def get_host_detections(host_id, severity=4, days=30):
@@ -298,9 +308,12 @@ def parse_vuln_xml(v):
 
 
 def get_kb(qid):
-    """Get KB entry for a single QID (uses cache)"""
+    """Get KB entry for a single QID (uses cache with 1-hour TTL)"""
+    now = datetime.now(timezone.utc)
     if qid in KB_CACHE:
-        return KB_CACHE[qid]
+        cached_time = KB_CACHE_TIME.get(qid)
+        if cached_time and (now - cached_time).total_seconds() < 3600:
+            return KB_CACHE[qid]
     data = api_get(f"{BASE_URL}/api/2.0/fo/knowledge_base/vuln/?action=list&ids={qid}&details=All")
     if not data:
         return None
@@ -311,17 +324,24 @@ def get_kb(qid):
             return None
         result = parse_vuln_xml(v)
         KB_CACHE[qid] = result
+        KB_CACHE_TIME[qid] = now
         return result
     except ET.ParseError:
         return None
 
 
 def get_kb_batch(qids):
-    """Get KB entries for multiple QIDs in one API call (uses cache)"""
+    """Get KB entries for multiple QIDs in one API call (uses cache with 1-hour TTL)"""
     if not qids:
         return {}
 
-    uncached = [q for q in qids if q not in KB_CACHE]
+    now = datetime.now(timezone.utc)
+    # Only fetch QIDs not in cache or with expired TTL (> 1 hour)
+    uncached = [
+        q for q in qids
+        if q not in KB_CACHE or
+        (KB_CACHE_TIME.get(q) and (now - KB_CACHE_TIME[q]).total_seconds() >= 3600)
+    ]
 
     if uncached:
         # Fetch in batches of 50
@@ -335,6 +355,7 @@ def get_kb_batch(qids):
                     for v in root.findall('.//VULN'):
                         parsed = parse_vuln_xml(v)
                         KB_CACHE[parsed['qid']] = parsed
+                        KB_CACHE_TIME[parsed['qid']] = now
                 except ET.ParseError:
                     pass
 
@@ -529,6 +550,16 @@ def _fetch_edr_events_raw(limit=100, severity=None):
 
 
 def get_was_findings(limit=100, severity=None):
+    """Get WAS findings. Uses 10-minute per-key cache to avoid repeated slow fetches."""
+    global WAS_CACHE, WAS_CACHE_TIME
+    now = datetime.now(timezone.utc)
+    cache_key = f"was_{limit}_{severity}"
+
+    if cache_key in WAS_CACHE_TIME:
+        age = (now - WAS_CACHE_TIME[cache_key]).total_seconds()
+        if age < 600:  # 10-minute cache
+            return WAS_CACHE[cache_key]
+
     url = f"{BASE_URL}/qps/rest/3.0/search/was/finding"
     criteria = "<ServiceRequest><filters><Criteria field=\"status\" operator=\"EQUALS\">ACTIVE</Criteria>"
     if severity:
@@ -553,6 +584,8 @@ def get_was_findings(limit=100, severity=None):
                     'webAppId': f.findtext('webApp/id', ''),
                     'webAppName': f.findtext('webApp/name', '')
                 })
+            WAS_CACHE[cache_key] = findings
+            WAS_CACHE_TIME[cache_key] = now
             return findings
     except Exception as e:
         _log(f"TAS findings error: {e}")
@@ -651,7 +684,15 @@ def etm_download(report_id, resource_name, timeout=60):
 
 
 def get_scanner_list():
-    """Get scanner appliance list with status and health metrics."""
+    """Get scanner appliance list with status and health metrics. Uses 5-minute cache."""
+    global SCANNER_CACHE, SCANNER_CACHE_TIME
+    now = datetime.now(timezone.utc)
+
+    if SCANNER_CACHE is not None and SCANNER_CACHE_TIME:
+        age = (now - SCANNER_CACHE_TIME).total_seconds()
+        if age < 300:  # 5-minute cache
+            return SCANNER_CACHE
+
     data = api_get(f"{BASE_URL}/api/2.0/fo/appliance/?action=list&output_mode=full", timeout=30)
     if not data:
         return []
@@ -678,6 +719,8 @@ def get_scanner_list():
             })
     except ET.ParseError:
         pass
+    SCANNER_CACHE = scanners
+    SCANNER_CACHE_TIME = now
     return scanners
 
 
@@ -805,7 +848,13 @@ def _run_concurrent(**tasks):
 
 @mcp.tool()
 def get_weekly_priorities(limit: int = 10) -> dict:
-    """[Risk Management] Prioritized security actions for the week — top high-risk assets ranked by TruRisk score, risk distribution across severity tiers, and container risks. Fast (~5s). Follow up with get_asset_risk(assetId) for per-asset vulnerability details."""
+    """[Risk Management] Prioritized security actions for the week — top high-risk assets ranked by TruRisk score, risk distribution across severity tiers, and container risks. Fast (~5s).
+
+    **Use when:** Starting the week, planning sprint priorities, asking "what should we fix first?", or looking for the top assets to remediate.
+    **NOT for:** Daily threat monitoring (use get_morning_report), single-asset details (use get_asset_risk), or cloud posture (use get_cloud_risk).
+
+    Returns: topRiskAssets (ranked by TruRisk), priorities (actionable items), summary counts by risk tier.
+    Follow up with get_asset_risk(assetId) for per-asset vulnerability details."""
     result = {'summary': {}, 'priorities': [], 'topRiskAssets': []}
 
     # All fast CSAM v2 queries (~0.2-3s each, run in parallel)
@@ -1082,7 +1131,12 @@ def investigate_cve(cve: str) -> dict:
 
 @mcp.tool()
 def get_security_posture() -> dict:
-    """[Dashboard] Overall security health score (0-100) with stats across assets, vulnerabilities, containers, and cloud accounts. Covers TruRisk distribution, EOL systems, container exposure, and cloud control failures. Fast (~5s)."""
+    """[Dashboard] Overall security health score (0-100) with stats across assets, vulnerabilities, containers, and cloud accounts. Covers TruRisk distribution, EOL systems, container exposure, and cloud control failures. Fast (~5s).
+
+    **Use when:** Asked for an environment overview, health check, executive summary, or "how are we doing?" questions. Great starting point for any security conversation.
+    **NOT for:** Specific vulnerability details (use get_threat_intel or get_etm_findings), detailed asset risk (use get_asset_risk), or weekly priorities (use get_weekly_priorities).
+
+    Returns: healthScore (0-100), asset counts by risk tier, container exposure, cloud account/control counts."""
     health = 100
     result = {'healthScore': 0, 'assets': {'total': 0, 'highRisk': 0},
               'vulns': {'critical': 0, 'high': 0}, 'containers': {'total': 0, 'atRisk': 0},
@@ -1128,16 +1182,25 @@ def get_security_posture() -> dict:
     vuln_ids = {i.get('imageId') for i in vuln_images}
     result['containers']['atRisk'] = len([c for c in containers if c.get('imageId') in vuln_ids])
 
-    # Cloud (sequential since needs account ID from connectors)
+    # Cloud — fetch all three providers' connectors in parallel, then evals in parallel
     try:
-        for p in ['aws', 'azure', 'gcp']:
-            conns = get_connectors(p, 5)
+        cloud_conns = _run_concurrent(
+            aws=lambda: get_connectors('aws', 5),
+            azure=lambda: get_connectors('azure', 5),
+            gcp=lambda: get_connectors('gcp', 5),
+        )
+        acc_key_map = {'aws': 'awsAccountId', 'azure': 'azureSubscriptionId', 'gcp': 'gcpProjectId'}
+        eval_tasks = {}
+        for p, conns in cloud_conns.items():
             if conns:
                 result['cloud']['accounts'] += len(conns)
-                acc = conns[0].get('awsAccountId') or conns[0].get('azureSubscriptionId') or conns[0].get('gcpProjectId')
+                acc = conns[0].get(acc_key_map[p])
                 if acc:
-                    evals = get_evaluations(acc, p, 50)
-                    result['cloud']['failedControls'] += len([e for e in evals if e.get('result') in ['FAIL', 'FAILED']])
+                    eval_tasks[f'evals_{p}'] = (lambda a=acc, pv=p: get_evaluations(a, pv, 50))
+        if eval_tasks:
+            eval_results = _run_concurrent(**eval_tasks)
+            for key, evals in eval_results.items():
+                result['cloud']['failedControls'] += len([e for e in (evals or []) if e.get('result') in ['FAIL', 'FAILED']])
     except Exception:
         result['warnings'].append('cloud data unavailable')
 
@@ -1215,9 +1278,29 @@ def get_patch_status(limit: int = 20) -> dict:
 def get_threat_intel(threat_type: str = "", days: int = 30) -> dict:
     """[Threat Intelligence] Real-Time Threat Indicators (RTI) from the Qualys Knowledge Base — shows which recently published vulnerabilities have active exploits, ransomware linkage, or are on the CISA KEV list.
 
-    threat_type filters: Ransomware, Malware, Active_Attacks, Exploit_Public, Easy_Exploit, Wormable, Cisa_Known_Exploited_Vulns, Denial_of_Service, Privilege_Escalation, Remote_Code_Execution, Predicted_High_Risk, Unauthenticated_Exploitation.
+    **RTI threat_type values (all 12 tags):**
+      - `Ransomware` — vulnerability has known ransomware group linkage
+      - `Malware` — associated with malware campaigns (broader than ransomware)
+      - `Active_Attacks` — being actively exploited in the wild right now
+      - `Exploit_Public` — public exploit code available (Metasploit, ExploitDB, etc.)
+      - `Easy_Exploit` — low complexity, few prerequisites to exploit
+      - `Wormable` — can self-propagate without user interaction
+      - `Cisa_Known_Exploited_Vulns` — on the CISA KEV catalog (federal mandate)
+      - `Denial_of_Service` — can be used to crash or degrade services
+      - `Privilege_Escalation` — allows elevation from low to high privileges
+      - `Remote_Code_Execution` — arbitrary code execution from network
+      - `Predicted_High_Risk` — Qualys ML model predicts high likelihood of exploit
+      - `Unauthenticated_Exploitation` — exploitable without credentials
 
-    Common queries: 'Ransomware' for ransomware-linked vulns, 'Active_Attacks' for actively exploited, 'Exploit_Public' for weaponized exploits, 'Cisa_Known_Exploited_Vulns' for CISA KEV list. Default (no filter) returns all RTI types for vulns published in last 30 days (~10s)."""
+    **Common queries:**
+      - `'Ransomware'` — ransomware-linked vulns for urgent patching
+      - `'Active_Attacks'` — vulns being actively exploited today
+      - `'Exploit_Public'` — weaponized exploits (patch before attackers use them)
+      - `'Cisa_Known_Exploited_Vulns'` — CISA KEV list (federal mandate compliance)
+      - `'Wormable'` — self-propagating threats (critical for network-connected assets)
+
+    Default (no filter) returns all RTI types for vulns published in last N days (~10s).
+    Use days=1 for today's new threats, days=7 for weekly digest, days=30 for monthly review."""
     from datetime import timedelta
     after = (datetime.now(timezone.utc) - timedelta(days=days)).strftime('%Y-%m-%d')
     result = {'days': days, 'threatFilter': threat_type or 'all',
@@ -1294,9 +1377,16 @@ def get_threat_intel(threat_type: str = "", days: int = 30) -> dict:
 
 
 def _get_first_cloud_evals():
-    """Get evaluations from the first available cloud connector."""
+    """Get evaluations from the first available cloud connector. Fetches all providers in parallel."""
+    # Fetch all three providers' first connector in parallel
+    connector_results = _run_concurrent(
+        aws=lambda: get_connectors('aws', 1),
+        azure=lambda: get_connectors('azure', 1),
+        gcp=lambda: get_connectors('gcp', 1),
+    )
+    # Find first provider with a connector
     for provider, acc_key in [('aws', 'awsAccountId'), ('azure', 'azureSubscriptionId'), ('gcp', 'gcpProjectId')]:
-        conns = get_connectors(provider, 1)
+        conns = connector_results.get(provider) or []
         if conns:
             acc = conns[0].get(acc_key)
             if acc:
@@ -1306,7 +1396,12 @@ def _get_first_cloud_evals():
 
 @mcp.tool()
 def get_recommendations() -> dict:
-    """[Program Advisor] Security program coach — analyzes your environment and recommends Qualys modules and actions to reduce risk. Probes all data sources (VMDR, TotalCloud, TotalAppSec, FIM, EDR, CertView, Patch Management) to find coverage gaps. Returns prioritized recommendations with eliminate/mitigate risk actions."""
+    """[Program Advisor] Security program coach — analyzes your environment and recommends Qualys modules and actions to reduce risk. Probes all data sources (VMDR, TotalCloud, TotalAppSec, FIM, EDR, CertView, Patch Management) to find coverage gaps.
+
+    **Use when:** Asked "what should we invest in?", "what's missing from our security program?", or "how do we reduce our TruRisk score?". Identifies both eliminate (patch/fix) and mitigate (compensating control) actions.
+    **NOT for:** Immediate threat response (use get_morning_report), asset-level vuln details (use get_asset_risk), or patching status (use get_eliminate_status).
+
+    Returns: prioritized recommendations with riskAction (eliminate/mitigate), qualysModule, finding, and coverage map of active vs missing security capabilities."""
     result = {'recommendations': [], 'coverage': {}, 'summary': ''}
     recs = []
 
@@ -1769,13 +1864,37 @@ def get_scanner_health() -> dict:
 def get_etm_findings(qql: str = "", report_id: str = "") -> dict:
     """[Enterprise TruRisk] Query ETM for confirmed vulnerability and misconfiguration findings across all sources — VMDR, TotalCloud, and third-party scanners. Returns per-asset findings with TruRisk scores, QDS, CVSS, patch status, and remediation details.
 
-    Use qql to filter with Qualys Query Language:
-      - 'vulnerabilities.vulnerability.cveIds:CVE-2021-44228' — find Log4Shell
-      - 'vulnerabilities.vulnerability.severity:5' — critical findings only
-      - 'asset.name:web-server' — findings for a specific asset
-      - 'vulnerabilities.vulnerability.isPatchAvailable:true' — patchable findings
+    Use qql to filter findings with Qualys Query Language (QQL):
 
-    ETM reports are async. If a completed report exists, findings return immediately (~1-2s). Otherwise a new report is created — call again with that report_id to retrieve results. This is the most comprehensive view of confirmed vulnerabilities in your environment."""
+    **CVE and vulnerability filters:**
+      - `vulnerabilities.vulnerability.cveIds:CVE-2021-44228`  — Log4Shell across all assets
+      - `vulnerabilities.vulnerability.severity:5`  — critical findings only
+      - `vulnerabilities.vulnerability.isPatchAvailable:true`  — patchable findings
+      - `vulnerabilities.vulnerability.qds:[70 TO 100]`  — high QDS range (range syntax)
+      - `vulnerabilities.vulnerability.qid:38580`  — specific QID
+      - `vulnerabilities.vulnerability.cvss3Base:[9.0 TO 10.0]`  — CVSS v3 critical
+
+    **Asset filters:**
+      - `asset.name:web-server`  — findings for a specific asset
+      - `asset.tags.name:PCI`  — assets with a specific tag
+      - `asset.operatingSystem:Windows`  — OS filter
+      - `asset.criticality:[8 TO 10]`  — business-critical assets only
+
+    **Status and source filters:**
+      - `status:ACTIVE`  — confirmed active findings (default)
+      - `vendorProductName:Qualys VMDR`  — source filter
+      - `category:MISCONFIGURATION`  — misconfigs only
+      - `category:VULNERABILITY`  — vulns only
+
+    **Combining filters (AND/OR/NOT):**
+      - `vulnerabilities.vulnerability.severity:5 AND asset.tags.name:PCI`
+      - `vulnerabilities.vulnerability.cveIds:CVE-2024-3400 OR vulnerabilities.vulnerability.cveIds:CVE-2023-20198`
+
+    For full QQL operator reference, see docs/query-languages.md.
+
+    **How async reports work:** ETM reports are async — completed reports are cached in-memory for 1 hour for instant warm retrieval. If no cached result exists, a new report is created and `{status: "creating", reportId: "..."}` is returned — call again with that reportId to poll for completion (typically 1–5 minutes). Filtered QQL queries always create a fresh report."""
+    global ETM_RESULT_CACHE, ETM_RESULT_CACHE_TIME
+    now = datetime.now(timezone.utc)
     result = {'findings': [], 'summary': {}, 'reportStatus': ''}
 
     # If report_id provided, check its status and download if ready
@@ -1795,7 +1914,12 @@ def get_etm_findings(qql: str = "", report_id: str = "") -> dict:
                 if findings:
                     all_findings.extend(findings)
 
-            return _format_etm_findings(all_findings, detail)
+            formatted = _format_etm_findings(all_findings, detail)
+            # Cache completed unfiltered reports for 1 hour
+            if not qql:
+                ETM_RESULT_CACHE = formatted
+                ETM_RESULT_CACHE_TIME = now
+            return formatted
 
         elif detail['status'] == 'FAILED':
             result['summary'] = {'error': 'Report generation failed', 'reportId': report_id}
@@ -1806,6 +1930,15 @@ def get_etm_findings(qql: str = "", report_id: str = "") -> dict:
                 'reportId': report_id,
             }
             return result
+
+    # For unfiltered queries: check in-memory cache first (1-hour TTL)
+    if not qql and ETM_RESULT_CACHE is not None and ETM_RESULT_CACHE_TIME:
+        age = (now - ETM_RESULT_CACHE_TIME).total_seconds()
+        if age < 3600:
+            _log(f"ETM result cache hit (age {int(age)}s)")
+            cached = dict(ETM_RESULT_CACHE)
+            cached['cacheAge'] = int(age)
+            return cached
 
     # No report_id — check for a recent completed report matching the query
     reports = etm_api('POST', '/etm/api/rest/v1/reports/list', {'pageSize': 50})
@@ -1823,11 +1956,15 @@ def get_etm_findings(qql: str = "", report_id: str = "") -> dict:
                     if findings:
                         all_findings.extend(findings)
                 if all_findings:
-                    return _format_etm_findings(all_findings, detail)
+                    formatted = _format_etm_findings(all_findings, detail)
+                    # Cache for 1 hour
+                    ETM_RESULT_CACHE = formatted
+                    ETM_RESULT_CACHE_TIME = now
+                    return formatted
 
     # Create a new report
     body = {
-        'reportName': f'mcp-{int(datetime.now(timezone.utc).timestamp())}',
+        'reportName': f'mcp-{int(now.timestamp())}',
         'reportFormat': 'JSON',
     }
     if qql:
@@ -1840,7 +1977,7 @@ def get_etm_findings(qql: str = "", report_id: str = "") -> dict:
         return result
 
     rid = new_report.get('id', '')
-    result['reportStatus'] = 'REQUESTED'
+    result['reportStatus'] = 'creating'
     result['summary'] = {
         'message': 'ETM report requested. Reports typically take 1-5 minutes to generate. Call get_etm_findings(report_id="' + rid + '") to check status and retrieve results.',
         'reportId': rid,
@@ -1970,7 +2107,12 @@ def _format_etm_findings(all_findings, report_detail):
 
 @mcp.tool()
 def get_morning_report() -> dict:
-    """[Daily Briefing] Morning security report — what happened overnight. New vulnerabilities (last 24h) with ransomware and active exploit flags, environment health score, top risk assets, EOL count, and prioritized action items. Use this first thing in the morning or at shift start."""
+    """[Daily Briefing] Morning security report — what happened overnight. New vulnerabilities (last 24h) with ransomware and active exploit flags, environment health score, top risk assets, EOL count, and prioritized action items.
+
+    **Use when:** Starting the day, shift handover, "what's new today?", or "give me a briefing". Combines get_security_posture + get_weekly_priorities + get_threat_intel in one fast call.
+    **NOT for:** Deep vulnerability investigation (use investigate_cve), week-level planning (use get_weekly_priorities), or cloud-specific threats (use get_cdr_findings).
+
+    Returns: environment health, new vuln counts (24h), threat flags (ransomware/exploits/CISA KEV), top risk assets, and prioritized action items."""
     result = {'report': 'Daily Security Briefing', 'environment': {},
               'newVulns': {}, 'threats': {}, 'topRiskAssets': [],
               'actionItems': []}
@@ -2324,26 +2466,55 @@ def get_compliance_gaps(limit: int = 20) -> dict:
 
 @mcp.tool()
 def get_cloud_risk(limit: int = 20) -> dict:
-    """[Cloud Security] Cloud security posture across AWS, Azure, and GCP — connected accounts, CIS benchmark control failures, and CDR threat summary. Use get_cdr_findings() for detailed cloud threat investigation."""
+    """[Cloud Security] Cloud security posture across AWS, Azure, and GCP — connected accounts, CIS benchmark control failures, and CDR threat summary. Fetches all cloud providers in parallel for fast results (~6s cold). Cross-reference with get_cdr_findings() for detailed cloud threat investigation."""
     result = {'accounts': [], 'failedControls': [], 'threats': [], 'stats': {'total': 0, 'critical': 0}}
 
-    for p in ['aws', 'azure', 'gcp']:
-        for c in get_connectors(p, 50):
-            acc = c.get('awsAccountId') or c.get('azureSubscriptionId') or c.get('gcpProjectId', '')
-            result['accounts'].append({'id': acc, 'provider': p.upper(), 'name': c.get('name', '')})
+    # Fetch all three cloud providers' connectors in parallel
+    connector_results = _run_concurrent(
+        aws=lambda: get_connectors('aws', 50),
+        azure=lambda: get_connectors('azure', 50),
+        gcp=lambda: get_connectors('gcp', 50),
+    )
+
+    # Build account list and collect first account per provider for eval fetch
+    first_accounts = {}
+    for provider, conns in connector_results.items():
+        if not conns:
+            continue
+        acc_key = {'aws': 'awsAccountId', 'azure': 'azureSubscriptionId', 'gcp': 'gcpProjectId'}[provider]
+        for c in conns:
+            acc = c.get(acc_key, '')
+            result['accounts'].append({'id': acc, 'provider': provider.upper(), 'name': c.get('name', '')})
+        # Track first account per provider for evaluation fetch
+        first_acc = conns[0].get(acc_key, '')
+        if first_acc:
+            first_accounts[provider] = first_acc
 
     result['stats']['total'] = len(result['accounts'])
 
-    if result['accounts']:
-        acc = result['accounts'][0]
-        fails = {}
-        for e in get_evaluations(acc['id'], acc['provider'].lower(), 500):
+    # Fetch evaluations for first account of each provider AND CDR in parallel
+    eval_tasks = {
+        f'evals_{p}': (lambda p=p, a=a: get_evaluations(a, p, 500))
+        for p, a in first_accounts.items()
+    }
+    eval_tasks['cdr'] = lambda: get_cdr(7, limit)
+    eval_results = _run_concurrent(**eval_tasks)
+
+    # Aggregate evaluation failures across all providers
+    fails = {}
+    for p in first_accounts:
+        evals = eval_results.get(f'evals_{p}') or []
+        for e in evals:
             if e.get('result') in ['FAIL', 'FAILED']:
                 cid = e.get('controlId', '')
                 fails[cid] = fails.get(cid, 0) + 1
-        result['failedControls'] = [{'id': c, 'count': n} for c, n in sorted(fails.items(), key=lambda x: x[1], reverse=True)[:limit]]
+    result['failedControls'] = [
+        {'id': c, 'count': n}
+        for c, n in sorted(fails.items(), key=lambda x: x[1], reverse=True)[:limit]
+    ]
 
-    for f in get_cdr(7, limit):
+    # CDR threats
+    for f in (eval_results.get('cdr') or []):
         sev = str(f.get('severity', ''))
         if sev in ['CRITICAL', '5']:
             result['stats']['critical'] += 1
@@ -2362,7 +2533,10 @@ def get_cdr_findings(days: int = 7, limit: int = 50, severity: str = "", cloud_p
 
     Filters: severity (CRITICAL, HIGH, MEDIUM, LOW), cloud_provider (AWS, AZURE, GCP).
     Returns threat findings with severity/provider/category breakdowns, remote IP attribution,
-    and affected resources. Use get_cloud_risk() for broader cloud posture including misconfigurations."""
+    and affected resources.
+
+    **Use when:** Investigating active cloud threats, lateral movement alerts, or suspicious network activity in cloud accounts. Best for incident response and threat hunting in cloud environments.
+    **Cross-reference:** Use get_cloud_risk() for broader cloud posture (CIS benchmark failures, account inventory, and misconfigurations) alongside CDR threat detections."""
     result = {
         'days': days,
         'stats': {'total': 0, 'critical': 0, 'high': 0, 'medium': 0, 'low': 0},
@@ -2731,30 +2905,347 @@ def get_webapp_vulns(severity: int = 4, days: int = 30, app_name: str = "", limi
 
 
 @mcp.tool()
+def get_asset_full_profile(asset_id: str) -> dict:
+    """[Asset Risk] Comprehensive single-asset risk profile combining CSAM inventory, ETM confirmed findings, and VMDR host detections — all fetched in parallel for fast results (~5-8s cold, ~2s warm).
+
+    **Use when:** Asked about a specific asset's full risk posture, pre-remediation planning, or building a per-asset remediation ticket. Combines data from three sources to give the most complete picture.
+    **NOT for:** Browsing multiple assets (use get_weekly_priorities), software inventory only (use get_asset_risk), or environment-wide vulnerability counts (use get_security_posture).
+
+    Returns: CSAM asset metadata (OS, IP, tags, criticality, software), ETM confirmed findings (QDS, CVSS, patch status, TruRisk), and VMDR active detections for the host ID."""
+    result = {
+        'assetId': asset_id,
+        'csam': {},
+        'etmFindings': [],
+        'vmdrDetections': [],
+        'summary': {},
+    }
+
+    # Step 1: Fetch CSAM asset to get metadata including hostId
+    asset = get_asset_by_id(asset_id)
+    if not asset:
+        result['summary'] = {'error': f'Asset {asset_id} not found in CSAM'}
+        return result
+
+    host_id = str(asset.get('hostId') or '')
+    hostname = asset.get('dnsHostName', '') or asset.get('dnsName', '') or asset.get('address', '')
+    os_name = (asset.get('operatingSystem') or {}).get('osName', '')
+
+    # Build CSAM profile
+    sw_list = asset.get('softwareListData', {}) or {}
+    software = []
+    eol_software = []
+    for sw in (sw_list.get('software') or [])[:30]:
+        name = sw.get('fullName') or sw.get('productName') or sw.get('name') or ''
+        sw_info = {'name': name.strip(), 'version': sw.get('version', '')}
+        lifecycle = (sw.get('lifecycle') or {})
+        if lifecycle.get('stage') and lifecycle['stage'] not in ('Unknown', 'Not Applicable', 'OS Dependent'):
+            sw_info['lifecycleStage'] = lifecycle['stage']
+            if is_eol_stage(lifecycle['stage']):
+                eol_software.append(sw_info)
+        software.append(sw_info)
+
+    result['csam'] = {
+        'hostname': hostname,
+        'ip': asset.get('address', ''),
+        'os': os_name,
+        'hostId': host_id,
+        'riskScore': int(asset.get('riskScore') or 0),
+        'criticality': get_criticality(asset),
+        'lastSeen': asset.get('lastModifiedDate', ''),
+        'software': software[:20],
+        'eolSoftware': eol_software,
+        'tags': [t.get('name', '') for t in (asset.get('tags') or {}).get('tag', [])[:10]],
+    }
+
+    # Step 2: Fetch ETM findings and VMDR detections in parallel
+    def _fetch_etm():
+        """Fetch ETM findings filtered to this asset."""
+        # Use cached ETM result if available, filter to this asset
+        if ETM_RESULT_CACHE:
+            all_findings = ETM_RESULT_CACHE.get('findings', [])
+            return [f for f in all_findings if
+                    f.get('assetId') == asset_id or
+                    f.get('assetName', '').lower() == hostname.lower()][:50]
+        # Otherwise query ETM by asset name
+        if hostname:
+            qql = f'asset.name:{hostname}'
+            body = {
+                'reportName': f'mcp-profile-{int(datetime.now(timezone.utc).timestamp())}',
+                'reportFormat': 'JSON',
+                'findingFilter': {'qql': qql},
+            }
+            new_report = etm_api('POST', '/etm/api/rest/v1/reports/findings', body)
+            if new_report:
+                return [{'_async': True, 'reportId': new_report.get('id', ''),
+                         'message': 'ETM report requested — call get_etm_findings(report_id=...) to retrieve'}]
+        return []
+
+    def _fetch_vmdr():
+        """Fetch VMDR host detections for this asset's hostId."""
+        if not host_id:
+            return []
+        return get_host_detections(host_id, severity=4, days=30)
+
+    parallel = _run_concurrent(
+        etm=_fetch_etm,
+        vmdr=_fetch_vmdr,
+    )
+
+    etm_raw = parallel.get('etm') or []
+    vmdr_raw = parallel.get('vmdr') or []
+
+    # Format ETM findings
+    etm_findings = []
+    etm_async = False
+    for f in etm_raw:
+        if f.get('_async'):
+            etm_async = True
+            result['etmAsync'] = f
+            break
+        etm_findings.append({
+            'title': f.get('title', '')[:100],
+            'cveId': f.get('cveId', ''),
+            'severity': f.get('severity', 0),
+            'qds': f.get('qds', 0),
+            'truRiskScore': f.get('truRiskScore', 0),
+            'isPatchAvailable': f.get('isPatchAvailable', False),
+            'status': f.get('status', ''),
+            'category': f.get('category', ''),
+        })
+    etm_findings.sort(key=lambda x: (-x['severity'], -(x['truRiskScore'] or 0)))
+    result['etmFindings'] = etm_findings[:30]
+
+    # Format VMDR detections
+    vmdr_dets = []
+    for d in vmdr_raw:
+        vmdr_dets.append({
+            'qid': d.get('qid', 0),
+            'severity': d.get('severity', 0),
+            'qds': d.get('qds', 0),
+            'status': d.get('status', ''),
+            'firstFound': d.get('first_found', ''),
+        })
+    vmdr_dets.sort(key=lambda x: (-x['severity'], -x['qds']))
+    result['vmdrDetections'] = vmdr_dets[:30]
+
+    # Summary
+    crit_etm = sum(1 for f in etm_findings if f['severity'] >= 5)
+    high_etm = sum(1 for f in etm_findings if f['severity'] == 4)
+    patchable_etm = sum(1 for f in etm_findings if f['isPatchAvailable'])
+    result['summary'] = {
+        'riskScore': result['csam']['riskScore'],
+        'criticality': result['csam']['criticality'],
+        'etmFindings': len(etm_findings),
+        'etmCritical': crit_etm,
+        'etmHigh': high_etm,
+        'etmPatchable': patchable_etm,
+        'vmdrDetections': len(vmdr_dets),
+        'eolSoftware': len(eol_software),
+        'etmAsync': etm_async,
+    }
+
+    return result
+
+
+@mcp.tool()
+def get_risk_by_tag(tag: str, limit: int = 10) -> dict:
+    """[Asset Risk] Risk distribution for all assets with a specific tag — TruRisk tiers, top risky assets, and EOL counts for the tagged asset group. Useful for team-based or environment-based risk segmentation (e.g., 'PCI', 'Production', 'DMZ', 'AWS').
+
+    **Use when:** Asked about risk for a business unit, environment tier, compliance scope (PCI, HIPAA), or cloud provider tag. Combines CSAM count queries in parallel for fast results (~3s).
+    **NOT for:** Global risk overview (use get_weekly_priorities), single asset details (use get_asset_full_profile), or cloud posture (use get_cloud_risk).
+
+    Returns: asset count with tag, risk tier distribution (TruRisk > 900/700/500), top risky assets, and EOL count within the tagged group."""
+    result = {
+        'tag': tag,
+        'assets': {'total': 0, 'critical': 0, 'high': 0, 'elevated': 0},
+        'topRiskAssets': [],
+        'eolCount': 0,
+        'summary': '',
+    }
+
+    tag_filter = [{"field": "asset.tags.name", "operator": "EQUALS", "value": tag}]
+
+    # Run all CSAM queries in parallel
+    concurrent = _run_concurrent(
+        total=lambda: csam_count(tag_filter),
+        risk_900=lambda: csam_count(tag_filter + [{"field": "asset.truRisk", "operator": "GREATER", "value": "900"}]),
+        risk_700=lambda: csam_count(tag_filter + [{"field": "asset.truRisk", "operator": "GREATER", "value": "700"}]),
+        risk_500=lambda: csam_count(tag_filter + [{"field": "asset.truRisk", "operator": "GREATER", "value": "500"}]),
+        eol=lambda: csam_count(tag_filter + [{"field": "operatingSystem.lifecycle.stage", "operator": "CONTAINS", "value": "EOL"}]),
+        top_assets=lambda: csam_search(
+            tag_filter + [{"field": "asset.truRisk", "operator": "GREATER", "value": "500"}],
+            limit=limit
+        ),
+    )
+
+    total = concurrent.get('total') or 0
+    risk_900 = concurrent.get('risk_900') or 0
+    risk_700 = concurrent.get('risk_700') or 0
+    risk_500 = concurrent.get('risk_500') or 0
+    eol = concurrent.get('eol') or 0
+
+    result['assets'] = {
+        'total': total,
+        'critical': risk_900,
+        'high': risk_700,
+        'elevated': risk_500,
+    }
+    result['eolCount'] = eol
+
+    top = sorted(concurrent.get('top_assets') or [], key=lambda a: int(a.get('riskScore') or 0), reverse=True)
+    for i, a in enumerate(top[:limit]):
+        result['topRiskAssets'].append({
+            'rank': i + 1,
+            'assetId': str(a.get('assetId', '')),
+            'hostname': a.get('dnsHostName', '') or a.get('dnsName', ''),
+            'ip': a.get('address', ''),
+            'riskScore': int(a.get('riskScore') or 0),
+            'os': (a.get('operatingSystem') or {}).get('osName', ''),
+            'criticality': get_criticality(a),
+        })
+
+    pct_crit = round(risk_900 / total * 100, 1) if total else 0
+    result['summary'] = (
+        f"Tag '{tag}': {total} assets total. "
+        f"{risk_900} critical (TruRisk >900, {pct_crit}%), "
+        f"{risk_700} high (>700), {risk_500} elevated (>500). "
+        f"{eol} EOL/EOS systems."
+    )
+
+    return result
+
+
+@mcp.tool()
+def get_environment_summary() -> dict:
+    """[Dashboard] Fast all-CSAM environment snapshot (<3s) — asset counts by OS family, cloud provider, EOL status, and criticality tiers. Use for a quick environment orientation before deeper analysis.
+
+    **Use when:** Asked for environment overview, asset demographics, "what does our environment look like?", or orientation before diving into risk/vulnerability data. Much faster than get_security_posture (no vuln or container data).
+    **NOT for:** Vulnerability counts (use get_security_posture), top risky assets (use get_weekly_priorities), or detailed risk scores (use get_asset_risk).
+
+    Returns: total assets, OS family breakdown, cloud vs on-prem split, EOL counts, criticality distribution — all from parallel CSAM count queries."""
+    result = {
+        'totalAssets': 0,
+        'byOS': {},
+        'byCloud': {},
+        'eolCounts': {},
+        'byCriticality': {},
+        'summary': '',
+    }
+
+    # All parallel CSAM count queries
+    concurrent = _run_concurrent(
+        total=lambda: csam_count(),
+        windows=lambda: csam_count([{"field": "operatingSystem.name", "operator": "CONTAINS", "value": "Windows"}]),
+        linux=lambda: csam_count([{"field": "operatingSystem.name", "operator": "CONTAINS", "value": "Linux"}]),
+        macos=lambda: csam_count([{"field": "operatingSystem.name", "operator": "CONTAINS", "value": "Mac"}]),
+        cloud_aws=lambda: csam_count([{"field": "asset.cloudProvider", "operator": "EQUALS", "value": "AWS"}]),
+        cloud_azure=lambda: csam_count([{"field": "asset.cloudProvider", "operator": "EQUALS", "value": "AZURE"}]),
+        cloud_gcp=lambda: csam_count([{"field": "asset.cloudProvider", "operator": "EQUALS", "value": "GCP"}]),
+        eol_os=lambda: csam_count([{"field": "operatingSystem.lifecycle.stage", "operator": "CONTAINS", "value": "EOL"}]),
+        eol_hw=lambda: csam_count([{"field": "hardware.lifecycle.stage", "operator": "CONTAINS", "value": "EOL"}]),
+        crit_high=lambda: csam_count([{"field": "asset.criticality", "operator": "GREATER", "value": "7"}]),
+        crit_med=lambda: csam_count([{"field": "asset.criticality", "operator": "GREATER", "value": "4"}]),
+    )
+
+    total = concurrent.get('total') or 0
+    result['totalAssets'] = total
+
+    windows = concurrent.get('windows') or 0
+    linux = concurrent.get('linux') or 0
+    macos = concurrent.get('macos') or 0
+    result['byOS'] = {
+        'Windows': windows,
+        'Linux': linux,
+        'macOS': macos,
+        'Other': max(0, total - windows - linux - macos),
+    }
+
+    aws = concurrent.get('cloud_aws') or 0
+    azure = concurrent.get('cloud_azure') or 0
+    gcp = concurrent.get('cloud_gcp') or 0
+    cloud_total = aws + azure + gcp
+    result['byCloud'] = {
+        'AWS': aws,
+        'Azure': azure,
+        'GCP': gcp,
+        'OnPrem': max(0, total - cloud_total),
+    }
+
+    result['eolCounts'] = {
+        'eolOS': concurrent.get('eol_os') or 0,
+        'eolHardware': concurrent.get('eol_hw') or 0,
+    }
+
+    crit_high = concurrent.get('crit_high') or 0
+    crit_med = concurrent.get('crit_med') or 0
+    result['byCriticality'] = {
+        'high_8to10': crit_high,
+        'medium_5to7': max(0, crit_med - crit_high),
+        'low_1to4': max(0, total - crit_med),
+    }
+
+    result['summary'] = (
+        f"{total} total assets. "
+        f"OS: {windows} Windows, {linux} Linux, {macos} macOS. "
+        f"Cloud: {aws} AWS, {azure} Azure, {gcp} GCP, {max(0, total - cloud_total)} on-prem. "
+        f"EOL: {result['eolCounts']['eolOS']} OS, {result['eolCounts']['eolHardware']} hardware. "
+        f"Criticality: {crit_high} high-criticality assets."
+    )
+
+    return result
+
+
+@mcp.tool()
 def cache_status(clear: bool = False) -> dict:
     """[Admin] Show cache stats or clear all caches. Use clear=True to reset caches."""
-    global DETECTION_CACHE_TIME
+    global DETECTION_CACHE_TIME, ETM_RESULT_CACHE, ETM_RESULT_CACHE_TIME
+    global SCANNER_CACHE, SCANNER_CACHE_TIME
 
+    now = datetime.now(timezone.utc)
     result = {
         'kb_entries': len(KB_CACHE),
         'detection_entries': len(DETECTION_CACHE),
         'detection_cache_age_seconds': None,
+        'qds_entries': len(QDS_CACHE),
+        'was_keys': len(WAS_CACHE),
+        'scanner_cached': SCANNER_CACHE is not None,
+        'scanner_cache_age_seconds': None,
+        'etm_result_cached': ETM_RESULT_CACHE is not None,
+        'etm_cache_age_seconds': None,
         'bearer_token_age_seconds': None,
     }
 
     if DETECTION_CACHE_TIME:
-        result['detection_cache_age_seconds'] = int((datetime.now(timezone.utc) - DETECTION_CACHE_TIME).total_seconds())
+        result['detection_cache_age_seconds'] = int((now - DETECTION_CACHE_TIME).total_seconds())
     if BEARER_TOKEN_TIME:
-        result['bearer_token_age_seconds'] = int((datetime.now(timezone.utc) - BEARER_TOKEN_TIME).total_seconds())
+        result['bearer_token_age_seconds'] = int((now - BEARER_TOKEN_TIME).total_seconds())
+    if SCANNER_CACHE_TIME:
+        result['scanner_cache_age_seconds'] = int((now - SCANNER_CACHE_TIME).total_seconds())
+    if ETM_RESULT_CACHE_TIME:
+        result['etm_cache_age_seconds'] = int((now - ETM_RESULT_CACHE_TIME).total_seconds())
 
     if clear:
         KB_CACHE.clear()
+        KB_CACHE_TIME.clear()
         DETECTION_CACHE.clear()
         DETECTION_CACHE_TIME = None
+        QDS_CACHE.clear()
+        WAS_CACHE.clear()
+        WAS_CACHE_TIME.clear()
+        SCANNER_CACHE = None
+        SCANNER_CACHE_TIME = None
+        ETM_RESULT_CACHE = None
+        ETM_RESULT_CACHE_TIME = None
         result['cleared'] = True
         result['kb_entries'] = 0
         result['detection_entries'] = 0
+        result['qds_entries'] = 0
+        result['was_keys'] = 0
+        result['scanner_cached'] = False
+        result['etm_result_cached'] = False
         result['detection_cache_age_seconds'] = None
+        result['scanner_cache_age_seconds'] = None
+        result['etm_cache_age_seconds'] = None
 
     return result
 

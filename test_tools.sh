@@ -107,6 +107,16 @@ if [ "$FILTER" = "all" ] || [ "$FILTER" = "slow" ]; then
   test_tool "get_vulns_by_software" '{"software": "Apache"}'
 fi
 
+if [ "$FILTER" = "all" ] || [ "$FILTER" = "aggregator" ]; then
+  echo ""
+  echo "--- Aggregator Tools (Phase 4) ---"
+  test_tool "get_environment_summary" '{}'
+  test_tool "get_risk_by_tag" '{"tag": "Production"}'
+  # get_asset_full_profile requires a valid asset ID; skip in automated test
+  # test_tool "get_asset_full_profile" '{"asset_id": "12345"}'
+fi
+
+
 echo ""
 echo "=== Summary ==="
 echo "Results saved to: $RESULTS_DIR/"
