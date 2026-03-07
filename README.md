@@ -1,6 +1,6 @@
 # Qualys MCP Server
 
-A lightweight MCP server that connects AI assistants to Qualys security data. **17 tools**, pure Python, zero config beyond credentials. Install with `uvx` and start asking security questions in plain English.
+A lightweight MCP server that connects AI assistants to Qualys security data. **29 tools**, pure Python, zero config beyond credentials. Install with `uvx` and start asking security questions in plain English.
 
 ## Setup
 
@@ -38,7 +38,7 @@ For environments with self-signed certs, add `"QUALYS_SSL_VERIFY": "false"` to t
 
 ## Tools
 
-17 tools covering vulnerability management, threat intelligence, asset risk, cloud security, containers, TruRisk Eliminate, ETM findings, and security program coaching.
+29 tools covering vulnerability management, threat intelligence, asset risk, cloud security, containers, web application security, certificate monitoring, endpoint detection, file integrity monitoring, patch management, compliance, and security program coaching.
 
 ### Daily Operations & Coaching
 
@@ -57,6 +57,8 @@ For environments with self-signed certs, add `"QUALYS_SSL_VERIFY": "false"` to t
 | `get_security_posture` | How secure are we overall? Health score, risk distribution, container and cloud stats |
 | `get_weekly_priorities` | What should my team fix this week? Top risk assets ranked by TruRisk |
 | `get_patch_status` | What's our patching coverage? Risk distribution and assets needing remediation |
+| `get_scan_status` | What scans are running, queued, or failed? Duration, target, scanner name |
+| `get_compliance_posture` | What's our policy compliance rate? Pass/fail by framework (PCI-DSS, CIS, NIST, HIPAA) |
 
 ### Vulnerability Intelligence
 
@@ -67,15 +69,50 @@ For environments with self-signed certs, add `"QUALYS_SSL_VERIFY": "false"` to t
 | `get_new_vulns` | What new vulns dropped this week? Severity breakdown, RTI tags, patch status |
 | `get_vulns_by_software` | What vulns affect Apache? Search by software, vendor, or product name |
 | `get_threat_intel` | What vulns have ransomware/active exploits? RTI breakdown across 12+ threat categories |
+| `get_vuln_exceptions` | What vulnerabilities have approved exceptions? Risk acceptances, false positives, expiring exceptions |
 
 ### Asset & Infrastructure Risk
 
 | Tool | What it answers |
 |------|----------------|
 | `get_asset_risk` | Why is this asset risky? TruRisk score, software inventory, EOL status |
+| `get_asset_inventory` | What assets do we have? Search by OS, tag, or query; EOL filtering, platform breakdown |
 | `get_tech_debt` | How many EOL/EOS systems do we have? OS and hardware lifecycle status |
 | `get_cloud_risk` | What's our cloud security posture? AWS/Azure/GCP accounts and failed controls |
 | `get_image_vulns` | What vulns are in this container image? Severity breakdown and fixes |
+
+### Web & Application Security
+
+| Tool | What it answers |
+|------|----------------|
+| `get_webapp_vulns` | What web app vulnerabilities were found? Per-app breakdown, OWASP categories, critical/high findings |
+| `get_expiring_certs` | Which SSL/TLS certs expire soon? Expiring/expired certs, weak algorithms (SHA1/MD5) |
+
+### Threat Detection
+
+| Tool | What it answers |
+|------|----------------|
+| `get_edr_events` | What endpoint threats were detected? Process injections, lateral movement, suspicious executions |
+| `get_fim_events` | What file changes happened? Critical path alerts (/etc/passwd, registry run keys) |
+| `get_cdr_findings` | What cloud threats were detected? CDR findings from TotalCloud (malware, C2, crypto-miners) |
+
+### Patch Management
+
+| Tool | What it answers |
+|------|----------------|
+| `get_pm_status` | What's our patch deployment status? Jobs, patch counts by severity, asset coverage |
+
+### QID Lookups
+
+| Tool | What it answers |
+|------|----------------|
+| `get_qid_details` | What is this QID? Severity, CVEs, threat intel, affected assets |
+
+### Admin
+
+| Tool | What it answers |
+|------|----------------|
+| `cache_status` | What's cached? KB entries, detection cache age; use clear=True to reset |
 
 ### Threat Intel Categories
 
@@ -121,6 +158,8 @@ For environments with self-signed certs, add `"QUALYS_SSL_VERIFY": "false"` to t
 "What's wrong with asset 233946644?"           → get_asset_risk("233946644")
 "How many EOL systems do we have?"             → get_tech_debt()
 "What's our patch/mitigate status?"            → get_eliminate_status()
+"Show me all Windows assets"                   → get_asset_inventory(os="Windows")
+"What's our patching pipeline for Linux?"      → get_pm_status(platform="Linux")
 ```
 
 ### Cloud & Infrastructure
@@ -129,12 +168,36 @@ For environments with self-signed certs, add `"QUALYS_SSL_VERIFY": "false"` to t
 "What cloud threats were detected this week?"  → get_cdr_findings(days=7)
 "Show me critical AWS CDR findings"            → get_cdr_findings(severity="CRITICAL", cloud_provider="AWS")
 "Are our scanners healthy?"                    → get_scanner_health()
+"What scans are running right now?"            → get_scan_status(state="Running")
 ```
 
 ### ETM Findings
 ```
 "Show me all confirmed critical findings"      → get_etm_findings(qql="vulnerabilities.vulnerability.severity:5")
 "Am I affected by Log4Shell across all sources?" → get_etm_findings(qql="vulnerabilities.vulnerability.cveIds:CVE-2021-44228")
+```
+
+### Web App & Certificate Security
+```
+"What web app vulnerabilities do we have?"     → get_webapp_vulns()
+"Show me critical WAS findings for our portal" → get_webapp_vulns(severity=5, app_name="portal")
+"Which SSL certs expire this month?"           → get_expiring_certs(days=30)
+"Are any certs already expired?"               → get_expiring_certs(include_expired=True)
+```
+
+### Endpoint & File Integrity
+```
+"What malware was detected this week?"         → get_edr_events(days=7)
+"Show me critical endpoint threats"            → get_edr_events(severity="Critical")
+"What file changes happened today?"            → get_fim_events(days=1)
+"Were /etc/passwd or sudoers modified?"        → get_fim_events(path="/etc/passwd")
+```
+
+### Compliance
+```
+"What's our PCI-DSS compliance score?"        → get_compliance_posture(framework="PCI-DSS")
+"Show me failing CIS controls"                 → get_compliance_posture(framework="CIS")
+"What exceptions expire soon?"                 → get_vuln_exceptions(days_to_expiry=30)
 ```
 
 ### Multi-Tool Workflows
@@ -147,6 +210,9 @@ For environments with self-signed certs, add `"QUALYS_SSL_VERIFY": "false"` to t
 
 "Briefing the CISO on our security program"
 → get_security_posture() → get_threat_intel() → get_patch_status() → get_recommendations()
+
+"We're about to go through a PCI-DSS audit. Where do we stand?"
+→ get_security_posture() → get_cloud_risk() → get_tech_debt() → get_compliance_posture(framework="PCI-DSS") → get_expiring_certs()
 ```
 
 See [docs/examples.md](docs/examples.md) for the full Q&A reference with 100+ mapped examples.

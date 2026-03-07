@@ -244,28 +244,25 @@ Q: When did each scanner last update its signatures?
 
 ---
 
-## Web Application Security (New Tool — coming soon)
+## Web Application Security
 
 ```
 Q: What web application vulnerabilities were found this week?
 → get_webapp_vulns(days=7)
 
 Q: Show me all Critical web app findings
-→ get_webapp_vulns(severity=4)
-
-Q: Are any of our web apps vulnerable to SQL injection?
-→ get_webapp_vulns(owasp_category="A03")
+→ get_webapp_vulns(severity=5)
 
 Q: Show me all WAS findings for customer-portal
 → get_webapp_vulns(app_name="customer-portal")
 
-Q: What OWASP Top 10 issues do we have?
-→ get_webapp_vulns(days=0)
+Q: What web app vulns do we have across all apps?
+→ get_webapp_vulns(severity=4, days=30)
 ```
 
 ---
 
-## Certificate Monitoring (New Tool — coming soon)
+## Certificate Monitoring
 
 ```
 Q: Which SSL certs expire in the next 30 days?
@@ -274,23 +271,23 @@ Q: Which SSL certs expire in the next 30 days?
 Q: Are any certificates already expired?
 → get_expiring_certs(include_expired=True)
 
-Q: Which servers are using weak cipher suites?
-→ get_expiring_certs(weak_only=True)
+Q: Show me all certs expiring in the next 90 days
+→ get_expiring_certs(days=90)
 
-Q: Show me all self-signed certificates in production
+Q: Which certs use weak algorithms like SHA1?
 → get_expiring_certs(days=365)
 ```
 
 ---
 
-## EDR / Endpoint Detection (New Tool — coming soon)
+## EDR / Endpoint Detection
 
 ```
 Q: What malware was detected this week?
 → get_edr_events(days=7)
 
 Q: Show me all critical endpoint threat detections
-→ get_edr_events(severity="CRITICAL")
+→ get_edr_events(severity="Critical")
 
 Q: Are any hosts showing ransomware behavior?
 → get_edr_events(category="ransomware", days=30)
@@ -301,7 +298,7 @@ Q: Show me all EDR events for host DESKTOP-ABC123
 
 ---
 
-## File Integrity Monitoring (New Tool — coming soon)
+## File Integrity Monitoring
 
 ```
 Q: What file changes happened on production servers today?
@@ -319,7 +316,7 @@ Q: Were there any off-hours file changes last night?
 
 ---
 
-## Compliance (New Tool — coming soon)
+## Compliance
 
 ```
 Q: What's our CIS Benchmark compliance score?
@@ -337,7 +334,7 @@ Q: Which systems are failing the most compliance checks?
 
 ---
 
-## Patch Management Detail (New Tool — coming soon)
+## Patch Management
 
 ```
 Q: Show me active patch deployment jobs
@@ -346,16 +343,13 @@ Q: Show me active patch deployment jobs
 Q: What Windows patches are outstanding?
 → get_pm_status(platform="Windows")
 
-Q: Which patch jobs failed recently?
-→ get_pm_status(status="Failed", days=30)
-
 Q: What's our patch coverage for Linux?
 → get_pm_status(platform="Linux")
 ```
 
 ---
 
-## Scan Management (New Tool — coming soon)
+## Scan Management
 
 ```
 Q: Show me all running scans right now
@@ -369,6 +363,39 @@ Q: Show me scan history for the past week
 
 Q: Which scans are currently queued?
 → get_scan_status(state="Queued")
+```
+
+---
+
+## Asset Inventory
+
+```
+Q: Show me all Windows assets seen in the last 30 days
+→ get_asset_inventory(os="Windows", days_since_seen=30)
+
+Q: Which assets are tagged as production?
+→ get_asset_inventory(tag="production")
+
+Q: Show me all EOL assets
+→ get_asset_inventory(eol_only=True)
+
+Q: Find assets matching "web-server"
+→ get_asset_inventory(query="web-server")
+```
+
+---
+
+## Vulnerability Exceptions
+
+```
+Q: What vulnerability exceptions do we have?
+→ get_vuln_exceptions()
+
+Q: Which exceptions are expiring in the next 30 days?
+→ get_vuln_exceptions(days_to_expiry=30)
+
+Q: Show me all false positive exceptions
+→ get_vuln_exceptions(vuln_type="false_positive")
 ```
 
 ---
@@ -392,8 +419,8 @@ Q: We're about to go through a PCI-DSS audit. Where do we stand?
 → 1. get_security_posture()                   — Overall risk posture
 → 2. get_cloud_risk()                         — Cloud compliance status
 → 3. get_tech_debt()                          — EOL systems (fails PCI-DSS)
-→ 4. get_compliance_posture(framework="PCI-DSS")  — [coming soon]
-→ 5. get_expiring_certs()                     — Cert issues [coming soon]
+→ 4. get_compliance_posture(framework="PCI-DSS")  — Policy compliance pass/fail rates
+→ 5. get_expiring_certs()                     — Cert expiry and weak algorithms
 
 Q: Is our cloud environment secure?
 → 1. get_cloud_risk()                         — Misconfig / CIS benchmark failures
