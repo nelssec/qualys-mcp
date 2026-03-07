@@ -75,6 +75,7 @@ if [ "$FILTER" = "all" ] || [ "$FILTER" = "fast" ]; then
   test_tool "get_qid_details" '{"qids": "38747"}'
   test_tool "get_new_vulns" '{"days": 1}'
   test_tool "get_cve_details" '{"cves": "CVE-2024-3400"}'
+  test_tool "cache_status" '{}'
 fi
 
 if [ "$FILTER" = "all" ] || [ "$FILTER" = "medium" ]; then
@@ -87,6 +88,15 @@ if [ "$FILTER" = "all" ] || [ "$FILTER" = "medium" ]; then
   test_tool "get_patch_status" '{}'
   test_tool "get_eliminate_status" '{}'
   test_tool "get_cloud_risk" '{}'
+  test_tool "get_scan_status" '{"state": "Running,Queued,Error", "days": 7}'
+  test_tool "get_webapp_vulns" '{"severity": 4, "days": 30}'
+  test_tool "get_expiring_certs" '{"days": 30}'
+  test_tool "get_edr_events" '{"days": 7}'
+  test_tool "get_fim_events" '{"days": 7}'
+  test_tool "get_pm_status" '{"platform": "Windows"}'
+  test_tool "get_asset_inventory" '{"days_since_seen": 30, "limit": 20}'
+  test_tool "get_vuln_exceptions" '{"status": "active"}'
+  test_tool "get_compliance_posture" '{}'
 fi
 
 if [ "$FILTER" = "all" ] || [ "$FILTER" = "slow" ]; then
@@ -105,6 +115,7 @@ if [ "$FILTER" = "all" ] || [ "$FILTER" = "aggregator" ]; then
   # get_asset_full_profile requires a valid asset ID; skip in automated test
   # test_tool "get_asset_full_profile" '{"asset_id": "12345"}'
 fi
+
 
 echo ""
 echo "=== Summary ==="

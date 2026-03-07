@@ -528,7 +528,7 @@ def get_certificates(limit=100, days_expiring=None):
         return []
 
 
-def get_fim_events(limit=100, days=7):
+def _fetch_fim_events_raw(limit=100, days=7):
     end = datetime.now(timezone.utc)
     start = end - timedelta(days=days)
     data = api_get(f"{BASE_URL}/fim/v2/events?filter=dateTime:[{start.strftime('%Y-%m-%dT%H:%M:%SZ')}...{end.strftime('%Y-%m-%dT%H:%M:%SZ')}]&pageSize={limit}")
@@ -538,7 +538,7 @@ def get_fim_events(limit=100, days=7):
         return []
 
 
-def get_edr_events(limit=100, severity=None):
+def _fetch_edr_events_raw(limit=100, severity=None):
     url = f"{GATEWAY_URL}/edr/v1/events?pageSize={limit}"
     if severity:
         url += f"&filter=severity:{severity}"
@@ -1419,8 +1419,8 @@ def get_recommendations() -> dict:
         cloud_gcp=lambda: get_connectors('gcp', 5),
         cloud_evals=lambda: _get_first_cloud_evals(),
         was=lambda: get_was_findings(5, 4),
-        fim=lambda: get_fim_events(5, 7),
-        edr=lambda: get_edr_events(5),
+        fim=lambda: _fetch_fim_events_raw(5, 7),
+        edr=lambda: _fetch_edr_events_raw(5),
         certs=lambda: get_certificates(5, 30),
         ransomware_vulns=lambda: get_threat_intel.fn(threat_type='Ransomware', days=30),
     )
@@ -2724,25 +2724,35 @@ def get_image_vulns(image_id: str, limit: int = 50) -> dict:
     return result
 
 
-def get_expiring_certs(days: int = 30, limit: int = 50) -> dict:
-    """Get SSL/TLS certificates expiring within specified days. Default 30 days."""
+@mcp.tool()
+def get_expiring_certs(days: int = 30, include_expired: bool = True, limit: int = 50) -> dict:
+    """[CertView] SSL/TLS certificates expiring within N days. Identifies weak algorithms (SHA1, MD5), lists expiring and expired certs with hostname and days until expiry. Use get_security_posture() for overall risk."""
     result = {
         'days': days,
-        'stats': {'expiring': 0, 'expired': 0, 'valid': 0},
+        'stats': {'expiring': 0, 'expired': 0, 'valid': 0, 'weakAlgorithm': 0},
         'expiring': [], 'expired': []
     }
 
     today = datetime.now(timezone.utc)
+    weak_algos = ('sha1', 'md5')
 
     certs = get_certificates(limit * 2, days)
     for c in certs:
+        issuer_obj = c.get('issuer', {}) or {}
+        sig_algo = (c.get('signatureAlgorithm', '') or issuer_obj.get('signatureAlgorithm', '') or '').lower()
+        is_weak = any(w in sig_algo for w in weak_algos)
+        if is_weak:
+            result['stats']['weakAlgorithm'] += 1
+
         cert_info = {
             'id': c.get('id', ''),
             'subject': c.get('subject', {}).get('commonName', ''),
-            'issuer': c.get('issuer', {}).get('commonName', ''),
+            'issuer': issuer_obj.get('commonName', ''),
             'validTo': c.get('validTo', ''),
-            'hosts': [h.get('hostname', '') for h in c.get('hosts', [])[:5]]
+            'hosts': [h.get('hostname', '') for h in c.get('hosts', [])[:5]],
         }
+        if is_weak:
+            cert_info['weakAlgorithm'] = sig_algo
 
         valid_to = c.get('validTo', '')
         if valid_to:
@@ -2753,7 +2763,7 @@ def get_expiring_certs(days: int = 30, limit: int = 50) -> dict:
 
                 if days_left < 0:
                     result['stats']['expired'] += 1
-                    if len(result['expired']) < limit:
+                    if include_expired and len(result['expired']) < limit:
                         result['expired'].append(cert_info)
                 elif days_left <= days:
                     result['stats']['expiring'] += 1
@@ -2779,9 +2789,9 @@ def get_threats(days: int = 7, limit: int = 50) -> dict:
 
     # Run all three sources concurrently
     concurrent = _run_concurrent(
-        fim=lambda: get_fim_events(limit, days),
-        edr_crit=lambda: get_edr_events(limit, 'Critical'),
-        edr_high=lambda: get_edr_events(limit, 'High'),
+        fim=lambda: _fetch_fim_events_raw(limit, days),
+        edr_crit=lambda: _fetch_edr_events_raw(limit, 'Critical'),
+        edr_high=lambda: _fetch_edr_events_raw(limit, 'High'),
         cdr=lambda: get_cdr(days, limit),
     )
 
@@ -2830,18 +2840,33 @@ def get_threats(days: int = 7, limit: int = 50) -> dict:
     return result
 
 
-def get_webapp_vulns(severity: int = 4, limit: int = 50) -> dict:
-    """Get application vulnerabilities from TotalAppSec (TAS) scans. Default severity 4+ (high/critical)."""
+@mcp.tool()
+def get_webapp_vulns(severity: int = 4, days: int = 30, app_name: str = "", limit: int = 50) -> dict:
+    """[WAS] Web application vulnerabilities from TotalAppSec scans. Severity breakdown per web app, OWASP categories, critical/high findings. Use get_asset_risk() for host-based vulns."""
+    owasp_map = {
+        'SQL Injection': 'A03:Injection', 'Cross-Site Scripting': 'A03:Injection',
+        'Command Injection': 'A03:Injection', 'LDAP Injection': 'A03:Injection',
+        'XSS': 'A03:Injection', 'XXE': 'A05:Security Misconfiguration',
+        'SSRF': 'A10:SSRF', 'CSRF': 'A01:Broken Access Control',
+        'Authentication': 'A07:Identification and Authentication Failures',
+        'Cryptographic': 'A02:Cryptographic Failures', 'Sensitive Data': 'A02:Cryptographic Failures',
+    }
     result = {
-        'minSeverity': severity,
+        'minSeverity': severity, 'days': days,
         'stats': {'critical': 0, 'high': 0, 'medium': 0, 'total': 0, 'webApps': 0},
-        'vulns': [], 'byWebApp': []
+        'vulns': [], 'byWebApp': [], 'owaspHints': {}
     }
 
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
     findings = get_was_findings(limit * 2, severity)
     webapp_vulns = {}
 
     for f in findings:
+        # Filter by app_name if specified
+        webapp_name = f.get('webAppName', '')
+        if app_name and app_name.lower() not in webapp_name.lower():
+            continue
+
         sev = f.get('severity', 0)
         if sev >= 5:
             result['stats']['critical'] += 1
@@ -2850,8 +2875,14 @@ def get_webapp_vulns(severity: int = 4, limit: int = 50) -> dict:
         elif sev >= 3:
             result['stats']['medium'] += 1
 
+        # OWASP category hint
+        name = f.get('name', '')
+        for keyword, owasp in owasp_map.items():
+            if keyword.lower() in name.lower():
+                result['owaspHints'][owasp] = result['owaspHints'].get(owasp, 0) + 1
+                break
+
         webapp_id = f.get('webAppId', '')
-        webapp_name = f.get('webAppName', '')
         if webapp_id:
             if webapp_id not in webapp_vulns:
                 webapp_vulns[webapp_id] = {'id': webapp_id, 'name': webapp_name, 'critical': 0, 'high': 0, 'total': 0}
@@ -2862,11 +2893,11 @@ def get_webapp_vulns(severity: int = 4, limit: int = 50) -> dict:
                 webapp_vulns[webapp_id]['high'] += 1
 
         result['vulns'].append({
-            'qid': f.get('qid'), 'name': f.get('name', ''),
+            'qid': f.get('qid'), 'name': name,
             'severity': sev, 'url': f.get('url', ''), 'webApp': webapp_name
         })
 
-    result['stats']['total'] = len(findings)
+    result['stats']['total'] = len(result['vulns'])
     result['stats']['webApps'] = len(webapp_vulns)
     result['vulns'] = sorted(result['vulns'], key=lambda x: x['severity'], reverse=True)[:limit]
     result['byWebApp'] = sorted(webapp_vulns.values(), key=lambda x: (x['critical'], x['high'], x['total']), reverse=True)[:20]
@@ -3164,8 +3195,9 @@ def get_environment_summary() -> dict:
     return result
 
 
+@mcp.tool()
 def cache_status(clear: bool = False) -> dict:
-    """Show cache stats or clear all caches. Use clear=True to reset caches."""
+    """[Admin] Show cache stats or clear all caches. Use clear=True to reset caches."""
     global DETECTION_CACHE_TIME, ETM_RESULT_CACHE, ETM_RESULT_CACHE_TIME
     global SCANNER_CACHE, SCANNER_CACHE_TIME
 
@@ -3215,6 +3247,412 @@ def cache_status(clear: bool = False) -> dict:
         result['scanner_cache_age_seconds'] = None
         result['etm_cache_age_seconds'] = None
 
+    return result
+
+
+@mcp.tool()
+def get_edr_events(days: int = 7, severity: str = "", category: str = "", host: str = "", limit: int = 50) -> dict:
+    """[EDR] Endpoint Detection & Response events — process injections, lateral movement, suspicious executions. Aggregated by host and event type. Use get_fim_events() for file integrity events."""
+    result = {
+        'days': days,
+        'stats': {'total': 0, 'critical': 0, 'high': 0, 'medium': 0, 'bySeverity': {}, 'byCategory': {}},
+        'events': [], 'byHost': {}
+    }
+
+    sev_filter = severity if severity else None
+    events = _fetch_edr_events_raw(limit * 2, sev_filter)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+    for e in events:
+        # Filter by days
+        dt = e.get('dateTime', '')
+        if dt:
+            try:
+                event_time = datetime.strptime(dt[:19], '%Y-%m-%dT%H:%M:%S').replace(tzinfo=timezone.utc)
+                if event_time < cutoff:
+                    continue
+            except ValueError:
+                pass
+
+        # Filter by category
+        evt_category = e.get('eventType', '') or e.get('category', '')
+        if category and category.lower() not in evt_category.lower():
+            continue
+
+        # Filter by host
+        hostname = e.get('hostname', '') or e.get('asset', {}).get('hostname', '')
+        if host and host.lower() not in hostname.lower():
+            continue
+
+        sev = e.get('severity', 'Unknown')
+        result['stats']['bySeverity'][sev] = result['stats']['bySeverity'].get(sev, 0) + 1
+        if sev in ('Critical', 'CRITICAL', '5'):
+            result['stats']['critical'] += 1
+        elif sev in ('High', 'HIGH', '4'):
+            result['stats']['high'] += 1
+        elif sev in ('Medium', 'MEDIUM', '3'):
+            result['stats']['medium'] += 1
+
+        result['stats']['byCategory'][evt_category] = result['stats']['byCategory'].get(evt_category, 0) + 1
+
+        if hostname:
+            if hostname not in result['byHost']:
+                result['byHost'][hostname] = 0
+            result['byHost'][hostname] += 1
+
+        if len(result['events']) < limit:
+            result['events'].append({
+                'type': evt_category, 'process': e.get('processName', ''),
+                'hostname': hostname, 'dateTime': dt, 'severity': sev,
+            })
+
+    result['stats']['total'] = sum(result['stats']['bySeverity'].values())
+    return result
+
+
+@mcp.tool()
+def get_fim_events(days: int = 7, severity: str = "", host: str = "", path: str = "", limit: int = 50) -> dict:
+    """[FIM] File Integrity Monitoring events — unauthorized file changes, critical system file modifications, suspicious paths (/etc/passwd, registry run keys). Use get_edr_events() for process-level threats."""
+    critical_paths = ['/etc/passwd', '/etc/shadow', '/etc/sudoers', 'C:\\Windows\\System32',
+                      'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run']
+    result = {
+        'days': days,
+        'stats': {'total': 0, 'criticalPathEvents': 0, 'bySeverity': {}},
+        'events': [], 'byHost': {}, 'criticalPathAlerts': []
+    }
+
+    events = _fetch_fim_events_raw(limit * 2, days)
+
+    for e in events:
+        file_path = e.get('filePath', '') or e.get('fullPath', '')
+        hostname = e.get('hostname', '') or e.get('asset', {}).get('hostname', '')
+        sev = e.get('severity', '') or 'Unknown'
+
+        # Filter by severity
+        if severity and severity.lower() != str(sev).lower():
+            continue
+        # Filter by host
+        if host and host.lower() not in hostname.lower():
+            continue
+        # Filter by path
+        if path and path.lower() not in file_path.lower():
+            continue
+
+        result['stats']['bySeverity'][str(sev)] = result['stats']['bySeverity'].get(str(sev), 0) + 1
+
+        # Critical path detection
+        is_critical = any(cp.lower() in file_path.lower() for cp in critical_paths if file_path)
+        if is_critical:
+            result['stats']['criticalPathEvents'] += 1
+            result['criticalPathAlerts'].append({
+                'path': file_path, 'hostname': hostname,
+                'action': e.get('action', ''), 'dateTime': e.get('dateTime', '')
+            })
+
+        if hostname:
+            result['byHost'][hostname] = result['byHost'].get(hostname, 0) + 1
+
+        if len(result['events']) < limit:
+            event_info = {
+                'action': e.get('action', ''), 'path': file_path,
+                'hostname': hostname, 'dateTime': e.get('dateTime', ''),
+                'severity': sev,
+            }
+            if is_critical:
+                event_info['criticalPath'] = True
+            result['events'].append(event_info)
+
+    result['stats']['total'] = sum(result['stats']['bySeverity'].values())
+    return result
+
+
+@mcp.tool()
+def get_scan_status(state: str = "Running,Queued,Error", days: int = 1, limit: int = 50) -> dict:
+    """[VM] Scan status summary — running, queued, failed scans with duration and target info. Use get_scanner_health() for appliance status."""
+    result = {
+        'states': state,
+        'stats': {'total': 0, 'byState': {}},
+        'scans': []
+    }
+
+    scans = get_scan_list(state, limit)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+    for s in scans:
+        scan_state = s.get('state', '')
+        launched = s.get('launched', '')
+
+        # Filter by days if launched date available
+        if launched and days:
+            try:
+                launch_time = datetime.strptime(launched[:19], '%Y-%m-%dT%H:%M:%S').replace(tzinfo=timezone.utc)
+                if launch_time < cutoff:
+                    continue
+            except ValueError:
+                pass
+
+        result['stats']['byState'][scan_state] = result['stats']['byState'].get(scan_state, 0) + 1
+
+        if len(result['scans']) < limit:
+            result['scans'].append({
+                'ref': s.get('ref', ''), 'title': s.get('title', ''),
+                'state': scan_state, 'type': s.get('type', ''),
+                'target': s.get('target', ''), 'launched': launched,
+                'duration': s.get('duration', ''), 'scanner': s.get('scannerName', ''),
+            })
+
+    result['stats']['total'] = sum(result['stats']['byState'].values())
+    return result
+
+
+@mcp.tool()
+def get_pm_status(platform: str = "Windows", days: int = 30, limit: int = 20) -> dict:
+    """[PM] Patch Management deployment status — jobs, patch counts by severity, asset coverage. Platform: Windows or Linux. Use get_eliminate_status() for TruRisk Eliminate/Mitigate."""
+    concurrent = _run_concurrent(
+        jobs=lambda: get_pm_jobs(platform, limit),
+        patches_total=lambda: get_pm_patches_count(platform),
+        patches_by_sev=lambda: get_pm_patches_count(platform, 'vendorSeverity'),
+        assets=lambda: get_pm_assets(platform, limit),
+    )
+
+    jobs = concurrent.get('jobs') or []
+    patches_total = concurrent.get('patches_total') or {}
+    patches_by_sev = concurrent.get('patches_by_sev') or {}
+    assets = concurrent.get('assets') or []
+
+    job_list = []
+    if isinstance(jobs, list):
+        for j in jobs[:limit]:
+            if isinstance(j, dict):
+                job_list.append({
+                    'id': j.get('id', ''), 'name': j.get('name', ''),
+                    'status': j.get('status', ''), 'platform': platform,
+                    'createdDate': j.get('createdDate', ''),
+                })
+    elif isinstance(jobs, dict):
+        for j in jobs.get('jobs', jobs.get('data', []))[:limit]:
+            if isinstance(j, dict):
+                job_list.append({
+                    'id': j.get('id', ''), 'name': j.get('name', ''),
+                    'status': j.get('status', ''), 'platform': platform,
+                })
+
+    asset_list = []
+    if isinstance(assets, list):
+        for a in assets[:limit]:
+            if isinstance(a, dict):
+                asset_list.append({
+                    'id': a.get('id', ''), 'name': a.get('name', '') or a.get('hostname', ''),
+                    'os': a.get('os', '') or a.get('operatingSystem', ''),
+                })
+    elif isinstance(assets, dict):
+        for a in assets.get('assets', assets.get('data', []))[:limit]:
+            if isinstance(a, dict):
+                asset_list.append({
+                    'id': a.get('id', ''), 'name': a.get('name', ''),
+                })
+
+    return {
+        'platform': platform,
+        'stats': {
+            'totalPatches': patches_total.get('count', patches_total) if isinstance(patches_total, dict) else patches_total,
+            'patchesBySeverity': patches_by_sev,
+            'totalJobs': len(job_list),
+            'totalAssets': len(asset_list),
+        },
+        'jobs': job_list,
+        'assets': asset_list,
+    }
+
+
+@mcp.tool()
+def get_asset_inventory(query: str = "", tag: str = "", os: str = "", days_since_seen: int = 30, eol_only: bool = False, limit: int = 50) -> dict:
+    """[CSAM] Asset inventory — search by OS, tag, or keyword. EOL/EOS filtering, last seen filtering, platform breakdown. Use get_asset_risk() for a specific asset's vulnerability details."""
+    filters = []
+    if os:
+        filters.append({"field": "operatingSystem.osName", "operator": "CONTAINS", "value": os})
+    if tag:
+        filters.append({"field": "tags.name", "operator": "CONTAINS", "value": tag})
+    if query:
+        filters.append({"field": "asset.name", "operator": "CONTAINS", "value": query})
+    if days_since_seen:
+        since = (datetime.now(timezone.utc) - timedelta(days=days_since_seen)).strftime('%Y-%m-%dT00:00:00Z')
+        filters.append({"field": "asset.lastSeen", "operator": "GREATER", "value": since})
+    if eol_only:
+        filters.append({"field": "operatingSystem.lifecycle.stage", "operator": "CONTAINS", "value": "EOL"})
+
+    assets = csam_search(filters=filters if filters else None, limit=limit,
+                         fields="operatingSystem,hardware,tags")
+
+    result = {
+        'stats': {'total': len(assets), 'byOS': {}, 'byPlatform': {}, 'eolCount': 0},
+        'assets': []
+    }
+
+    for a in assets:
+        os_info = a.get('operatingSystem', {}) or {}
+        hw_info = a.get('hardware', {}) or {}
+        os_name = os_info.get('osName', '') or 'Unknown'
+        platform = hw_info.get('manufacturer', '') or os_info.get('category', '') or 'Unknown'
+        lifecycle = (os_info.get('lifecycle', {}) or {}).get('stage', '')
+        is_eol = is_eol_stage(lifecycle)
+
+        if is_eol:
+            result['stats']['eolCount'] += 1
+
+        result['stats']['byOS'][os_name] = result['stats']['byOS'].get(os_name, 0) + 1
+        result['stats']['byPlatform'][platform] = result['stats']['byPlatform'].get(platform, 0) + 1
+
+        result['assets'].append({
+            'assetId': a.get('assetId', ''),
+            'name': a.get('name', '') or a.get('dnsName', ''),
+            'os': os_name,
+            'lastSeen': a.get('lastSeen', ''),
+            'riskScore': a.get('riskScore', 0) or 0,
+            'isEOL': is_eol,
+        })
+
+    result['assets'].sort(key=lambda x: -x['riskScore'])
+    return result
+
+
+@mcp.tool()
+def get_vuln_exceptions(status: str = "active", vuln_type: str = "", days_to_expiry: int = 0, limit: int = 50) -> dict:
+    """[VM] Vulnerability exceptions — approved risk acceptances, false positives, compensating controls. Shows expiring exceptions needing review. Use get_patch_status() for remediation status."""
+    result = {
+        'status': status,
+        'stats': {'total': 0, 'byType': {}, 'expiringSoon': 0},
+        'exceptions': []
+    }
+
+    url = f"{BASE_URL}/api/2.0/fo/exception/vuln/?action=list&status={status}"
+    data = api_get(url, timeout=30)
+    if not data:
+        result['note'] = 'Exceptions API not available — may require additional Qualys subscription'
+        return result
+
+    try:
+        root = ET.fromstring(data)
+    except ET.ParseError:
+        result['note'] = 'Exceptions API returned invalid response'
+        return result
+
+    today = datetime.now(timezone.utc)
+    expiry_cutoff = today + timedelta(days=days_to_expiry) if days_to_expiry > 0 else None
+
+    for exc in root.findall('.//EXCEPTION')[:limit * 2]:
+        exc_type = exc.findtext('EXCEPTION_TYPE', '') or exc.findtext('TYPE', '')
+        if vuln_type and vuln_type.lower() not in exc_type.lower():
+            continue
+
+        expiry = exc.findtext('EXPIRY_DATE', '') or exc.findtext('EXPIRATION_DATE', '')
+        days_left = None
+        if expiry:
+            try:
+                exp_date = datetime.strptime(expiry[:10], '%Y-%m-%d').replace(tzinfo=timezone.utc)
+                days_left = (exp_date - today).days
+                if days_left <= 30:
+                    result['stats']['expiringSoon'] += 1
+                if expiry_cutoff and exp_date > expiry_cutoff:
+                    continue
+            except ValueError:
+                pass
+
+        result['stats']['byType'][exc_type] = result['stats']['byType'].get(exc_type, 0) + 1
+
+        if len(result['exceptions']) < limit:
+            entry = {
+                'id': exc.findtext('EXCEPTION_NUMBER', '') or exc.findtext('ID', ''),
+                'qid': exc.findtext('QID', ''),
+                'type': exc_type,
+                'status': exc.findtext('STATUS', status),
+                'comments': exc.findtext('COMMENTS', '') or exc.findtext('REASON', ''),
+                'hostIp': exc.findtext('HOST_IP', '') or exc.findtext('IP', ''),
+                'expiryDate': expiry,
+            }
+            if days_left is not None:
+                entry['daysUntilExpiry'] = days_left
+            result['exceptions'].append(entry)
+
+    result['stats']['total'] = sum(result['stats']['byType'].values())
+    return result
+
+
+@mcp.tool()
+def get_compliance_posture(framework: str = "", platform: str = "", limit: int = 50) -> dict:
+    """[PC] Policy Compliance posture — pass/fail rates by framework (PCI-DSS, CIS, NIST, HIPAA), top failing controls, compliance trend. Use get_cloud_risk() for cloud-specific compliance."""
+    result = {
+        'available': False,
+        'stats': {'passRate': 0, 'failRate': 0, 'totalControls': 0},
+        'byFramework': {}, 'topFailing': []
+    }
+
+    # Try posture info endpoint
+    data = api_get(f"{BASE_URL}/api/2.0/fo/compliance/posture/info/?action=list", timeout=30)
+    if data:
+        try:
+            root = ET.fromstring(data)
+            result['available'] = True
+            controls = root.findall('.//CONTROL') or root.findall('.//POSTURE')
+            passed = 0
+            failed = 0
+            failing = []
+
+            for c in controls[:limit * 2]:
+                status = (c.findtext('STATUS', '') or c.findtext('RESULT', '')).upper()
+                ctrl_framework = c.findtext('FRAMEWORK', '') or c.findtext('TECHNOLOGY', '')
+                ctrl_name = c.findtext('CONTROL_NAME', '') or c.findtext('TITLE', '')
+
+                if framework and framework.lower() not in ctrl_framework.lower():
+                    continue
+                if platform and platform.lower() not in (c.findtext('PLATFORM', '') or '').lower():
+                    continue
+
+                if 'PASS' in status:
+                    passed += 1
+                elif 'FAIL' in status:
+                    failed += 1
+                    failing.append({'control': ctrl_name, 'framework': ctrl_framework, 'status': status})
+
+                if ctrl_framework:
+                    if ctrl_framework not in result['byFramework']:
+                        result['byFramework'][ctrl_framework] = {'pass': 0, 'fail': 0}
+                    if 'PASS' in status:
+                        result['byFramework'][ctrl_framework]['pass'] += 1
+                    elif 'FAIL' in status:
+                        result['byFramework'][ctrl_framework]['fail'] += 1
+
+            total = passed + failed
+            result['stats']['totalControls'] = total
+            result['stats']['passRate'] = round(passed / total * 100, 1) if total else 0
+            result['stats']['failRate'] = round(failed / total * 100, 1) if total else 0
+            result['topFailing'] = failing[:limit]
+            return result
+        except ET.ParseError:
+            pass
+
+    # Fallback: try compliance report list
+    data2 = api_get(f"{BASE_URL}/api/2.0/fo/report/?action=list&report_type=Compliance", timeout=30)
+    if data2:
+        try:
+            root = ET.fromstring(data2)
+            reports = root.findall('.//REPORT')
+            if reports:
+                result['available'] = True
+                result['reports'] = []
+                for r in reports[:limit]:
+                    result['reports'].append({
+                        'id': r.findtext('ID', ''),
+                        'title': r.findtext('TITLE', ''),
+                        'date': r.findtext('LAUNCH_DATETIME', ''),
+                        'status': r.findtext('STATUS/STATE', ''),
+                    })
+                result['note'] = 'Detailed posture data requires Policy Compliance module. Compliance reports listed.'
+                return result
+        except ET.ParseError:
+            pass
+
+    result['note'] = 'Policy Compliance module not licensed or no data available'
     return result
 
 
