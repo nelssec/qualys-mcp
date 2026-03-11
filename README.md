@@ -89,7 +89,7 @@ For environments with self-signed certs, add `"QUALYS_SSL_VERIFY": "false"` to t
 | Tool | What it answers |
 |------|----------------|
 | `get_webapp_vulns` | What web app vulnerabilities were found? Per-app breakdown, OWASP categories, critical/high findings |
-| `get_expiring_certs` | Which SSL/TLS certs expire soon? Expiring/expired certs, weak algorithms (SHA1/MD5) |
+| `get_expiring_certs` | SSL/TLS cert expiry + issue detection: expiring/expired certs, weak keys, SHA-1, self-signed, TLS 1.0/1.1, per-cert grading |
 
 ### Threat Detection
 
@@ -186,6 +186,8 @@ For environments with self-signed certs, add `"QUALYS_SSL_VERIFY": "false"` to t
 "Show me critical WAS findings for our portal" → get_webapp_vulns(severity=5, app_name="portal")
 "Which SSL certs expire this month?"           → get_expiring_certs(days=30)
 "Are any certs already expired?"               → get_expiring_certs(include_expired=True)
+"Show me certs with issues (weak/self-signed)" → get_expiring_certs(weak_only=True)
+"Are any servers still using TLS 1.0?"         → get_expiring_certs(weak_only=True)
 ```
 
 ### Endpoint & File Integrity
