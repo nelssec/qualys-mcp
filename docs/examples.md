@@ -257,7 +257,20 @@ Q: Show me all WAS findings for customer-portal
 → get_webapp_vulns(app_name="customer-portal")
 
 Q: What web app vulns do we have across all apps?
-→ get_webapp_vulns(severity=4, days=30)
+→ get_webapp_vulns(severity=0, days=30)
+
+Q: Are any of our web apps vulnerable to SQL injection?
+→ get_webapp_vulns(owasp_category="Injection")
+
+Q: Show me the OWASP Top 10 breakdown for the last quarter
+→ get_webapp_vulns(severity=0, days=90)
+
+Q: Which web apps have the most critical vulnerabilities?
+→ get_webapp_vulns(severity=4)
+# Check the byWebApp field in the response — sorted by critical count
+
+Q: Any XSS findings on our API gateway this month?
+→ get_webapp_vulns(app_name="api", owasp_category="XSS", days=30)
 ```
 
 ---

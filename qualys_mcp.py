@@ -564,11 +564,15 @@ def _fetch_edr_events_raw(limit=100, severity=None):
     return _paginate_json(url, limit)
 
 
-def get_was_findings(limit=100, severity=None):
-    """Get WAS findings. Uses 10-minute per-key cache to avoid repeated slow fetches."""
+def get_was_findings(limit=100, severity=None, days=None, app_name=None):
+    """Get WAS findings with optional server-side filters. Uses 10-minute per-key cache.
+    days: only findings detected in the last N days (detectedDate filter).
+    app_name: substring match on webApp.name (server-side CONTAINS filter).
+    severity: exact severity level filter (1-5).
+    """
     global WAS_CACHE, WAS_CACHE_TIME
     now = datetime.now(timezone.utc)
-    cache_key = f"was_{limit}_{severity}"
+    cache_key = f"was_{limit}_{severity}_{days}_{app_name}"
 
     if cache_key in WAS_CACHE_TIME:
         age = (now - WAS_CACHE_TIME[cache_key]).total_seconds()
@@ -579,6 +583,11 @@ def get_was_findings(limit=100, severity=None):
     criteria = "<ServiceRequest><filters><Criteria field=\"status\" operator=\"EQUALS\">ACTIVE</Criteria>"
     if severity:
         criteria += f"<Criteria field=\"severity\" operator=\"EQUALS\">{severity}</Criteria>"
+    if days:
+        cutoff = (now - timedelta(days=days)).strftime('%Y-%m-%dT%H:%M:%SZ')
+        criteria += f"<Criteria field=\"detectedDate\" operator=\"GREATER\">{cutoff}</Criteria>"
+    if app_name:
+        criteria += f"<Criteria field=\"webApp.name\" operator=\"CONTAINS\">{app_name}</Criteria>"
     criteria += f"</filters><preferences><limitResults>{limit}</limitResults></preferences></ServiceRequest>"
 
     req = Request(url, data=criteria.encode(), method='POST')
@@ -597,7 +606,9 @@ def get_was_findings(limit=100, severity=None):
                     'severity': int(f.findtext('severity', '0')),
                     'url': f.findtext('url', ''),
                     'webAppId': f.findtext('webApp/id', ''),
-                    'webAppName': f.findtext('webApp/name', '')
+                    'webAppName': f.findtext('webApp/name', ''),
+                    'detectedDate': f.findtext('detectedDate', ''),
+                    'type': f.findtext('type', ''),
                 })
             WAS_CACHE[cache_key] = findings
             WAS_CACHE_TIME[cache_key] = now
@@ -2727,66 +2738,168 @@ def get_threats(days: int = 7, limit: int = 50) -> dict:
 
 
 @mcp.tool()
-def get_webapp_vulns(severity: int = 4, days: int = 30, app_name: str = "", limit: int = 50) -> dict:
-    """[WAS] Web application vulnerabilities from TotalAppSec scans. Severity breakdown per web app, OWASP categories, critical/high findings. Use get_asset_risk() for host-based vulns."""
+def get_webapp_vulns(severity: int = 0, days: int = 30, app_name: str = "", owasp_category: str = "", limit: int = 50) -> dict:
+    """[Web Application Security] Web application vulnerabilities from Qualys WAS / TotalAppSec scans — severity breakdown per web app, OWASP Top 10 classification, and vulnerability categories.
+
+    **Use when:** Asked about web application vulnerabilities, OWASP Top 10 findings, XSS/SQLi/CSRF issues, or per-app vulnerability posture.
+    **NOT for:** Host-based vulnerabilities (use get_security_posture or get_asset_risk), network-level findings (use get_etm_findings), or SSL/TLS certificate issues (use get_expiring_certs).
+
+    Parameters:
+        severity: Minimum severity filter (0=all, 1-5). 4=high+critical, 5=critical only.
+        days: Only findings detected in the last N days (default 30). Use 7 for weekly review.
+        app_name: Filter by web app name (substring match, e.g. "portal", "api").
+        owasp_category: Filter results by OWASP Top 10 category keyword (e.g. "Injection", "XSS", "SSRF", "Access Control", "Cryptographic"). Case-insensitive substring match.
+        limit: Max findings to return (default 50).
+
+    Returns: summary stats, per-app breakdown (byWebApp), vulnerability categories (byCategory), OWASP Top 10 mapping (owaspTop10), and individual findings sorted by severity."""
+
+    # OWASP Top 10 (2021) keyword-to-category mapping
     owasp_map = {
-        'SQL Injection': 'A03:Injection', 'Cross-Site Scripting': 'A03:Injection',
-        'Command Injection': 'A03:Injection', 'LDAP Injection': 'A03:Injection',
-        'XSS': 'A03:Injection', 'XXE': 'A05:Security Misconfiguration',
-        'SSRF': 'A10:SSRF', 'CSRF': 'A01:Broken Access Control',
+        'SQL Injection': 'A03:Injection',
+        'Cross-Site Scripting': 'A03:Injection',
+        'XSS': 'A03:Injection',
+        'Command Injection': 'A03:Injection',
+        'Code Injection': 'A03:Injection',
+        'LDAP Injection': 'A03:Injection',
+        'XPath Injection': 'A03:Injection',
+        'Header Injection': 'A03:Injection',
+        'CRLF Injection': 'A03:Injection',
+        'Template Injection': 'A03:Injection',
+        'Expression Language': 'A03:Injection',
+        'SSRF': 'A10:Server-Side Request Forgery',
+        'Server-Side Request Forgery': 'A10:Server-Side Request Forgery',
+        'CSRF': 'A01:Broken Access Control',
+        'Cross-Site Request Forgery': 'A01:Broken Access Control',
+        'Insecure Direct Object': 'A01:Broken Access Control',
+        'IDOR': 'A01:Broken Access Control',
+        'Path Traversal': 'A01:Broken Access Control',
+        'Directory Traversal': 'A01:Broken Access Control',
+        'Authorization': 'A01:Broken Access Control',
+        'Access Control': 'A01:Broken Access Control',
+        'Privilege': 'A01:Broken Access Control',
+        'Cryptographic': 'A02:Cryptographic Failures',
+        'Sensitive Data': 'A02:Cryptographic Failures',
+        'Clear-Text': 'A02:Cryptographic Failures',
+        'Cleartext': 'A02:Cryptographic Failures',
+        'Weak Cipher': 'A02:Cryptographic Failures',
+        'SSL': 'A02:Cryptographic Failures',
+        'TLS': 'A02:Cryptographic Failures',
+        'XXE': 'A05:Security Misconfiguration',
+        'XML External Entity': 'A05:Security Misconfiguration',
+        'Misconfiguration': 'A05:Security Misconfiguration',
+        'Default Credential': 'A05:Security Misconfiguration',
+        'Information Disclosure': 'A05:Security Misconfiguration',
+        'Server Version': 'A05:Security Misconfiguration',
+        'Directory Listing': 'A05:Security Misconfiguration',
+        'Error Message': 'A05:Security Misconfiguration',
+        'Stack Trace': 'A05:Security Misconfiguration',
         'Authentication': 'A07:Identification and Authentication Failures',
-        'Cryptographic': 'A02:Cryptographic Failures', 'Sensitive Data': 'A02:Cryptographic Failures',
-    }
-    result = {
-        'minSeverity': severity, 'days': days,
-        'stats': {'critical': 0, 'high': 0, 'medium': 0, 'total': 0, 'webApps': 0},
-        'vulns': [], 'byWebApp': [], 'owaspHints': {}
+        'Session': 'A07:Identification and Authentication Failures',
+        'Brute Force': 'A07:Identification and Authentication Failures',
+        'Password': 'A07:Identification and Authentication Failures',
+        'Cookie': 'A07:Identification and Authentication Failures',
+        'Deserialization': 'A08:Software and Data Integrity Failures',
+        'Insecure Deserialization': 'A08:Software and Data Integrity Failures',
+        'Log4j': 'A06:Vulnerable and Outdated Components',
+        'Outdated': 'A06:Vulnerable and Outdated Components',
+        'Component': 'A06:Vulnerable and Outdated Components',
+        'Library': 'A06:Vulnerable and Outdated Components',
+        'Open Redirect': 'A01:Broken Access Control',
+        'Clickjacking': 'A05:Security Misconfiguration',
     }
 
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
-    findings = get_was_findings(limit * 2, severity)
+    result = {
+        'minSeverity': severity, 'days': days,
+        'stats': {'total': 0, 'critical': 0, 'high': 0, 'medium': 0, 'low': 0, 'webApps': 0},
+        'findings': [], 'byWebApp': [], 'byCategory': {}, 'owaspTop10': {},
+    }
+
+    # Push severity, days, and app_name filters to the WAS API for server-side filtering
+    sev_arg = severity if severity > 0 else None
+    days_arg = days if days > 0 else None
+    app_arg = app_name if app_name else None
+    findings = get_was_findings(limit * 3, severity=sev_arg, days=days_arg, app_name=app_arg)
+
     webapp_vulns = {}
 
     for f in findings:
-        # Filter by app_name if specified
-        webapp_name = f.get('webAppName', '')
-        if app_name and app_name.lower() not in webapp_name.lower():
-            continue
-
         sev = f.get('severity', 0)
+        name = f.get('name', '')
+
+        # Classify into OWASP category and vuln category
+        owasp_cat = ''
+        vuln_category = 'Other'
+        for keyword, owasp in owasp_map.items():
+            if keyword.lower() in name.lower():
+                owasp_cat = owasp
+                vuln_category = keyword
+                break
+
+        # Filter by owasp_category if specified
+        if owasp_category:
+            match = owasp_category.lower()
+            if match not in owasp_cat.lower() and match not in vuln_category.lower() and match not in name.lower():
+                continue
+
+        # Severity counts
         if sev >= 5:
             result['stats']['critical'] += 1
         elif sev >= 4:
             result['stats']['high'] += 1
         elif sev >= 3:
             result['stats']['medium'] += 1
+        else:
+            result['stats']['low'] += 1
 
-        # OWASP category hint
-        name = f.get('name', '')
-        for keyword, owasp in owasp_map.items():
-            if keyword.lower() in name.lower():
-                result['owaspHints'][owasp] = result['owaspHints'].get(owasp, 0) + 1
-                break
+        # OWASP Top 10 aggregation
+        if owasp_cat:
+            result['owaspTop10'][owasp_cat] = result['owaspTop10'].get(owasp_cat, 0) + 1
 
+        # byCategory aggregation (human-readable category names)
+        result['byCategory'][vuln_category] = result['byCategory'].get(vuln_category, 0) + 1
+
+        # Per-webapp aggregation
+        webapp_name = f.get('webAppName', '')
         webapp_id = f.get('webAppId', '')
         if webapp_id:
             if webapp_id not in webapp_vulns:
-                webapp_vulns[webapp_id] = {'id': webapp_id, 'name': webapp_name, 'critical': 0, 'high': 0, 'total': 0}
+                webapp_vulns[webapp_id] = {
+                    'id': webapp_id, 'appName': webapp_name,
+                    'critical': 0, 'high': 0, 'medium': 0, 'low': 0, 'total': 0
+                }
             webapp_vulns[webapp_id]['total'] += 1
             if sev >= 5:
                 webapp_vulns[webapp_id]['critical'] += 1
             elif sev >= 4:
                 webapp_vulns[webapp_id]['high'] += 1
+            elif sev >= 3:
+                webapp_vulns[webapp_id]['medium'] += 1
+            else:
+                webapp_vulns[webapp_id]['low'] += 1
 
-        result['vulns'].append({
-            'qid': f.get('qid'), 'name': name,
-            'severity': sev, 'url': f.get('url', ''), 'webApp': webapp_name
+        result['findings'].append({
+            'id': f.get('id', ''),
+            'qid': f.get('qid'),
+            'name': name,
+            'severity': sev,
+            'url': f.get('url', ''),
+            'webApp': webapp_name,
+            'detectedDate': f.get('detectedDate', ''),
+            'type': f.get('type', ''),
+            'owaspCategory': owasp_cat,
         })
 
-    result['stats']['total'] = len(result['vulns'])
+    result['stats']['total'] = len(result['findings'])
     result['stats']['webApps'] = len(webapp_vulns)
-    result['vulns'] = sorted(result['vulns'], key=lambda x: x['severity'], reverse=True)[:limit]
-    result['byWebApp'] = sorted(webapp_vulns.values(), key=lambda x: (x['critical'], x['high'], x['total']), reverse=True)[:20]
+    result['findings'] = sorted(result['findings'], key=lambda x: x['severity'], reverse=True)[:limit]
+    result['byWebApp'] = sorted(
+        webapp_vulns.values(),
+        key=lambda x: (x['critical'], x['high'], x['total']),
+        reverse=True
+    )[:20]
+    # Sort byCategory and owaspTop10 by count descending
+    result['byCategory'] = dict(sorted(result['byCategory'].items(), key=lambda x: x[1], reverse=True))
+    result['owaspTop10'] = dict(sorted(result['owaspTop10'].items(), key=lambda x: x[1], reverse=True))
     return result
 
 
