@@ -88,7 +88,7 @@ For environments with self-signed certs, add `"QUALYS_SSL_VERIFY": "false"` to t
 
 | Tool | What it answers |
 |------|----------------|
-| `get_webapp_vulns` | What web app vulnerabilities were found? Per-app breakdown, OWASP categories, critical/high findings |
+| `get_webapp_vulns` | What web app vulnerabilities were found? Per-app breakdown, OWASP Top 10 mapping, vulnerability categories (XSS/SQLi/CSRF), severity stats. Filter by severity, days, app name, or OWASP category |
 | `get_expiring_certs` | Which SSL/TLS certs expire soon? Expiring/expired certs, weak algorithms (SHA1/MD5) |
 
 ### Threat Detection
@@ -184,6 +184,8 @@ For environments with self-signed certs, add `"QUALYS_SSL_VERIFY": "false"` to t
 ```
 "What web app vulnerabilities do we have?"     → get_webapp_vulns()
 "Show me critical WAS findings for our portal" → get_webapp_vulns(severity=5, app_name="portal")
+"Any SQL injection findings this week?"        → get_webapp_vulns(owasp_category="Injection", days=7)
+"OWASP Top 10 breakdown across all apps"       → get_webapp_vulns(severity=0, days=90)
 "Which SSL certs expire this month?"           → get_expiring_certs(days=30)
 "Are any certs already expired?"               → get_expiring_certs(include_expired=True)
 ```
