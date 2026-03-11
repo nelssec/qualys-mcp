@@ -47,6 +47,11 @@ ETM_RESULT_CACHE_TIME = None  # datetime of cache fill
 AUTH_ERROR = None
 AUTH_LOCK = Lock()
 
+# Pagination safety: max pages any helper will fetch to prevent runaway loops.
+# At 100 items/page, 20 pages = 2,000 items — enough for detail views.
+# Tools needing just a count use count_only=True (1 API call).
+MAX_PAGES = 20
+
 # SSL context for environments with self-signed certificates
 SSL_CTX = None
 if os.environ.get('QUALYS_SSL_VERIFY', '').lower() in ('0', 'false', 'no'):
@@ -448,56 +453,77 @@ def is_eol_stage(stage):
     return ('EOL' in s or 'EOS' in s) and s != 'NOT APPLICABLE'
 
 
-def get_images(limit=100, severity=None):
-    url = f"{GATEWAY_URL}/csapi/v1.3/images?pageSize={limit}"
+def _paginate_json(base_url, limit, data_key='data', count_key='count',
+                    page_param='pageNumber', size_param='pageSize',
+                    count_only=False, gateway=True):
+    """Generic paginated fetch for JSON APIs. Returns list or int (count_only).
+    Caps at MAX_PAGES to prevent runaway loops on huge datasets."""
+    page_size = min(limit, 100)
+    results = []
+    page = 1
+    cap = min(MAX_PAGES, max(1, (limit // page_size) + 1))
+    sep = '&' if '?' in base_url else '?'
+    for _ in range(cap):
+        if len(results) >= limit:
+            break
+        url = f"{base_url}{sep}{size_param}={page_size}&{page_param}={page}"
+        data = api_get(url, gateway=gateway)
+        try:
+            parsed = json.loads(data) if data else {}
+        except json.JSONDecodeError:
+            break
+        if count_only and page == 1:
+            return parsed.get(count_key, len(parsed.get(data_key, [])))
+        batch = parsed.get(data_key, [])
+        if not batch:
+            break
+        results.extend(batch)
+        if len(batch) < page_size:
+            break
+        page += 1
+    if count_only:
+        return len(results)
+    return results[:limit]
+
+
+def get_images(limit=100, severity=None, count_only=False):
+    """Fetch container images with pagination. Set count_only=True to return just the int count."""
+    url = f"{GATEWAY_URL}/csapi/v1.3/images?sort=created:desc"
     if severity:
         url += f"&filter=vulnerabilities.severity:{severity}"
-    data = api_get(url, gateway=True)
-    try:
-        return json.loads(data).get('data', []) if data else []
-    except json.JSONDecodeError:
-        return []
+    return _paginate_json(url, limit, count_only=count_only)
 
 
-def get_containers(limit=100):
-    data = api_get(f"{GATEWAY_URL}/csapi/v1.3/containers?pageSize={limit}&filter=state:RUNNING", gateway=True)
-    try:
-        return json.loads(data).get('data', []) if data else []
-    except json.JSONDecodeError:
-        return []
+def get_containers(limit=100, count_only=False):
+    """Fetch running containers with pagination. Set count_only=True to return just the int count."""
+    url = f"{GATEWAY_URL}/csapi/v1.3/containers?filter=state:RUNNING"
+    return _paginate_json(url, limit, count_only=count_only)
 
 
 def get_connectors(provider='aws', limit=50):
-    data = api_get(f"{GATEWAY_URL}/cloudview-api/rest/v1/{provider}/connectors?pageSize={limit}", gateway=True)
-    try:
-        return json.loads(data).get('content', []) if data else []
-    except json.JSONDecodeError:
-        return []
+    url = f"{GATEWAY_URL}/cloudview-api/rest/v1/{provider}/connectors"
+    return _paginate_json(url, limit, data_key='content', count_key='totalElements',
+                          page_param='pageNo', size_param='pageSize')
 
 
 def get_evaluations(account_id, provider='aws', limit=500):
-    data = api_get(f"{GATEWAY_URL}/cloudview-api/rest/v1/{provider}/evaluations/{account_id}?pageSize={limit}", gateway=True)
-    try:
-        return json.loads(data).get('content', []) if data else []
-    except json.JSONDecodeError:
-        return []
+    url = f"{GATEWAY_URL}/cloudview-api/rest/v1/{provider}/evaluations/{account_id}"
+    return _paginate_json(url, limit, data_key='content', count_key='totalElements',
+                          page_param='pageNo', size_param='pageSize')
 
 
 def get_cdr(days=7, limit=100, severity=None, cloud_provider=None, category=None):
     end = datetime.now(timezone.utc)
     start = end - timedelta(days=days)
-    url = f"{GATEWAY_URL}/cdr-api/rest/v1/findings/?startAt={start.isoformat()}Z&endAt={end.isoformat()}Z&limit={limit}"
+    url = f"{GATEWAY_URL}/cdr-api/rest/v1/findings/?startAt={start.isoformat()}Z&endAt={end.isoformat()}Z"
     if severity:
         url += f"&severity={severity}"
     if cloud_provider:
         url += f"&cloudProvider={cloud_provider}"
     if category:
         url += f"&category={category}"
-    data = api_get(url, gateway=True)
-    try:
-        return json.loads(data).get('content', []) if data else []
-    except json.JSONDecodeError:
-        return []
+    return _paginate_json(url, limit, data_key='content', count_key='totalElements',
+                          page_param='pageNumber', size_param='limit')
 
 
 def get_image_details(image_id):
@@ -517,36 +543,25 @@ def get_image_vulns_api(image_id):
 
 
 def get_certificates(limit=100, days_expiring=None):
-    url = f"{GATEWAY_URL}/certview/v1/certificates?pageSize={limit}"
+    url = f"{GATEWAY_URL}/certview/v1/certificates"
     if days_expiring:
         future = (datetime.now(timezone.utc) + timedelta(days=days_expiring)).strftime('%Y-%m-%d')
-        url += f"&filter=validTo:<{future}"
-    data = api_get(url, gateway=True)
-    try:
-        return json.loads(data).get('data', []) if data else []
-    except json.JSONDecodeError:
-        return []
+        url += f"?filter=validTo:<{future}"
+    return _paginate_json(url, limit)
 
 
 def _fetch_fim_events_raw(limit=100, days=7):
     end = datetime.now(timezone.utc)
     start = end - timedelta(days=days)
-    data = api_get(f"{BASE_URL}/fim/v2/events?filter=dateTime:[{start.strftime('%Y-%m-%dT%H:%M:%SZ')}...{end.strftime('%Y-%m-%dT%H:%M:%SZ')}]&pageSize={limit}")
-    try:
-        return json.loads(data).get('data', []) if data else []
-    except json.JSONDecodeError:
-        return []
+    url = f"{BASE_URL}/fim/v2/events?filter=dateTime:[{start.strftime('%Y-%m-%dT%H:%M:%SZ')}...{end.strftime('%Y-%m-%dT%H:%M:%SZ')}]"
+    return _paginate_json(url, limit, gateway=False)
 
 
 def _fetch_edr_events_raw(limit=100, severity=None):
-    url = f"{GATEWAY_URL}/edr/v1/events?pageSize={limit}"
+    url = f"{GATEWAY_URL}/edr/v1/events"
     if severity:
-        url += f"&filter=severity:{severity}"
-    data = api_get(url, gateway=True)
-    try:
-        return json.loads(data).get('data', []) if data else []
-    except json.JSONDecodeError:
-        return []
+        url += f"?filter=severity:{severity}"
+    return _paginate_json(url, limit)
 
 
 def get_was_findings(limit=100, severity=None):
@@ -854,7 +869,7 @@ def get_weekly_priorities(limit: int = 10) -> dict:
     **NOT for:** Daily threat monitoring (use get_morning_report), single-asset details (use get_asset_risk), or cloud posture (use get_cloud_risk).
 
     Returns: topRiskAssets (ranked by TruRisk), priorities (actionable items), summary counts by risk tier.
-    Follow up with get_asset_risk(assetId) for per-asset vulnerability details."""
+    Follow up with get_asset_risk(assetId) for per-asset vulnerability details. For actual patch deployment status, use get_eliminate_status. For a patch catalog view, use get_patch_status."""
     result = {'summary': {}, 'priorities': [], 'topRiskAssets': []}
 
     # All fast CSAM v2 queries (~0.2-3s each, run in parallel)
@@ -999,7 +1014,7 @@ def _extract_software_keywords(title):
 
 @mcp.tool()
 def investigate_cve(cve: str) -> dict:
-    """[Vulnerability Intelligence] Investigate a specific CVE across your environment — maps the CVE to Qualys QIDs, retrieves KB details (severity, patches, threat intel, ransomware linkage), and searches your asset inventory for systems running the affected software. Fast (~5s)."""
+    """[Vulnerability Intelligence] Investigate a specific CVE across your environment — maps the CVE to Qualys QIDs, retrieves KB details (severity, patches, threat intel, ransomware linkage), and searches your asset inventory for systems running the affected software. Fast (~5s). For bulk CVE lookup without asset search, use get_cve_details."""
     result = {'cve': cve, 'qids': [], 'severity': 0, 'qds': 0,
               'qds_factors': '',
               'title': '', 'patchAvailable': False, 'solution': '',
@@ -1129,12 +1144,9 @@ def investigate_cve(cve: str) -> dict:
     return result
 
 
-@mcp.tool()
 def get_security_posture() -> dict:
-    """[Dashboard] Overall security health score (0-100) with stats across assets, vulnerabilities, containers, and cloud accounts. Covers TruRisk distribution, EOL systems, container exposure, and cloud control failures. Fast (~5s).
-
-    **Use when:** Asked for an environment overview, health check, executive summary, or "how are we doing?" questions. Great starting point for any security conversation.
-    **NOT for:** Specific vulnerability details (use get_threat_intel or get_etm_findings), detailed asset risk (use get_asset_risk), or weekly priorities (use get_weekly_priorities).
+    """Internal helper — overall security health score (0-100). Called by get_morning_report.
+    Not exposed as an MCP tool; use get_morning_report or get_weekly_priorities instead.
 
     Returns: healthScore (0-100), asset counts by risk tier, container exposure, cloud account/control counts."""
     health = 100
@@ -1212,7 +1224,7 @@ def get_security_posture() -> dict:
 
 @mcp.tool()
 def get_patch_status(limit: int = 20) -> dict:
-    """[Patch Management] Patching coverage and remediation gaps — TruRisk distribution across severity tiers and top unpatched assets ranked by risk score. Fast (~5s). Follow up with get_asset_risk(assetId) for per-asset patch details."""
+    """[Patch Management] Patching coverage and remediation gaps — TruRisk distribution across severity tiers and top unpatched assets ranked by risk score. Fast (~5s). Follow up with get_asset_risk(assetId) for per-asset patch details. For active patch job status, use get_eliminate_status. For PM catalog details, use get_pm_status."""
     result = {'coverage': 0, 'assetsTotal': 0, 'riskDistribution': {},
               'highRiskAssets': []}
 
@@ -1275,37 +1287,23 @@ def get_patch_status(limit: int = 20) -> dict:
 
 
 @mcp.tool()
-def get_threat_intel(threat_type: str = "", days: int = 30) -> dict:
-    """[Threat Intelligence] Real-Time Threat Indicators (RTI) from the Qualys Knowledge Base — shows which recently published vulnerabilities have active exploits, ransomware linkage, or are on the CISA KEV list.
+def search_vulns(days: int = 7, threat_type: str = "", software: str = "", limit: int = 50) -> dict:
+    """[Vulnerability Intelligence] Unified vulnerability search across the Qualys Knowledge Base — find newly published vulns, filter by threat intel (RTI) tags, and/or search by affected software name. One API call covers all use cases.
 
-    **RTI threat_type values (all 12 tags):**
-      - `Ransomware` — vulnerability has known ransomware group linkage
-      - `Malware` — associated with malware campaigns (broader than ransomware)
-      - `Active_Attacks` — being actively exploited in the wild right now
-      - `Exploit_Public` — public exploit code available (Metasploit, ExploitDB, etc.)
-      - `Easy_Exploit` — low complexity, few prerequisites to exploit
-      - `Wormable` — can self-propagate without user interaction
-      - `Cisa_Known_Exploited_Vulns` — on the CISA KEV catalog (federal mandate)
-      - `Denial_of_Service` — can be used to crash or degrade services
-      - `Privilege_Escalation` — allows elevation from low to high privileges
-      - `Remote_Code_Execution` — arbitrary code execution from network
-      - `Predicted_High_Risk` — Qualys ML model predicts high likelihood of exploit
-      - `Unauthenticated_Exploitation` — exploitable without credentials
+    days: how far back to search (default 7). Use days=1 for today, days=30 for last month.
+    threat_type: RTI filter — Ransomware, Malware, Active_Attacks, Exploit_Public, Easy_Exploit, Wormable, Cisa_Known_Exploited_Vulns, Denial_of_Service, Privilege_Escalation, Remote_Code_Execution, Predicted_High_Risk, Unauthenticated_Exploitation.
+    software: filter by product name in KB title/diagnosis (e.g. 'Apache', 'OpenSSL', 'Microsoft Exchange').
 
-    **Common queries:**
-      - `'Ransomware'` — ransomware-linked vulns for urgent patching
-      - `'Active_Attacks'` — vulns being actively exploited today
-      - `'Exploit_Public'` — weaponized exploits (patch before attackers use them)
-      - `'Cisa_Known_Exploited_Vulns'` — CISA KEV list (federal mandate compliance)
-      - `'Wormable'` — self-propagating threats (critical for network-connected assets)
+    Filters combine: search_vulns(days=30, threat_type='Ransomware', software='Apache') returns Apache vulns with ransomware linkage from the last 30 days. Fast (~5s).
 
-    Default (no filter) returns all RTI types for vulns published in last N days (~10s).
-    Use days=1 for today's new threats, days=7 for weekly digest, days=30 for monthly review."""
-    from datetime import timedelta
+    For cross-product tracing of a single CVE, use investigate_cve. For bulk CVE lookup, use get_cve_details. For direct QID lookup, use get_qid_details."""
     after = (datetime.now(timezone.utc) - timedelta(days=days)).strftime('%Y-%m-%d')
-    result = {'days': days, 'threatFilter': threat_type or 'all',
-              'matchingVulns': [], 'totalVulns': 0, 'totalWithThreatIntel': 0,
-              'threatBreakdown': {}, 'summary': ''}
+    result = {'days': days, 'publishedAfter': after, 'totalVulns': 0,
+              'severityBreakdown': {'critical': 0, 'high': 0, 'medium': 0, 'low': 0},
+              'withPatch': 0, 'withThreatIntel': 0,
+              'threatFilter': threat_type or 'all',
+              'softwareFilter': software or 'all',
+              'threatBreakdown': {}, 'vulns': [], 'summary': ''}
 
     data = api_get(
         f"{BASE_URL}/api/2.0/fo/knowledge_base/vuln/?action=list&details=All"
@@ -1322,12 +1320,15 @@ def get_threat_intel(threat_type: str = "", days: int = 30) -> dict:
         result['summary'] = 'Failed to parse KB data'
         return result
 
-    # Parse all vulns and collect threat intel
+    # Parse all vulns, apply filters client-side
+    all_vulns_xml = root.findall('.//VULN')
+    result['totalVulns'] = len(all_vulns_xml)
     matching = []
     threat_counts = {}
-    all_vulns = root.findall('.//VULN')
     ti_count = 0
-    for v in all_vulns:
+    search_lower = software.lower() if software else ''
+
+    for v in all_vulns_xml:
         parsed = parse_vuln_xml(v)
         KB_CACHE[parsed['qid']] = parsed
         ti = parsed.get('threat_intel', [])
@@ -1335,27 +1336,47 @@ def get_threat_intel(threat_type: str = "", days: int = 30) -> dict:
             ti_count += 1
         for tag in ti:
             threat_counts[tag] = threat_counts.get(tag, 0) + 1
-        # Filter by threat type if specified
-        if threat_type:
-            if any(threat_type.lower() in t.lower() for t in ti):
-                matching.append(parsed)
-        elif ti:
-            matching.append(parsed)
 
-    result['totalVulns'] = len(all_vulns)
-    result['totalWithThreatIntel'] = ti_count
+        # Apply threat_type filter
+        if threat_type:
+            if not any(threat_type.lower() in t.lower() for t in ti):
+                continue
+        # Apply software filter
+        if search_lower:
+            title = parsed.get('title', '').lower()
+            diagnosis = parsed.get('diagnosis', '').lower()
+            if search_lower not in title and search_lower not in diagnosis:
+                continue
+
+        matching.append(parsed)
+
+    result['withThreatIntel'] = ti_count
     result['threatBreakdown'] = dict(sorted(threat_counts.items(), key=lambda x: -x[1]))
 
-    # Sort by severity desc, return top entries
+    # Severity breakdown of matching vulns
+    for v in matching:
+        sev = v['severity']
+        if sev >= 5:
+            result['severityBreakdown']['critical'] += 1
+        elif sev >= 4:
+            result['severityBreakdown']['high'] += 1
+        elif sev >= 3:
+            result['severityBreakdown']['medium'] += 1
+        else:
+            result['severityBreakdown']['low'] += 1
+        if v.get('patch_available'):
+            result['withPatch'] += 1
+
+    # Sort by severity desc, then by threat intel count
     matching.sort(key=lambda x: (-x['severity'], -len(x.get('threat_intel', []))))
 
     # Enrich top 20 results with real QDS scores from detection API
     top_qids = [v['qid'] for v in matching[:20] if v.get('qid')]
     qds_scores = get_qds_for_qids(top_qids) if top_qids else {}
 
-    for v in matching[:50]:
+    for v in matching[:limit]:
         real_qds = qds_scores.get(v['qid'], 0)
-        result['matchingVulns'].append({
+        result['vulns'].append({
             'qid': v['qid'],
             'title': v['title'],
             'severity': v['severity'],
@@ -1366,11 +1387,16 @@ def get_threat_intel(threat_type: str = "", days: int = 30) -> dict:
             'ransomware': v.get('ransomware', False),
         })
 
-    filter_label = f"'{threat_type}'" if threat_type else 'any RTI'
-    patched = sum(1 for v in matching if v.get('patch_available'))
     result['totalMatching'] = len(matching)
+    filters = []
+    if threat_type:
+        filters.append(f"threat_type='{threat_type}'")
+    if software:
+        filters.append(f"software='{software}'")
+    filter_label = ', '.join(filters) if filters else 'no filters'
+    patched = sum(1 for v in matching if v.get('patch_available'))
     result['summary'] = (
-        f"{len(matching)} vulns with {filter_label} out of {len(all_vulns)} "
+        f"{len(matching)} matching vulns ({filter_label}) out of {len(all_vulns_xml)} "
         f"published in last {days} days. {patched} have patches available."
     )
     return result
@@ -1422,7 +1448,7 @@ def get_recommendations() -> dict:
         fim=lambda: _fetch_fim_events_raw(5, 7),
         edr=lambda: _fetch_edr_events_raw(5),
         certs=lambda: get_certificates(5, 30),
-        ransomware_vulns=lambda: get_threat_intel.fn(threat_type='Ransomware', days=30),
+        ransomware_vulns=lambda: search_vulns.fn(days=30, threat_type='Ransomware'),
     )
 
     total = concurrent.get('total') or 0
@@ -2109,7 +2135,7 @@ def _format_etm_findings(all_findings, report_detail):
 def get_morning_report() -> dict:
     """[Daily Briefing] Morning security report — what happened overnight. New vulnerabilities (last 24h) with ransomware and active exploit flags, environment health score, top risk assets, EOL count, and prioritized action items.
 
-    **Use when:** Starting the day, shift handover, "what's new today?", or "give me a briefing". Combines get_security_posture + get_weekly_priorities + get_threat_intel in one fast call.
+    **Use when:** Starting the day, shift handover, "what's new today?", or "give me a briefing". Combines security posture + weekly priorities + threat intel in one fast call.
     **NOT for:** Deep vulnerability investigation (use investigate_cve), week-level planning (use get_weekly_priorities), or cloud-specific threats (use get_cdr_findings).
 
     Returns: environment health, new vuln counts (24h), threat flags (ransomware/exploits/CISA KEV), top risk assets, and prioritized action items."""
@@ -2119,12 +2145,12 @@ def get_morning_report() -> dict:
 
     # Run everything concurrently for speed
     concurrent = _run_concurrent(
-        posture=lambda: get_security_posture.fn(),
+        posture=lambda: get_security_posture(),
         priorities=lambda: get_weekly_priorities.fn(),
-        new_vulns=lambda: get_new_vulns.fn(days=1),
-        ransomware=lambda: get_threat_intel.fn(threat_type='Ransomware', days=1),
-        active=lambda: get_threat_intel.fn(threat_type='Active_Attacks', days=1),
-        cisa=lambda: get_threat_intel.fn(threat_type='Cisa_Known_Exploited_Vulns', days=1),
+        new_vulns=lambda: search_vulns.fn(days=1),
+        ransomware=lambda: search_vulns.fn(days=1, threat_type='Ransomware'),
+        active=lambda: search_vulns.fn(days=1, threat_type='Active_Attacks'),
+        cisa=lambda: search_vulns.fn(days=1, threat_type='Cisa_Known_Exploited_Vulns'),
     )
 
     # Environment status
@@ -2185,148 +2211,8 @@ def get_morning_report() -> dict:
 
 
 @mcp.tool()
-def get_new_vulns(days: int = 7) -> dict:
-    """[Vulnerability Intelligence] Newly published vulnerabilities from the Qualys Knowledge Base — CVEs, severity, RTI threat tags (ransomware, active exploits, CISA KEV), and patch availability for vulns published in the last N days. Fast (~5s). Use days=1 for today's vulns, days=30 for the last month."""
-    after = (datetime.now(timezone.utc) - timedelta(days=days)).strftime('%Y-%m-%d')
-    result = {'days': days, 'publishedAfter': after, 'totalVulns': 0,
-              'severityBreakdown': {'critical': 0, 'high': 0, 'medium': 0, 'low': 0},
-              'withPatch': 0, 'withThreatIntel': 0, 'vulns': []}
-
-    data = api_get(
-        f"{BASE_URL}/api/2.0/fo/knowledge_base/vuln/?action=list&details=All"
-        f"&published_after={after}",
-        timeout=30
-    )
-    if not data:
-        result['error'] = 'Failed to fetch KB data'
-        return result
-
-    try:
-        root = ET.fromstring(data)
-    except ET.ParseError:
-        result['error'] = 'Failed to parse KB data'
-        return result
-
-    all_vulns = []
-    for v in root.findall('.//VULN'):
-        parsed = parse_vuln_xml(v)
-        KB_CACHE[parsed['qid']] = parsed
-        all_vulns.append(parsed)
-
-        sev = parsed['severity']
-        if sev >= 5:
-            result['severityBreakdown']['critical'] += 1
-        elif sev >= 4:
-            result['severityBreakdown']['high'] += 1
-        elif sev >= 3:
-            result['severityBreakdown']['medium'] += 1
-        else:
-            result['severityBreakdown']['low'] += 1
-
-        if parsed.get('patch_available'):
-            result['withPatch'] += 1
-        if parsed.get('threat_intel'):
-            result['withThreatIntel'] += 1
-
-    result['totalVulns'] = len(all_vulns)
-
-    # Sort by severity desc, then by threat intel count
-    all_vulns.sort(key=lambda x: (-x['severity'], -len(x.get('threat_intel', []))))
-
-    # Enrich top 20 results with real QDS scores from detection API
-    top_qids = [v['qid'] for v in all_vulns[:20] if v.get('qid')]
-    qds_scores = get_qds_for_qids(top_qids) if top_qids else {}
-
-    for v in all_vulns[:100]:
-        real_qds = qds_scores.get(v['qid'], 0)
-        result['vulns'].append({
-            'qid': v['qid'],
-            'title': v['title'],
-            'severity': v['severity'],
-            'qds': real_qds or v.get('qds', 0),
-            'cves': v.get('cves', [])[:5],
-            'patchAvailable': v.get('patch_available', False),
-            'threatIntel': v.get('threat_intel', []),
-            'ransomware': v.get('ransomware', False),
-        })
-
-    return result
-
-
-@mcp.tool()
-def get_vulns_by_software(software: str) -> dict:
-    """[Vulnerability Intelligence] Search for vulnerabilities affecting a specific software, vendor, or product — searches Qualys KB titles and diagnosis text for matches. Examples: 'Apache', 'F5 BIG-IP', 'OpenSSL', 'Microsoft Exchange', 'Palo Alto PAN-OS'. Fast (~5s)."""
-    result = {'software': software, 'totalVulns': 0,
-              'severityBreakdown': {'critical': 0, 'high': 0, 'medium': 0, 'low': 0},
-              'withPatch': 0, 'vulns': []}
-
-    # KB API doesn't have a server-side software filter, so we search by title
-    # Use the most recent vulns (last 90 days) to keep it fast
-    after = (datetime.now(timezone.utc) - timedelta(days=90)).strftime('%Y-%m-%d')
-    data = api_get(
-        f"{BASE_URL}/api/2.0/fo/knowledge_base/vuln/?action=list&details=All"
-        f"&published_after={after}",
-        timeout=30
-    )
-    if not data:
-        result['error'] = 'Failed to fetch KB data'
-        return result
-
-    try:
-        root = ET.fromstring(data)
-    except ET.ParseError:
-        result['error'] = 'Failed to parse KB data'
-        return result
-
-    search_lower = software.lower()
-    matching = []
-    for v in root.findall('.//VULN'):
-        parsed = parse_vuln_xml(v)
-        KB_CACHE[parsed['qid']] = parsed
-        title = parsed.get('title', '').lower()
-        diagnosis = parsed.get('diagnosis', '').lower()
-        if search_lower in title or search_lower in diagnosis:
-            matching.append(parsed)
-
-    result['totalVulns'] = len(matching)
-    for v in matching:
-        sev = v['severity']
-        if sev >= 5:
-            result['severityBreakdown']['critical'] += 1
-        elif sev >= 4:
-            result['severityBreakdown']['high'] += 1
-        elif sev >= 3:
-            result['severityBreakdown']['medium'] += 1
-        else:
-            result['severityBreakdown']['low'] += 1
-        if v.get('patch_available'):
-            result['withPatch'] += 1
-
-    matching.sort(key=lambda x: (-x['severity'], -len(x.get('threat_intel', []))))
-
-    # Enrich top 20 results with real QDS scores from detection API
-    top_qids = [v['qid'] for v in matching[:20] if v.get('qid')]
-    qds_scores = get_qds_for_qids(top_qids) if top_qids else {}
-
-    for v in matching[:100]:
-        real_qds = qds_scores.get(v['qid'], 0)
-        result['vulns'].append({
-            'qid': v['qid'],
-            'title': v['title'],
-            'severity': v['severity'],
-            'qds': real_qds or v.get('qds', 0),
-            'cves': v.get('cves', [])[:5],
-            'patchAvailable': v.get('patch_available', False),
-            'threatIntel': v.get('threat_intel', []),
-            'ransomware': v.get('ransomware', False),
-        })
-
-    return result
-
-
-@mcp.tool()
 def get_cve_details(cves: str) -> dict:
-    """[Vulnerability Intelligence] Bulk CVE lookup — get severity, patches, threat intel, and remediation for multiple CVEs at once. Accepts comma-separated CVE IDs (e.g. 'CVE-2021-44228,CVE-2024-3400'). Up to 20 CVEs per call. Fast (~5s)."""
+    """[Vulnerability Intelligence] Bulk CVE lookup — get severity, patches, threat intel, and remediation for multiple CVEs at once. Accepts comma-separated CVE IDs (e.g. 'CVE-2021-44228,CVE-2024-3400'). Up to 20 CVEs per call. Fast (~5s). For cross-product tracing of a single CVE with asset impact, use investigate_cve."""
     cve_list = [c.strip() for c in cves.split(',') if c.strip()]
     result = {'requested': len(cve_list), 'found': 0, 'cves': []}
 
@@ -2394,7 +2280,7 @@ def get_cve_details(cves: str) -> dict:
 
 @mcp.tool()
 def get_qid_details(qids: str) -> dict:
-    """[Vulnerability Intelligence] Direct QID lookup — get KB details (severity, QDS, patches, threat intel, CVEs) for specific Qualys QIDs. Accepts comma-separated QIDs (e.g. '38747,376418'). Up to 50 QIDs per call. Fast (~3s)."""
+    """[Vulnerability Intelligence] Direct QID lookup — get KB details (severity, QDS, patches, threat intel, CVEs) for specific Qualys QIDs. Accepts comma-separated QIDs (e.g. '38747,376418'). Up to 50 QIDs per call. Fast (~3s). If you have CVE IDs instead, use get_cve_details."""
     qid_list = []
     for q in qids.split(','):
         q = q.strip()
@@ -2466,7 +2352,7 @@ def get_compliance_gaps(limit: int = 20) -> dict:
 
 @mcp.tool()
 def get_cloud_risk(limit: int = 20) -> dict:
-    """[Cloud Security] Cloud security posture across AWS, Azure, and GCP — connected accounts, CIS benchmark control failures, and CDR threat summary. Fetches all cloud providers in parallel for fast results (~6s cold). Cross-reference with get_cdr_findings() for detailed cloud threat investigation."""
+    """[Cloud Security] Cloud security posture across AWS, Azure, and GCP — connected accounts, CIS benchmark control failures, and CDR threat summary. Fetches all cloud providers in parallel for fast results (~6s cold). For CDR details, use get_cdr_findings. For compliance-focused view, use get_compliance_posture."""
     result = {'accounts': [], 'failedControls': [], 'threats': [], 'stats': {'total': 0, 'critical': 0}}
 
     # Fetch all three cloud providers' connectors in parallel
@@ -2617,7 +2503,7 @@ def get_cdr_findings(days: int = 7, limit: int = 50, severity: str = "", cloud_p
 
 @mcp.tool()
 def get_asset_risk(asset_id: str) -> dict:
-    """[Asset Risk] Detailed risk profile for a specific asset — TruRisk score, OS, criticality, installed software with lifecycle status, and EOL flags. Accepts a CSAM assetId (from get_weekly_priorities, get_patch_status, etc). Fast (~3s)."""
+    """[Asset Risk] Detailed risk profile for a specific asset — TruRisk score, OS, criticality, installed software with lifecycle status, and EOL flags. Accepts a CSAM assetId (from get_weekly_priorities, get_patch_status, etc). Fast (~3s). For full asset profile including ETM findings, use get_asset_full_profile."""
     result = {'assetId': asset_id, 'riskScore': 0, 'software': [], 'eolSoftware': []}
 
     asset = get_asset_by_id(asset_id)
@@ -2682,7 +2568,7 @@ def get_tech_debt(limit: int = 100) -> dict:
 
 @mcp.tool()
 def get_image_vulns(image_id: str, limit: int = 50) -> dict:
-    """[Container Security] Vulnerabilities for a specific container image — severity breakdown (critical/high/medium/low) and individual vulnerability details with fix versions. Accepts a TotalCloud imageId."""
+    """[Container Security] Vulnerabilities for a specific container image — severity breakdown (critical/high/medium/low) and individual vulnerability details with fix versions. Accepts a TotalCloud imageId. Use get_asset_inventory to find container images first."""
     result = {
         'imageId': image_id, 'repo': '', 'tag': '',
         'stats': {'critical': 0, 'high': 0, 'medium': 0, 'low': 0, 'total': 0},
@@ -3580,7 +3466,7 @@ def get_vuln_exceptions(status: str = "active", vuln_type: str = "", days_to_exp
 
 @mcp.tool()
 def get_compliance_posture(framework: str = "", platform: str = "", limit: int = 50) -> dict:
-    """[PC] Policy Compliance posture — pass/fail rates by framework (PCI-DSS, CIS, NIST, HIPAA), top failing controls, compliance trend. Use get_cloud_risk() for cloud-specific compliance."""
+    """[PC] Policy Compliance posture — pass/fail rates by framework (PCI-DSS, CIS, NIST, HIPAA), top failing controls, compliance trend. Single compliance tool covering all providers. For cloud-specific posture, use get_cloud_risk."""
     result = {
         'available': False,
         'stats': {'passRate': 0, 'failRate': 0, 'totalControls': 0},
