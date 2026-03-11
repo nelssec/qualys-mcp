@@ -90,6 +90,8 @@ if [ "$FILTER" = "all" ] || [ "$FILTER" = "medium" ]; then
   test_tool "get_cloud_risk" '{}'
   test_tool "get_scan_status" '{"state": "Running,Queued,Error", "days": 7}'
   test_tool "get_webapp_vulns" '{"severity": 4, "days": 30}'
+  test_tool "get_webapp_vulns" '{"severity": 0, "days": 7, "owasp_category": "Injection"}'
+  test_tool "get_webapp_vulns" '{"app_name": "portal", "limit": 10}'
   test_tool "get_expiring_certs" '{"days": 30}'
   test_tool "get_edr_events" '{"days": 7}'
   test_tool "get_fim_events" '{"days": 7}'
