@@ -288,7 +288,19 @@ Q: Show me all certs expiring in the next 90 days
 → get_expiring_certs(days=90)
 
 Q: Which certs use weak algorithms like SHA1?
-→ get_expiring_certs(days=365)
+→ get_expiring_certs(weak_only=True)
+
+Q: Show me all self-signed certificates
+→ get_expiring_certs(weak_only=True)
+
+Q: Are any servers still using TLS 1.0?
+→ get_expiring_certs(weak_only=True)
+
+Q: Which servers have weak cipher suites or key sizes?
+→ get_expiring_certs(weak_only=True)
+
+Q: Give me a full certificate health report
+→ get_expiring_certs(days=90, include_expired=True)
 ```
 
 ---
