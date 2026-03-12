@@ -1,5 +1,7 @@
 # Qualys MCP Server
 
+> ⚠️ **Unofficial project.** This is a personal project to showcase the viability of connecting AI assistants to Qualys via the Model Context Protocol. It is not affiliated with, endorsed by, or supported by Qualys, Inc.
+
 A lightweight MCP server that connects AI assistants to Qualys security data. **32 tools**, pure Python, zero config beyond credentials. Install with `uvx` and start asking security questions in plain English.
 
 ## Setup
