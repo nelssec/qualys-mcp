@@ -3432,59 +3432,115 @@ def get_edr_events(days: int = 7, severity: str = "", category: str = "", host: 
 
 
 @mcp.tool()
-def get_fim_events(days: int = 7, severity: str = "", host: str = "", path: str = "", limit: int = 50) -> dict:
-    """[FIM] File Integrity Monitoring events — unauthorized file changes, critical system file modifications, suspicious paths (/etc/passwd, registry run keys). Use get_edr_events() for process-level threats."""
-    critical_paths = ['/etc/passwd', '/etc/shadow', '/etc/sudoers', 'C:\\Windows\\System32',
-                      'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run']
-    result = {
-        'days': days,
-        'stats': {'total': 0, 'criticalPathEvents': 0, 'bySeverity': {}},
-        'events': [], 'byHost': {}, 'criticalPathAlerts': []
-    }
+def get_fim_events(days: int = 1, severity: str = "", host: str = "", path: str = "", limit: int = 100) -> dict:
+    """[FIM] File Integrity Monitoring events — file and registry changes on critical systems. Surfaces unauthorized modifications to /etc/passwd, SSH config, Windows registry, and other compliance-critical paths (PCI-DSS 10.5, SOX, HIPAA). Returns summary counts, top offending hosts, and critical-path change details. Use get_edr_events() for process-level threats."""
+    CRITICAL_PATHS = [
+        '/etc/passwd', '/etc/shadow', '/etc/sudoers', '/etc/ssh/',
+        '/etc/cron', '/etc/hosts', '/etc/fstab', '/etc/pam.d',
+        '/etc/sysctl.conf', '/boot/grub',
+        'HKLM\\SAM', 'HKLM\\SECURITY',
+        'HKLM\\SYSTEM\\CurrentControlSet\\Services',
+        'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run',
+        'Windows\\System32',
+    ]
 
-    events = _fetch_fim_events_raw(limit * 2, days)
+    host_counts: dict = {}          # hostname -> event count
+    action_counts: dict = {'MODIFIED': 0, 'CREATED': 0, 'DELETED': 0}
+    affected_hosts: set = set()
+    critical_changes: list = []
+    events_out: list = []
 
-    for e in events:
-        file_path = e.get('filePath', '') or e.get('fullPath', '')
-        hostname = e.get('hostname', '') or e.get('asset', {}).get('hostname', '')
-        sev = e.get('severity', '') or 'Unknown'
+    raw_events = _fetch_fim_events_raw(limit * 4, days)
 
-        # Filter by severity
-        if severity and severity.lower() != str(sev).lower():
+    for e in raw_events:
+        file_path = e.get('filePath', '') or e.get('fullPath', '') or ''
+        hostname = e.get('hostname', '') or e.get('asset', {}).get('hostname', '') or ''
+        sev = str(e.get('severity', '') or 'UNKNOWN').upper()
+        action = str(e.get('action', '') or '').upper()
+        timestamp = e.get('dateTime', '') or e.get('timestamp', '') or ''
+        user = e.get('actor', {}).get('user', '') if isinstance(e.get('actor'), dict) else e.get('user', '')
+
+        # Apply filters
+        if severity and severity.upper() != sev:
             continue
-        # Filter by host
         if host and host.lower() not in hostname.lower():
             continue
-        # Filter by path
-        if path and path.lower() not in file_path.lower():
+        if path and not file_path.lower().startswith(path.lower()):
             continue
 
-        result['stats']['bySeverity'][str(sev)] = result['stats']['bySeverity'].get(str(sev), 0) + 1
-
-        # Critical path detection
-        is_critical = any(cp.lower() in file_path.lower() for cp in critical_paths if file_path)
-        if is_critical:
-            result['stats']['criticalPathEvents'] += 1
-            result['criticalPathAlerts'].append({
-                'path': file_path, 'hostname': hostname,
-                'action': e.get('action', ''), 'dateTime': e.get('dateTime', '')
-            })
+        # Tally action counts
+        for act_key in ('MODIFIED', 'CREATED', 'DELETED'):
+            if act_key in action:
+                action_counts[act_key] += 1
+                break
 
         if hostname:
-            result['byHost'][hostname] = result['byHost'].get(hostname, 0) + 1
+            affected_hosts.add(hostname)
+            host_counts[hostname] = host_counts.get(hostname, 0) + 1
 
-        if len(result['events']) < limit:
-            event_info = {
-                'action': e.get('action', ''), 'path': file_path,
-                'hostname': hostname, 'dateTime': e.get('dateTime', ''),
+        # Critical path detection
+        is_critical = bool(file_path) and any(
+            cp.lower() in file_path.lower() for cp in CRITICAL_PATHS
+        )
+
+        # Off-hours detection (outside 08:00–18:00 local time)
+        off_hours = False
+        if timestamp:
+            try:
+                from datetime import datetime as _dt
+                ts = _dt.fromisoformat(timestamp.replace('Z', '+00:00'))
+                local_hour = ts.astimezone().hour
+                off_hours = local_hour < 8 or local_hour >= 18
+            except Exception:
+                pass
+
+        if is_critical:
+            critical_changes.append({
+                'hostname': hostname,
+                'path': file_path,
+                'action': action,
+                'timestamp': timestamp,
+                'user': user,
+                'offHours': off_hours,
+            })
+
+        if len(events_out) < limit:
+            entry = {
+                'action': action,
+                'path': file_path,
+                'hostname': hostname,
+                'timestamp': timestamp,
                 'severity': sev,
+                'user': user,
             }
             if is_critical:
-                event_info['criticalPath'] = True
-            result['events'].append(event_info)
+                entry['criticalPath'] = True
+            if off_hours:
+                entry['offHours'] = True
+            events_out.append(entry)
 
-    result['stats']['total'] = sum(result['stats']['bySeverity'].values())
-    return result
+    total = sum(action_counts.values())
+
+    # topHosts: sorted descending by event count, top 10
+    top_hosts = sorted(
+        [{'hostname': h, 'eventCount': c} for h, c in host_counts.items()],
+        key=lambda x: x['eventCount'],
+        reverse=True,
+    )[:10]
+
+    return {
+        'summary': {
+            'total': total,
+            'modified': action_counts['MODIFIED'],
+            'created': action_counts['CREATED'],
+            'deleted': action_counts['DELETED'],
+            'affectedHosts': len(affected_hosts),
+            'criticalChanges': len(critical_changes),
+        },
+        'topHosts': top_hosts,
+        'criticalChanges': critical_changes,
+        'events': events_out,
+    }
 
 
 @mcp.tool()

@@ -335,9 +335,51 @@ Q: Which critical system files were modified this week?
 Q: Show me all FIM events for /etc/passwd
 → get_fim_events(path="/etc/passwd", days=7)
 
-Q: Were there any off-hours file changes last night?
+Q: Were there any off-hours config file changes last night?
 → get_fim_events(days=1)
+
+Q: What file changes happened on prod-db-01 this week?
+→ get_fim_events(days=7, host="prod-db-01")
+
+Q: Show me deleted files on production servers today
+→ get_fim_events(days=1, host="prod")
 ```
+
+### Expected output shape
+
+```json
+{
+  "summary": {
+    "total": 847,
+    "modified": 634,
+    "created": 156,
+    "deleted": 57,
+    "affectedHosts": 23,
+    "criticalChanges": 12
+  },
+  "topHosts": [
+    {"hostname": "prod-db-01", "eventCount": 234},
+    {"hostname": "prod-web-01", "eventCount": 187}
+  ],
+  "criticalChanges": [
+    {
+      "hostname": "prod-web-01",
+      "path": "/etc/passwd",
+      "action": "MODIFIED",
+      "timestamp": "2024-03-12T02:34:00Z",
+      "user": "root",
+      "offHours": true
+    }
+  ],
+  "events": [...]
+}
+```
+
+Critical paths monitored: `/etc/passwd`, `/etc/shadow`, `/etc/sudoers`, `/etc/ssh/`, `/etc/hosts`,
+`/etc/fstab`, `/etc/pam.d`, `/boot/grub`, `HKLM\SAM`, `HKLM\SECURITY`,
+`HKLM\SYSTEM\CurrentControlSet\Services`, `Windows\System32`.
+
+Off-hours flag: events outside 08:00–18:00 local time are marked `offHours: true`.
 
 ---
 
