@@ -2622,57 +2622,179 @@ def get_image_vulns(image_id: str, limit: int = 50) -> dict:
 
 
 @mcp.tool()
-def get_expiring_certs(days: int = 30, include_expired: bool = True, limit: int = 50) -> dict:
-    """[CertView] SSL/TLS certificates expiring within N days. Identifies weak algorithms (SHA1, MD5), lists expiring and expired certs with hostname and days until expiry. Use get_security_posture() for overall risk."""
+def get_expiring_certs(days: int = 90, include_expired: bool = True, weak_only: bool = False, limit: int = 100) -> dict:
+    """[CertView] SSL/TLS certificate expiry monitoring and configuration issue detection. Finds expiring/expired certificates, weak key sizes, SHA-1 signatures, self-signed certs, and TLS 1.0/1.1 usage. Returns per-cert issue lists with severity grades.
+
+    **Use when:** Asked about certificate expiry, SSL/TLS health, weak ciphers, self-signed certs, or TLS version compliance. Great for outage prevention and compliance audits.
+    **NOT for:** Vulnerability scanning (use get_etm_findings), cloud posture (use get_cloud_risk), or general security health (use get_security_posture).
+
+    Parameters:
+      - days: Look-ahead window for expiring certs (default 90)
+      - include_expired: Include already-expired certs in results (default True)
+      - weak_only: Only return certs that have at least one issue (default False)
+      - limit: Max certs to return (default 100)
+
+    **Example questions:**
+      - "Which SSL certs expire in the next 30 days?" → get_expiring_certs(days=30)
+      - "Are any certificates already expired?" → get_expiring_certs(include_expired=True)
+      - "Which servers are using weak cipher suites?" → get_expiring_certs(weak_only=True)
+      - "Show me all self-signed certificates" → get_expiring_certs(weak_only=True)
+      - "Are any servers still using TLS 1.0?" → get_expiring_certs(weak_only=True)
+
+    **Grades:** A = no issues, B = nearing expiry (<30 days), C = self-signed or weak key, F = expired or SHA-1"""
     result = {
         'days': days,
-        'stats': {'expiring': 0, 'expired': 0, 'valid': 0, 'weakAlgorithm': 0},
-        'expiring': [], 'expired': []
+        'summary': {
+            'total': 0, 'expired': 0, 'expiring30Days': 0, 'expiring90Days': 0,
+            'weakCiphers': 0, 'selfSigned': 0, 'weakKeySize': 0, 'tls10or11': 0,
+        },
+        'expiringSoon': [],
+        'issues': [],
     }
 
     today = datetime.now(timezone.utc)
-    weak_algos = ('sha1', 'md5')
 
-    certs = get_certificates(limit * 2, days)
+    certs = get_certificates(limit * 3, days)
+    all_certs = []
+
     for c in certs:
+        subject_obj = c.get('subject', {}) or {}
         issuer_obj = c.get('issuer', {}) or {}
+        subject_cn = subject_obj.get('commonName', '')
+        issuer_cn = issuer_obj.get('commonName', '')
         sig_algo = (c.get('signatureAlgorithm', '') or issuer_obj.get('signatureAlgorithm', '') or '').lower()
-        is_weak = any(w in sig_algo for w in weak_algos)
-        if is_weak:
-            result['stats']['weakAlgorithm'] += 1
+        hosts_raw = c.get('hosts', []) or []
+        first_host = hosts_raw[0].get('hostname', '') if hosts_raw else ''
+        host_list = [h.get('hostname', '') for h in hosts_raw[:5]]
 
-        cert_info = {
-            'id': c.get('id', ''),
-            'subject': c.get('subject', {}).get('commonName', ''),
-            'issuer': issuer_obj.get('commonName', ''),
-            'validTo': c.get('validTo', ''),
-            'hosts': [h.get('hostname', '') for h in c.get('hosts', [])[:5]],
-        }
-        if is_weak:
-            cert_info['weakAlgorithm'] = sig_algo
+        # --- Issue detection ---
+        cert_issues = []
 
+        # SHA-1 / MD5 signature
+        if 'sha1' in sig_algo:
+            cert_issues.append({'issue': 'SHA-1 signature algorithm', 'severity': 'CRITICAL'})
+        elif 'md5' in sig_algo:
+            cert_issues.append({'issue': 'MD5 signature algorithm', 'severity': 'CRITICAL'})
+
+        # Weak key size
+        key_size = c.get('keySize') or (c.get('publicKey') or {}).get('bitSize') or 0
+        key_algo = (c.get('keyAlgorithm', '') or (c.get('publicKey') or {}).get('algorithm', '') or '').upper()
+        try:
+            key_size = int(key_size)
+        except (ValueError, TypeError):
+            key_size = 0
+        if key_size > 0:
+            if 'RSA' in key_algo and key_size < 2048:
+                cert_issues.append({'issue': f'Weak RSA key ({key_size}-bit, minimum 2048)', 'severity': 'HIGH'})
+            elif 'EC' in key_algo and key_size < 256:
+                cert_issues.append({'issue': f'Weak EC key ({key_size}-bit, minimum 256)', 'severity': 'HIGH'})
+
+        # Self-signed detection
+        is_self_signed = False
+        if subject_cn and issuer_cn and subject_cn.strip().lower() == issuer_cn.strip().lower():
+            is_self_signed = True
+            cert_issues.append({'issue': 'Self-signed certificate', 'severity': 'MEDIUM'})
+
+        # TLS version (from host-level protocol fields if exposed)
+        for h in hosts_raw[:5]:
+            tls_version = h.get('protocol', '') or h.get('tlsVersion', '') or h.get('sslProtocol', '') or ''
+            tls_version_lower = tls_version.lower()
+            if 'tls1.0' in tls_version_lower or 'tlsv1.0' in tls_version_lower or tls_version_lower == 'tls 1.0' or 'ssl' in tls_version_lower:
+                cert_issues.append({'issue': f'TLS 1.0 enabled on {h.get("hostname", "unknown")}', 'severity': 'HIGH'})
+                break
+            elif 'tls1.1' in tls_version_lower or 'tlsv1.1' in tls_version_lower or tls_version_lower == 'tls 1.1':
+                cert_issues.append({'issue': f'TLS 1.1 enabled on {h.get("hostname", "unknown")}', 'severity': 'HIGH'})
+                break
+
+        # Also check cert-level grade field from CertView if present
+        certview_grade = c.get('grade', '') or c.get('sslGrade', '') or ''
+
+        # --- Expiry computation ---
         valid_to = c.get('validTo', '')
+        days_left = None
+        is_expired = False
         if valid_to:
             try:
                 exp_date = datetime.strptime(valid_to[:10], '%Y-%m-%d')
                 days_left = (exp_date - today).days
-                cert_info['daysUntilExpiry'] = days_left
-
                 if days_left < 0:
-                    result['stats']['expired'] += 1
-                    if include_expired and len(result['expired']) < limit:
-                        result['expired'].append(cert_info)
-                elif days_left <= days:
-                    result['stats']['expiring'] += 1
-                    if len(result['expiring']) < limit:
-                        result['expiring'].append(cert_info)
-                else:
-                    result['stats']['valid'] += 1
+                    is_expired = True
+                    cert_issues.append({'issue': f'Certificate expired {abs(days_left)} days ago', 'severity': 'CRITICAL'})
             except ValueError:
                 pass
 
-    result['expiring'] = sorted(result['expiring'], key=lambda x: x.get('daysUntilExpiry', 999))
-    result['expired'] = sorted(result['expired'], key=lambda x: x.get('daysUntilExpiry', 0))
+        # --- Compute grade ---
+        has_critical = any(i['severity'] == 'CRITICAL' for i in cert_issues)
+        has_high = any(i['severity'] == 'HIGH' for i in cert_issues)
+        has_medium = any(i['severity'] == 'MEDIUM' for i in cert_issues)
+
+        if is_expired or has_critical:
+            grade = 'F'
+        elif has_high or is_self_signed:
+            grade = 'C'
+        elif days_left is not None and 0 <= days_left <= 30:
+            grade = 'B'
+        else:
+            grade = certview_grade.upper() if certview_grade else 'A'
+
+        # --- Update summary counts ---
+        result['summary']['total'] += 1
+        if is_expired:
+            result['summary']['expired'] += 1
+        if days_left is not None and 0 <= days_left <= 30:
+            result['summary']['expiring30Days'] += 1
+        if days_left is not None and 0 <= days_left <= 90:
+            result['summary']['expiring90Days'] += 1
+        if 'sha1' in sig_algo or 'md5' in sig_algo:
+            result['summary']['weakCiphers'] += 1
+        if is_self_signed:
+            result['summary']['selfSigned'] += 1
+        if key_size > 0 and (('RSA' in key_algo and key_size < 2048) or ('EC' in key_algo and key_size < 256)):
+            result['summary']['weakKeySize'] += 1
+        if any('TLS 1.0' in i['issue'] or 'TLS 1.1' in i['issue'] for i in cert_issues):
+            result['summary']['tls10or11'] += 1
+
+        # --- Build cert entry ---
+        cert_entry = {
+            'subject': subject_cn,
+            'expiryDate': valid_to[:10] if valid_to else '',
+            'daysRemaining': days_left,
+            'host': first_host,
+            'hosts': host_list,
+            'grade': grade,
+            'issues': cert_issues,
+        }
+
+        # Add to issues flat list
+        for ci in cert_issues:
+            result['issues'].append({
+                'host': first_host or subject_cn,
+                'issue': ci['issue'],
+                'severity': ci['severity'],
+            })
+
+        # Filter and collect
+        if weak_only and not cert_issues:
+            continue
+
+        if is_expired:
+            if include_expired:
+                all_certs.append(cert_entry)
+        elif days_left is not None and days_left <= days:
+            all_certs.append(cert_entry)
+        elif days_left is None or days_left > days:
+            # Outside expiry window — only include if it has issues and weak_only is set
+            if weak_only and cert_issues:
+                all_certs.append(cert_entry)
+
+    # Sort by daysRemaining ascending (expired first, then nearest expiry)
+    all_certs.sort(key=lambda x: x.get('daysRemaining') if x.get('daysRemaining') is not None else 9999)
+    result['expiringSoon'] = all_certs[:limit]
+
+    # Sort issues by severity
+    severity_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3}
+    result['issues'].sort(key=lambda x: severity_order.get(x.get('severity', 'LOW'), 4))
+
     return result
 
 
