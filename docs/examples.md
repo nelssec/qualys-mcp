@@ -312,14 +312,57 @@ Q: What malware was detected this week?
 → get_edr_events(days=7)
 
 Q: Show me all critical endpoint threat detections
-→ get_edr_events(severity="Critical")
+→ get_edr_events(severity="CRITICAL")
 
 Q: Are any hosts showing ransomware behavior?
 → get_edr_events(category="ransomware", days=30)
 
 Q: Show me all EDR events for host DESKTOP-ABC123
 → get_edr_events(host="DESKTOP-ABC123")
+
+Q: Show me C2 beaconing detections this month
+→ get_edr_events(category="c2", days=30)
 ```
+
+### Expected output shape
+
+```json
+{
+  "summary": {
+    "total": 23,
+    "critical": 2,
+    "high": 8,
+    "medium": 13,
+    "low": 0,
+    "affectedHosts": 7
+  },
+  "byCategory": {
+    "Malware": 5,
+    "Suspicious Process": 12,
+    "C2": 1,
+    "Lateral Movement": 5
+  },
+  "topHosts": [
+    {"hostname": "DESKTOP-ABC123", "eventCount": 9},
+    {"hostname": "prod-web-01", "eventCount": 4}
+  ],
+  "events": [
+    {
+      "id": "evt-123",
+      "severity": "CRITICAL",
+      "category": "Malware",
+      "name": "Emotet Trojan",
+      "hostname": "DESKTOP-ABC123",
+      "ip": "10.0.1.45",
+      "user": "jsmith",
+      "process": "svchost.exe",
+      "timestamp": "2024-03-12T03:22:00Z"
+    }
+  ]
+}
+```
+
+Severity labels are normalized: `1`→`LOW`, `2`→`MEDIUM`, `3`→`HIGH`, `4/5`→`CRITICAL`.
 
 ---
 
