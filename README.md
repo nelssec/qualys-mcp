@@ -98,7 +98,7 @@ For environments with self-signed certs, add `"QUALYS_SSL_VERIFY": "false"` to t
 | Tool | What it answers |
 |------|----------------|
 | `get_edr_events` | What endpoint threats were detected? Process injections, lateral movement, suspicious executions |
-| `get_fim_events` | What file changes happened? Critical path alerts (/etc/passwd, registry run keys) |
+| `get_fim_events` | What file changes happened? Critical path alerts (/etc/passwd, /etc/shadow, sudoers, sshd_config, registry keys), off-hours change detection, top hosts by event count |
 | `get_cdr_findings` | What cloud threats were detected? CDR findings from TotalCloud (malware, C2, crypto-miners) |
 
 ### Patch Management
@@ -200,6 +200,8 @@ For environments with self-signed certs, add `"QUALYS_SSL_VERIFY": "false"` to t
 "Show me critical endpoint threats"            → get_edr_events(severity="Critical")
 "What file changes happened today?"            → get_fim_events(days=1)
 "Were /etc/passwd or sudoers modified?"        → get_fim_events(path="/etc/passwd")
+"Any off-hours file changes last night?"       → get_fim_events(days=1)
+"Which hosts have the most FIM events?"        → get_fim_events(days=7, limit=200)
 ```
 
 ### Compliance

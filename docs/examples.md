@@ -337,6 +337,21 @@ Q: Show me all FIM events for /etc/passwd
 
 Q: Were there any off-hours file changes last night?
 → get_fim_events(days=1)
+# Check the offHoursChanges field — events outside 08:00-18:00 UTC
+
+Q: Which hosts have the most file changes?
+→ get_fim_events(days=7, limit=200)
+# Check the topHosts field — sorted by event count descending
+
+Q: Were any critical system files modified on web-server-01?
+→ get_fim_events(host="web-server-01", days=7)
+# Check the criticalChanges field for /etc/passwd, sudoers, sshd_config, etc.
+
+Q: Show me all changes under /etc/ in the last 24 hours
+→ get_fim_events(path="/etc/", days=1)
+
+Q: Were Windows registry run keys modified recently?
+→ get_fim_events(path="HKLM\\SOFTWARE\\Microsoft\\Windows", days=7)
 ```
 
 ---
