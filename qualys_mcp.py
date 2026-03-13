@@ -1222,7 +1222,7 @@ def get_security_posture() -> dict:
     vuln_ids = {i.get('imageId') for i in vuln_images}
     result['containers']['atRisk'] = len([c for c in containers if c.get('imageId') in vuln_ids])
 
-    # Cloud — fetch all three providers' connectors in parallel, then evals in parallel
+    # Cloud — fetch all three providers' connectors in parallel, then evals in parallel (#17)
     try:
         cloud_conns = _run_concurrent(
             aws=lambda: get_connectors('aws', 5),
@@ -1694,7 +1694,7 @@ def get_eliminate_status() -> dict:
         'summary': '',
     }
 
-    # Fetch everything concurrently
+    # Fetch everything concurrently — already parallel, audited in #17
     concurrent = _run_concurrent(
         windows_pm_jobs=lambda: get_pm_jobs('Windows', 20),
         linux_pm_jobs=lambda: get_pm_jobs('Linux', 20),
@@ -1963,6 +1963,8 @@ def get_etm_findings(qql: str = "", report_id: str = "") -> dict:
         if detail['status'] == 'COMPLETED':
             resources = detail.get('resources', [])
             all_findings = []
+            # NOTE: sequential ETM resource downloads could be parallelized with
+            # _run_concurrent() but left as-is — typically 1-2 resources (#17)
             for res_name in resources[:5]:  # Cap at 5 resource files
                 findings = etm_download(detail['id'], res_name)
                 if findings:
@@ -2005,6 +2007,7 @@ def get_etm_findings(qql: str = "", report_id: str = "") -> dict:
             detail = etm_api('GET', f'/etm/api/rest/v1/reports/{target["id"]}')
             if detail and detail.get('resources'):
                 all_findings = []
+                # NOTE: sequential downloads — same as above, left as-is (#17)
                 for res_name in detail['resources'][:5]:
                     findings = etm_download(detail['id'], res_name)
                     if findings:
