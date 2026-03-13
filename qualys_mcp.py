@@ -3487,42 +3487,137 @@ def get_fim_events(days: int = 7, severity: str = "", host: str = "", path: str 
     return result
 
 
+def _parse_duration(duration_str):
+    """Parse Qualys duration string into human-readable format (e.g. '2h 15m')."""
+    if not duration_str:
+        return ''
+    try:
+        parts = duration_str.strip().split(':')
+        if len(parts) == 3:
+            h, m, s = int(parts[0]), int(parts[1]), int(parts[2])
+            pieces = []
+            if h:
+                pieces.append(f"{h}h")
+            if m:
+                pieces.append(f"{m}m")
+            if not pieces:
+                pieces.append(f"{s}s")
+            return ' '.join(pieces)
+    except (ValueError, IndexError):
+        pass
+    return duration_str
+
+
 @mcp.tool()
-def get_scan_status(state: str = "Running,Queued,Error", days: int = 1, limit: int = 50) -> dict:
-    """[VM] Scan status summary — running, queued, failed scans with duration and target info. Use get_scanner_health() for appliance status."""
+def get_scan_status(state: str = "Running,Paused,Queued,Error", days: int = 7, limit: int = 50) -> dict:
+    """[VM] Scan status summary — running, queued, failed scans with duration and target info.
+
+    Shows active scans filtered by state, plus recently finished scans within the look-back window.
+    Includes error details and suggestions when failures are detected.
+
+    Use get_scanner_health() for appliance/scanner status instead.
+
+    Args:
+        state: comma-separated states to filter (Running,Paused,Queued,Error)
+        days: look-back window in days for finished/history scans
+        limit: max results to return
+    """
     result = {
         'states': state,
-        'stats': {'total': 0, 'byState': {}},
-        'scans': []
+        'stats': {'total': 0, 'byState': {}, 'running': 0, 'queued': 0, 'errors': 0, 'completedToday': 0},
+        'scans': [],
+        'failedScans': [],
+        'summary': '',
     }
 
-    scans = get_scan_list(state, limit)
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
 
-    for s in scans:
+    # Fetch active scans and finished scans concurrently
+    concurrent = _run_concurrent(
+        active=lambda: get_scan_list(state, limit),
+        finished=lambda: get_scan_list('Finished', limit),
+    )
+
+    active_scans = concurrent.get('active') or []
+    finished_scans = concurrent.get('finished') or []
+
+    def _parse_launch_time(launched):
+        if not launched:
+            return None
+        try:
+            return datetime.strptime(launched[:19], '%Y-%m-%dT%H:%M:%S').replace(tzinfo=timezone.utc)
+        except ValueError:
+            return None
+
+    def _process_scan(s):
         scan_state = s.get('state', '')
         launched = s.get('launched', '')
+        launch_time = _parse_launch_time(launched)
 
-        # Filter by days if launched date available
-        if launched and days:
-            try:
-                launch_time = datetime.strptime(launched[:19], '%Y-%m-%dT%H:%M:%S').replace(tzinfo=timezone.utc)
-                if launch_time < cutoff:
-                    continue
-            except ValueError:
-                pass
+        # Filter by days window
+        if launch_time and launch_time < cutoff:
+            return
 
         result['stats']['byState'][scan_state] = result['stats']['byState'].get(scan_state, 0) + 1
 
+        scan_entry = {
+            'ref': s.get('ref', ''), 'title': s.get('title', ''),
+            'state': scan_state, 'type': s.get('type', ''),
+            'target': s.get('target', ''), 'launched': launched,
+            'duration': _parse_duration(s.get('duration', '')),
+            'scanner': s.get('scannerName', ''),
+        }
+
         if len(result['scans']) < limit:
-            result['scans'].append({
-                'ref': s.get('ref', ''), 'title': s.get('title', ''),
-                'state': scan_state, 'type': s.get('type', ''),
-                'target': s.get('target', ''), 'launched': launched,
-                'duration': s.get('duration', ''), 'scanner': s.get('scannerName', ''),
+            result['scans'].append(scan_entry)
+
+        # Track failed scans separately
+        if scan_state == 'Error':
+            result['failedScans'].append({
+                'ref': scan_entry['ref'], 'title': scan_entry['title'],
+                'scanner': scan_entry['scanner'], 'target': scan_entry['target'],
+                'launched': launched,
             })
 
-    result['stats']['total'] = sum(result['stats']['byState'].values())
+    # Process active scans
+    for s in active_scans:
+        _process_scan(s)
+
+    # Process finished scans within the look-back window
+    for s in finished_scans:
+        launched = s.get('launched', '')
+        launch_time = _parse_launch_time(launched)
+        if launch_time and launch_time >= cutoff:
+            _process_scan(s)
+            # Count completions today
+            if launch_time >= today_start:
+                result['stats']['completedToday'] += 1
+
+    # Populate convenience counters
+    by_state = result['stats']['byState']
+    result['stats']['running'] = by_state.get('Running', 0)
+    result['stats']['queued'] = by_state.get('Queued', 0)
+    result['stats']['errors'] = by_state.get('Error', 0)
+    result['stats']['total'] = sum(by_state.values())
+
+    # Build summary
+    parts = []
+    total = result['stats']['total']
+    parts.append(f"{total} scan(s) found")
+    if result['stats']['running']:
+        parts.append(f"{result['stats']['running']} running")
+    if result['stats']['queued']:
+        parts.append(f"{result['stats']['queued']} queued")
+    if result['stats']['errors']:
+        parts.append(f"{result['stats']['errors']} error(s)")
+    if result['stats']['completedToday']:
+        parts.append(f"{result['stats']['completedToday']} completed today")
+    result['summary'] = ' · '.join(parts)
+
+    if result['failedScans']:
+        result['summary'] += ' ⚠ Use get_scanner_health() to check scanner appliance status for failed scans.'
+
     return result
 
 
