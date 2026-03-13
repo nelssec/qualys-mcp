@@ -3373,20 +3373,30 @@ def cache_status(clear: bool = False) -> dict:
 
 @mcp.tool()
 def get_edr_events(days: int = 7, severity: str = "", category: str = "", host: str = "", limit: int = 50) -> dict:
-    """[EDR] Endpoint Detection & Response events — process injections, lateral movement, suspicious executions. Aggregated by host and event type. Use get_fim_events() for file integrity events."""
-    result = {
-        'days': days,
-        'stats': {'total': 0, 'critical': 0, 'high': 0, 'medium': 0, 'bySeverity': {}, 'byCategory': {}},
-        'events': [], 'byHost': {}
+    """[EDR] Endpoint Detection & Response events — malware, ransomware, C2 beaconing, process injection, lateral movement, suspicious executions. Returns summary counts, per-category breakdown, and top affected hosts. Use get_fim_events() for file integrity events."""
+
+    # Severity normalization: numeric or mixed-case → canonical label
+    SEV_NORM = {
+        '1': 'LOW', 'low': 'LOW',
+        '2': 'MEDIUM', 'medium': 'MEDIUM',
+        '3': 'HIGH', 'high': 'HIGH',
+        '4': 'CRITICAL', 'critical': 'CRITICAL',
+        '5': 'CRITICAL',
     }
 
     sev_filter = severity if severity else None
-    events = _fetch_edr_events_raw(limit * 2, sev_filter)
+    raw_events = _fetch_edr_events_raw(limit * 4, sev_filter)
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
-    for e in events:
-        # Filter by days
-        dt = e.get('dateTime', '')
+    host_counts: dict = {}
+    affected_hosts: set = set()
+    by_category: dict = {}
+    sev_counts = {'CRITICAL': 0, 'HIGH': 0, 'MEDIUM': 0, 'LOW': 0}
+    events_out: list = []
+
+    for e in raw_events:
+        # Date-range filter
+        dt = e.get('dateTime', '') or e.get('timestamp', '') or ''
         if dt:
             try:
                 event_time = datetime.strptime(dt[:19], '%Y-%m-%dT%H:%M:%S').replace(tzinfo=timezone.utc)
@@ -3395,40 +3405,66 @@ def get_edr_events(days: int = 7, severity: str = "", category: str = "", host: 
             except ValueError:
                 pass
 
-        # Filter by category
-        evt_category = e.get('eventType', '') or e.get('category', '')
+        evt_category = e.get('eventType', '') or e.get('category', '') or e.get('type', '') or 'Unknown'
+        hostname = e.get('hostname', '') or e.get('asset', {}).get('hostname', '') or ''
+        ip = e.get('ip', '') or e.get('asset', {}).get('address', '') or ''
+        user = e.get('user', '') or e.get('actor', {}).get('user', '') or ''
+        process = e.get('processName', '') or e.get('process', {}).get('name', '') or ''
+        event_id = e.get('id', '') or e.get('eventId', '') or ''
+
+        # Normalize severity
+        raw_sev = str(e.get('severity', '') or '').strip()
+        sev = SEV_NORM.get(raw_sev.lower(), raw_sev.upper() or 'UNKNOWN')
+
+        # Apply filters
+        if severity and severity.upper() != sev:
+            continue
         if category and category.lower() not in evt_category.lower():
             continue
-
-        # Filter by host
-        hostname = e.get('hostname', '') or e.get('asset', {}).get('hostname', '')
         if host and host.lower() not in hostname.lower():
             continue
 
-        sev = e.get('severity', 'Unknown')
-        result['stats']['bySeverity'][sev] = result['stats']['bySeverity'].get(sev, 0) + 1
-        if sev in ('Critical', 'CRITICAL', '5'):
-            result['stats']['critical'] += 1
-        elif sev in ('High', 'HIGH', '4'):
-            result['stats']['high'] += 1
-        elif sev in ('Medium', 'MEDIUM', '3'):
-            result['stats']['medium'] += 1
-
-        result['stats']['byCategory'][evt_category] = result['stats']['byCategory'].get(evt_category, 0) + 1
-
+        # Tally
+        if sev in sev_counts:
+            sev_counts[sev] += 1
+        by_category[evt_category] = by_category.get(evt_category, 0) + 1
         if hostname:
-            if hostname not in result['byHost']:
-                result['byHost'][hostname] = 0
-            result['byHost'][hostname] += 1
+            affected_hosts.add(hostname)
+            host_counts[hostname] = host_counts.get(hostname, 0) + 1
 
-        if len(result['events']) < limit:
-            result['events'].append({
-                'type': evt_category, 'process': e.get('processName', ''),
-                'hostname': hostname, 'dateTime': dt, 'severity': sev,
+        if len(events_out) < limit:
+            events_out.append({
+                'id': event_id,
+                'severity': sev,
+                'category': evt_category,
+                'name': e.get('name', '') or e.get('eventName', '') or evt_category,
+                'hostname': hostname,
+                'ip': ip,
+                'user': user,
+                'process': process,
+                'timestamp': dt,
             })
 
-    result['stats']['total'] = sum(result['stats']['bySeverity'].values())
-    return result
+    total = sum(sev_counts.values())
+    top_hosts = sorted(
+        [{'hostname': h, 'eventCount': c} for h, c in host_counts.items()],
+        key=lambda x: x['eventCount'],
+        reverse=True,
+    )[:10]
+
+    return {
+        'summary': {
+            'total': total,
+            'critical': sev_counts['CRITICAL'],
+            'high': sev_counts['HIGH'],
+            'medium': sev_counts['MEDIUM'],
+            'low': sev_counts['LOW'],
+            'affectedHosts': len(affected_hosts),
+        },
+        'byCategory': by_category,
+        'topHosts': top_hosts,
+        'events': events_out,
+    }
 
 
 @mcp.tool()
