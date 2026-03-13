@@ -370,16 +370,30 @@ Severity labels are normalized: `1`→`LOW`, `2`→`MEDIUM`, `3`→`HIGH`, `4/5`
 
 ```
 Q: What file changes happened on production servers today?
-→ get_fim_events(days=1)
+→ get_fim_events(days=1, host="prod")
 
 Q: Which critical system files were modified this week?
-→ get_fim_events(days=7, severity="HIGH")
+→ get_fim_events(days=7, severity="CRITICAL")
+
+Q: Were there any off-hours config file changes last night?
+→ get_fim_events(days=1, path="/etc")
+   Look for events with offHours: true in the response.
 
 Q: Show me all FIM events for /etc/passwd
 → get_fim_events(path="/etc/passwd", days=7)
+```
 
-Q: Were there any off-hours file changes last night?
-→ get_fim_events(days=1)
+The response includes a `summary` with total/modified/created/deleted counts, `topHosts` ranked by event count, and `criticalChanges` for system-critical paths (/etc/passwd, /etc/shadow, /etc/sudoers, /etc/hosts, /boot, registry keys). Events outside 08:00–18:00 are flagged with `offHours: true`.
+
+Example response shape:
+```json
+{
+  "summary": {"total": 847, "critical": 12, "high": 45, "affectedHosts": 23, "modified": 634, "created": 156, "deleted": 57},
+  "topHosts": [{"hostname": "prod-db-01", "eventCount": 234}],
+  "criticalChanges": [
+    {"hostname": "prod-web-01", "path": "/etc/passwd", "action": "MODIFIED", "timestamp": "2025-01-15T03:22:00Z", "user": "root", "offHours": true}
+  ]
+}
 ```
 
 ---

@@ -98,7 +98,7 @@ For environments with self-signed certs, add `"QUALYS_SSL_VERIFY": "false"` to t
 | Tool | What it answers |
 |------|----------------|
 | `get_edr_events` | What endpoint threats were detected? Malware, ransomware, C2, lateral movement — summary counts, per-category breakdown, top affected hosts, normalized severity labels |
-| `get_fim_events` | What file changes happened? Critical path alerts (/etc/passwd, registry run keys) |
+| `get_fim_events` | What file changes happened? Summary counts (modified/created/deleted), top affected hosts, critical-path alerts (/etc/passwd, /etc/shadow, registry keys), off-hours change flagging. Filter by host, path, severity |
 | `get_cdr_findings` | What cloud threats were detected? CDR findings from TotalCloud (malware, C2, crypto-miners) |
 
 ### Patch Management
