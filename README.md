@@ -59,7 +59,7 @@ For environments with self-signed certs, add `"QUALYS_SSL_VERIFY": "false"` to t
 | `get_security_posture` | How secure are we overall? Health score, risk distribution, container and cloud stats |
 | `get_weekly_priorities` | What should my team fix this week? Top risk assets ranked by TruRisk |
 | `get_patch_status` | What's our patching coverage? Risk distribution and assets needing remediation |
-| `get_scan_status` | What scans are running, queued, or failed? Duration, target, scanner name |
+| `get_scan_status` | What scans are running, queued, paused, or failed? Duration, targets, scanner names, completion stats, and error details with scanner health suggestions |
 | `get_compliance_posture` | What's our policy compliance rate? Pass/fail by framework (PCI-DSS, CIS, NIST, HIPAA) |
 
 ### Vulnerability Intelligence
