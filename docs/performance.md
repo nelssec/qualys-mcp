@@ -470,3 +470,23 @@ investigate_cve                    7.5       0.8          ✅
 | `get_environment_summary` | new | <3s | 11-way parallel CSAM |
 | `get_risk_by_tag` | new | ~3s | 6-way parallel CSAM |
 | `get_asset_full_profile` | new | ~5-8s cold / ~2s warm | 3-way parallel + ETM cache |
+
+### Phase 5: Request Deduplication — Implemented (Issue #16)
+
+| Fix | What Changed | Impact |
+|-----|-------------|--------|
+| `_get_or_fetch` helper | Thread-safe cache helper with per-key locking prevents duplicate concurrent API requests | Eliminates redundant API calls when multiple tools request the same data simultaneously |
+| `get_detections` dedup | Migrated to `_get_or_fetch` (TTL 300s). `DETECTION_CACHE_TIME` converted to per-key dict | Concurrent detection queries share a single API call |
+| `get_was_findings` dedup | Migrated to `_get_or_fetch` (TTL 600s). Removed manual cache management | Concurrent WAS queries share a single API call |
+
+### Cache TTL Summary
+
+| Cache | TTL | Key Strategy |
+|-------|-----|-------------|
+| Bearer token | 3.5 hours | Single global token |
+| KB entries | 1 hour | Per-QID with `KB_CACHE_TIME` dict |
+| VMDR detections | 5 minutes | Per `{severity}_{days}_{qds_min}`, limit excluded |
+| QDS scores | 5 minutes | Per-QID, bulk-cleared on expiry |
+| WAS findings | 10 minutes | Per `{limit}_{severity}_{days}_{app_name}` |
+| Scanner list | 5 minutes | Single global list |
+| ETM results | 1 hour | Single global (unfiltered only) |
