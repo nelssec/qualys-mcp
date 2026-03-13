@@ -3489,59 +3489,115 @@ def get_edr_events(days: int = 7, severity: str = "", category: str = "", host: 
 
 
 @mcp.tool()
-def get_fim_events(days: int = 7, severity: str = "", host: str = "", path: str = "", limit: int = 50) -> dict:
-    """[FIM] File Integrity Monitoring events — unauthorized file changes, critical system file modifications, suspicious paths (/etc/passwd, registry run keys). Use get_edr_events() for process-level threats."""
-    critical_paths = ['/etc/passwd', '/etc/shadow', '/etc/sudoers', 'C:\\Windows\\System32',
-                      'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run']
-    result = {
-        'days': days,
-        'stats': {'total': 0, 'criticalPathEvents': 0, 'bySeverity': {}},
-        'events': [], 'byHost': {}, 'criticalPathAlerts': []
-    }
+def get_fim_events(days: int = 1, severity: str = "", host: str = "", path: str = "", limit: int = 100) -> dict:
+    """[FIM] File Integrity Monitoring events — unauthorized file changes, critical system file modifications, suspicious paths (/etc/passwd, /etc/shadow, registry keys). Returns summary counts (modified/created/deleted, off-hours changes), top affected hosts, and critical-path alerts. Use get_edr_events() for process-level threats."""
 
-    events = _fetch_fim_events_raw(limit * 2, days)
+    CRITICAL_PATHS = [
+        '/etc/passwd', '/etc/shadow', '/etc/sudoers', '/etc/hosts',
+        '/etc/ssh/',
+        'HKLM\\SYSTEM', 'HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon',
+    ]
 
-    for e in events:
+    raw_events = _fetch_fim_events_raw(limit * 4, days)
+
+    host_counts: dict = {}
+    affected_hosts: set = set()
+    sev_counts = {'CRITICAL': 0, 'HIGH': 0, 'MEDIUM': 0, 'LOW': 0}
+    action_counts = {'modified': 0, 'created': 0, 'deleted': 0}
+    off_hours_total = 0
+    critical_changes: list = []
+    events_out: list = []
+
+    for e in raw_events:
         file_path = e.get('filePath', '') or e.get('fullPath', '')
         hostname = e.get('hostname', '') or e.get('asset', {}).get('hostname', '')
-        sev = e.get('severity', '') or 'Unknown'
+        raw_sev = str(e.get('severity', '') or '').strip().upper()
+        sev = raw_sev if raw_sev in sev_counts else 'MEDIUM'
+        action = (e.get('action', '') or e.get('type', '') or '').upper()
+        dt = e.get('dateTime', '') or e.get('timestamp', '') or ''
+        user = e.get('user', '') or e.get('actor', {}).get('user', '') or ''
 
-        # Filter by severity
-        if severity and severity.lower() != str(sev).lower():
+        # Apply filters
+        if severity and severity.upper() != sev:
             continue
-        # Filter by host
         if host and host.lower() not in hostname.lower():
             continue
-        # Filter by path
-        if path and path.lower() not in file_path.lower():
+        if path and not file_path.lower().startswith(path.lower()):
             continue
 
-        result['stats']['bySeverity'][str(sev)] = result['stats']['bySeverity'].get(str(sev), 0) + 1
+        # Tally severity
+        sev_counts[sev] += 1
+
+        # Tally action
+        action_key = action.lower()
+        if 'creat' in action_key or 'add' in action_key:
+            action_counts['created'] += 1
+        elif 'delet' in action_key or 'remov' in action_key:
+            action_counts['deleted'] += 1
+        else:
+            action_counts['modified'] += 1
+
+        # Off-hours detection (outside 08:00-18:00 UTC)
+        off_hours = False
+        if dt:
+            try:
+                event_time = datetime.strptime(dt[:19], '%Y-%m-%dT%H:%M:%S')
+                if event_time.hour < 8 or event_time.hour >= 18:
+                    off_hours = True
+                    off_hours_total += 1
+            except ValueError:
+                pass
+
+        # Host tallying
+        if hostname:
+            affected_hosts.add(hostname)
+            host_counts[hostname] = host_counts.get(hostname, 0) + 1
 
         # Critical path detection
-        is_critical = any(cp.lower() in file_path.lower() for cp in critical_paths if file_path)
+        is_critical = any(cp.lower() in file_path.lower() for cp in CRITICAL_PATHS) if file_path else False
         if is_critical:
-            result['stats']['criticalPathEvents'] += 1
-            result['criticalPathAlerts'].append({
-                'path': file_path, 'hostname': hostname,
-                'action': e.get('action', ''), 'dateTime': e.get('dateTime', '')
+            critical_changes.append({
+                'hostname': hostname,
+                'path': file_path,
+                'action': action or 'MODIFIED',
+                'timestamp': dt,
+                'user': user,
+                'offHours': off_hours,
             })
 
-        if hostname:
-            result['byHost'][hostname] = result['byHost'].get(hostname, 0) + 1
-
-        if len(result['events']) < limit:
-            event_info = {
-                'action': e.get('action', ''), 'path': file_path,
-                'hostname': hostname, 'dateTime': e.get('dateTime', ''),
+        if len(events_out) < limit:
+            events_out.append({
+                'action': action or 'MODIFIED',
+                'path': file_path,
+                'hostname': hostname,
+                'timestamp': dt,
                 'severity': sev,
-            }
-            if is_critical:
-                event_info['criticalPath'] = True
-            result['events'].append(event_info)
+                'user': user,
+                'offHours': off_hours,
+            })
 
-    result['stats']['total'] = sum(result['stats']['bySeverity'].values())
-    return result
+    total = sum(sev_counts.values())
+    top_hosts = sorted(
+        [{'hostname': h, 'eventCount': c} for h, c in host_counts.items()],
+        key=lambda x: x['eventCount'],
+        reverse=True,
+    )[:10]
+
+    return {
+        'summary': {
+            'total': total,
+            'critical': sev_counts['CRITICAL'],
+            'high': sev_counts['HIGH'],
+            'affectedHosts': len(affected_hosts),
+            'modified': action_counts['modified'],
+            'created': action_counts['created'],
+            'deleted': action_counts['deleted'],
+            'offHoursChanges': off_hours_total,
+        },
+        'topHosts': top_hosts,
+        'criticalChanges': critical_changes,
+        'events': events_out,
+    }
 
 
 def _parse_duration(duration_str):

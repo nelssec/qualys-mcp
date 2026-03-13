@@ -380,7 +380,54 @@ Q: Show me all FIM events for /etc/passwd
 
 Q: Were there any off-hours file changes last night?
 → get_fim_events(days=1)
+
+Q: Show me FIM events for host prod-db-01
+→ get_fim_events(host="prod-db-01", days=7)
 ```
+
+### Expected output shape
+
+```json
+{
+  "summary": {
+    "total": 847,
+    "critical": 12,
+    "high": 45,
+    "affectedHosts": 23,
+    "modified": 634,
+    "created": 156,
+    "deleted": 57,
+    "offHoursChanges": 5
+  },
+  "topHosts": [
+    {"hostname": "prod-db-01", "eventCount": 234},
+    {"hostname": "prod-web-01", "eventCount": 189}
+  ],
+  "criticalChanges": [
+    {
+      "hostname": "prod-web-01",
+      "path": "/etc/passwd",
+      "action": "MODIFIED",
+      "timestamp": "2024-03-12T03:22:00Z",
+      "user": "root",
+      "offHours": true
+    }
+  ],
+  "events": [
+    {
+      "action": "MODIFIED",
+      "path": "/opt/app/config.yml",
+      "hostname": "prod-web-01",
+      "timestamp": "2024-03-12T14:05:00Z",
+      "severity": "MEDIUM",
+      "user": "deploy",
+      "offHours": false
+    }
+  ]
+}
+```
+
+Off-hours changes are flagged when the event timestamp falls outside 08:00–18:00. Critical paths include `/etc/passwd`, `/etc/shadow`, `/etc/sudoers`, `/etc/hosts`, `/etc/ssh/`, and Windows registry keys like `HKLM\SYSTEM` and `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon`.
 
 ---
 
