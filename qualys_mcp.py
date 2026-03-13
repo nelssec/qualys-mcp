@@ -34,7 +34,7 @@ BEARER_TOKEN_TIME = None
 KB_CACHE = {}
 KB_CACHE_TIME = {}  # {qid: datetime} for per-entry TTL (1 hour)
 DETECTION_CACHE = {}
-DETECTION_CACHE_TIME = None
+DETECTION_CACHE_TIME = {}    # {cache_key: datetime} for per-key TTL
 QDS_CACHE = {}
 QDS_CACHE_TIME = None
 WAS_CACHE = {}          # {cache_key: findings_list}
@@ -46,6 +46,10 @@ ETM_RESULT_CACHE_TIME = None  # datetime of cache fill
 
 AUTH_ERROR = None
 AUTH_LOCK = Lock()
+
+# Per-key cache locks for _get_or_fetch request deduplication
+_cache_locks = {}
+_cache_locks_lock = Lock()
 
 # Pagination safety: max pages any helper will fetch to prevent runaway loops.
 # At 100 items/page, 20 pages = 2,000 items — enough for detail views.
@@ -66,6 +70,25 @@ def _open(req, timeout=30):
 def _log(msg):
     """Log to stderr (visible in MCP server logs, not in protocol output)."""
     print(f"[qualys-mcp] {msg}", file=sys.stderr)
+
+
+def _get_or_fetch(cache_dict, cache_time_dict, key, fetch_fn, ttl):
+    """Thread-safe cache get-or-fetch with per-key locking.
+    Prevents duplicate concurrent requests for the same cache key.
+    Uses datetime objects for timestamps to match existing cache patterns."""
+    with _cache_locks_lock:
+        if key not in _cache_locks:
+            _cache_locks[key] = Lock()
+        lock = _cache_locks[key]
+    with lock:
+        now = datetime.now(timezone.utc)
+        cached_time = cache_time_dict.get(key)
+        if key in cache_dict and cached_time and (now - cached_time).total_seconds() < ttl:
+            return cache_dict[key]
+        result = fetch_fn()
+        cache_dict[key] = result
+        cache_time_dict[key] = datetime.now(timezone.utc)
+        return result
 
 
 def get_bearer_token():
@@ -122,63 +145,61 @@ def api_get(url, gateway=False, timeout=30):
 
 
 def get_detections(severity=5, limit=200, use_cache=True, days=30, qds_min=0):
-    """Get VMDR detections with hostname and QDS. Uses 5-minute cache.
+    """Get VMDR detections with hostname and QDS. Uses 5-minute cache (TTL 300s).
+    Thread-safe via _get_or_fetch — concurrent calls for the same params are deduplicated.
     Best practices: filter_superseded_qids, vm_processed_after, qds_min.
     Note: VMDR classic API is slow (~2min) for large environments.
     Cache key excludes limit — always fetches max 500 and slices at return."""
-    global DETECTION_CACHE, DETECTION_CACHE_TIME
-
     # Cache key excludes limit so a call with limit=10 can reuse a limit=200 result
     cache_key = f"detections_{severity}_{days}_{qds_min}"
-    now = datetime.now(timezone.utc)
 
-    if use_cache and cache_key in DETECTION_CACHE and DETECTION_CACHE_TIME:
-        age = (now - DETECTION_CACHE_TIME).total_seconds()
-        if age < 300:  # 5-minute cache
-            return DETECTION_CACHE[cache_key][:limit]
+    def _fetch():
+        after_date = (datetime.now(timezone.utc) - timedelta(days=days)).strftime('%Y-%m-%d')
+        url = (
+            f"{BASE_URL}/api/2.0/fo/asset/host/vm/detection/?action=list"
+            f"&severities={severity}&truncation_limit=500&status=Active"
+            f"&show_qds=1&filter_superseded_qids=1"
+            f"&vm_processed_after={after_date}"
+        )
+        if qds_min > 0:
+            url += f"&qds_min={qds_min}"
+        data = api_get(url, timeout=180)
+        if not data:
+            return []
+        dets = []
+        try:
+            root = ET.fromstring(data)
+            for host in root.findall('.//HOST'):
+                hid = host.findtext('ID', '')
+                ip = host.findtext('IP', '')
+                hostname = host.findtext('DNS', '')
+                for d in host.findall('.//DETECTION'):
+                    qds_el = d.find('QDS')
+                    qds = 0
+                    if qds_el is not None and qds_el.text:
+                        try:
+                            qds = int(qds_el.text)
+                        except ValueError:
+                            pass
+                    dets.append({
+                        'host_id': hid, 'ip': ip, 'hostname': hostname,
+                        'qid': int(d.findtext('QID', '0')),
+                        'severity': int(d.findtext('SEVERITY', '0')),
+                        'status': d.findtext('STATUS', ''),
+                        'qds': qds,
+                        'first_found': d.findtext('FIRST_FOUND_DATETIME', ''),
+                    })
+        except ET.ParseError as e:
+            _log(f"XML parse error in detections: {e}")
+        return dets
 
-    after_date = (now - timedelta(days=days)).strftime('%Y-%m-%d')
-    # Always fetch max 500 to maximize cache utility for different limit values
-    url = (
-        f"{BASE_URL}/api/2.0/fo/asset/host/vm/detection/?action=list"
-        f"&severities={severity}&truncation_limit=500&status=Active"
-        f"&show_qds=1&filter_superseded_qids=1"
-        f"&vm_processed_after={after_date}"
-    )
-    if qds_min > 0:
-        url += f"&qds_min={qds_min}"
+    if not use_cache:
+        result = _fetch()
+        DETECTION_CACHE[cache_key] = result
+        DETECTION_CACHE_TIME[cache_key] = datetime.now(timezone.utc)
+        return result[:limit]
 
-    data = api_get(url, timeout=180)
-    if not data:
-        return []
-    dets = []
-    try:
-        root = ET.fromstring(data)
-        for host in root.findall('.//HOST'):
-            hid = host.findtext('ID', '')
-            ip = host.findtext('IP', '')
-            hostname = host.findtext('DNS', '')
-            for d in host.findall('.//DETECTION'):
-                qds_el = d.find('QDS')
-                qds = 0
-                if qds_el is not None and qds_el.text:
-                    try:
-                        qds = int(qds_el.text)
-                    except ValueError:
-                        pass
-                dets.append({
-                    'host_id': hid, 'ip': ip, 'hostname': hostname,
-                    'qid': int(d.findtext('QID', '0')),
-                    'severity': int(d.findtext('SEVERITY', '0')),
-                    'status': d.findtext('STATUS', ''),
-                    'qds': qds,
-                    'first_found': d.findtext('FIRST_FOUND_DATETIME', ''),
-                })
-    except ET.ParseError as e:
-        _log(f"XML parse error in detections: {e}")
-
-    DETECTION_CACHE[cache_key] = dets
-    DETECTION_CACHE_TIME = now
+    dets = _get_or_fetch(DETECTION_CACHE, DETECTION_CACHE_TIME, cache_key, _fetch, 300)
     return dets[:limit]
 
 
@@ -565,57 +586,53 @@ def _fetch_edr_events_raw(limit=100, severity=None):
 
 
 def get_was_findings(limit=100, severity=None, days=None, app_name=None):
-    """Get WAS findings with optional server-side filters. Uses 10-minute per-key cache.
+    """Get WAS findings with optional server-side filters. Uses 10-minute per-key cache (TTL 600s).
+    Thread-safe via _get_or_fetch — concurrent calls for the same params are deduplicated.
     days: only findings detected in the last N days (detectedDate filter).
     app_name: substring match on webApp.name (server-side CONTAINS filter).
     severity: exact severity level filter (1-5).
     """
-    global WAS_CACHE, WAS_CACHE_TIME
-    now = datetime.now(timezone.utc)
     cache_key = f"was_{limit}_{severity}_{days}_{app_name}"
 
-    if cache_key in WAS_CACHE_TIME:
-        age = (now - WAS_CACHE_TIME[cache_key]).total_seconds()
-        if age < 600:  # 10-minute cache
-            return WAS_CACHE[cache_key]
+    def _fetch():
+        now = datetime.now(timezone.utc)
+        url = f"{BASE_URL}/qps/rest/3.0/search/was/finding"
+        criteria = "<ServiceRequest><filters><Criteria field=\"status\" operator=\"EQUALS\">ACTIVE</Criteria>"
+        if severity:
+            criteria += f"<Criteria field=\"severity\" operator=\"EQUALS\">{severity}</Criteria>"
+        if days:
+            cutoff = (now - timedelta(days=days)).strftime('%Y-%m-%dT%H:%M:%SZ')
+            criteria += f"<Criteria field=\"detectedDate\" operator=\"GREATER\">{cutoff}</Criteria>"
+        if app_name:
+            criteria += f"<Criteria field=\"webApp.name\" operator=\"CONTAINS\">{app_name}</Criteria>"
+        criteria += f"</filters><preferences><limitResults>{limit}</limitResults></preferences></ServiceRequest>"
 
-    url = f"{BASE_URL}/qps/rest/3.0/search/was/finding"
-    criteria = "<ServiceRequest><filters><Criteria field=\"status\" operator=\"EQUALS\">ACTIVE</Criteria>"
-    if severity:
-        criteria += f"<Criteria field=\"severity\" operator=\"EQUALS\">{severity}</Criteria>"
-    if days:
-        cutoff = (now - timedelta(days=days)).strftime('%Y-%m-%dT%H:%M:%SZ')
-        criteria += f"<Criteria field=\"detectedDate\" operator=\"GREATER\">{cutoff}</Criteria>"
-    if app_name:
-        criteria += f"<Criteria field=\"webApp.name\" operator=\"CONTAINS\">{app_name}</Criteria>"
-    criteria += f"</filters><preferences><limitResults>{limit}</limitResults></preferences></ServiceRequest>"
+        req = Request(url, data=criteria.encode(), method='POST')
+        req.add_header('Authorization', f'Basic {BASIC_AUTH}')
+        req.add_header('Content-Type', 'text/xml')
+        req.add_header('X-Requested-With', 'qualys-mcp')
+        try:
+            with _open(req, timeout=60) as resp:
+                root = ET.fromstring(resp.read())
+                findings = []
+                for f in root.findall('.//Finding'):
+                    findings.append({
+                        'id': f.findtext('id', ''),
+                        'qid': int(f.findtext('qid', '0')),
+                        'name': f.findtext('name', ''),
+                        'severity': int(f.findtext('severity', '0')),
+                        'url': f.findtext('url', ''),
+                        'webAppId': f.findtext('webApp/id', ''),
+                        'webAppName': f.findtext('webApp/name', ''),
+                        'detectedDate': f.findtext('detectedDate', ''),
+                        'type': f.findtext('type', ''),
+                    })
+                return findings
+        except Exception as e:
+            _log(f"WAS findings error: {e}")
+            return []
 
-    req = Request(url, data=criteria.encode(), method='POST')
-    req.add_header('Authorization', f'Basic {BASIC_AUTH}')
-    req.add_header('Content-Type', 'text/xml')
-    req.add_header('X-Requested-With', 'qualys-mcp')
-    try:
-        with _open(req, timeout=60) as resp:
-            root = ET.fromstring(resp.read())
-            findings = []
-            for f in root.findall('.//Finding'):
-                findings.append({
-                    'id': f.findtext('id', ''),
-                    'qid': int(f.findtext('qid', '0')),
-                    'name': f.findtext('name', ''),
-                    'severity': int(f.findtext('severity', '0')),
-                    'url': f.findtext('url', ''),
-                    'webAppId': f.findtext('webApp/id', ''),
-                    'webAppName': f.findtext('webApp/name', ''),
-                    'detectedDate': f.findtext('detectedDate', ''),
-                    'type': f.findtext('type', ''),
-                })
-            WAS_CACHE[cache_key] = findings
-            WAS_CACHE_TIME[cache_key] = now
-            return findings
-    except Exception as e:
-        _log(f"TAS findings error: {e}")
-        return []
+    return _get_or_fetch(WAS_CACHE, WAS_CACHE_TIME, cache_key, _fetch, 600)
 
 
 def get_pm_jobs(platform='Windows', limit=10):
@@ -3319,7 +3336,7 @@ def get_environment_summary() -> dict:
 @mcp.tool()
 def cache_status(clear: bool = False) -> dict:
     """[Admin] Show cache stats or clear all caches. Use clear=True to reset caches."""
-    global DETECTION_CACHE_TIME, ETM_RESULT_CACHE, ETM_RESULT_CACHE_TIME
+    global ETM_RESULT_CACHE, ETM_RESULT_CACHE_TIME
     global SCANNER_CACHE, SCANNER_CACHE_TIME
 
     now = datetime.now(timezone.utc)
@@ -3337,7 +3354,8 @@ def cache_status(clear: bool = False) -> dict:
     }
 
     if DETECTION_CACHE_TIME:
-        result['detection_cache_age_seconds'] = int((now - DETECTION_CACHE_TIME).total_seconds())
+        newest = max(DETECTION_CACHE_TIME.values())
+        result['detection_cache_age_seconds'] = int((now - newest).total_seconds())
     if BEARER_TOKEN_TIME:
         result['bearer_token_age_seconds'] = int((now - BEARER_TOKEN_TIME).total_seconds())
     if SCANNER_CACHE_TIME:
@@ -3349,7 +3367,7 @@ def cache_status(clear: bool = False) -> dict:
         KB_CACHE.clear()
         KB_CACHE_TIME.clear()
         DETECTION_CACHE.clear()
-        DETECTION_CACHE_TIME = None
+        DETECTION_CACHE_TIME.clear()
         QDS_CACHE.clear()
         WAS_CACHE.clear()
         WAS_CACHE_TIME.clear()
