@@ -388,6 +388,17 @@ Q: Show me scan history for the past week
 
 Q: Which scans are currently queued?
 → get_scan_status(state="Queued")
+
+Q: Give me a full scan dashboard — active, queued, paused, and errors
+→ get_scan_status(state="Running,Paused,Queued,Error", days=7)
+
+Q: Any scan failures? Which scanners are involved?
+→ get_scan_status(state="Error", days=3)
+  (check failedScans list for scanner names, then follow up with get_scanner_health())
+
+Q: How many scans completed today?
+→ get_scan_status(days=1)
+  (check stats.completedToday in the response)
 ```
 
 ---
