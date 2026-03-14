@@ -28,6 +28,19 @@ def compact(d):
     return d
 
 
+def _with_meta(result, list_key=None, total=None):
+    """Add _meta block to result dict and compact it."""
+    if list_key and list_key in result:
+        items = result[list_key]
+        n = len(items) if isinstance(items, list) else 1
+        t = total if total is not None else n
+    else:
+        n = 1
+        t = 1
+    result['_meta'] = {'returned': n, 'total': t, 'truncated': n < t}
+    return compact(result)
+
+
 def short_date(dt_str):
     """Strip time from ISO datetime if time is midnight."""
     if dt_str and "T" in str(dt_str):
@@ -1078,11 +1091,11 @@ def _run_concurrent(**tasks):
 
 @mcp.tool()
 def get_weekly_priorities(limit: int = 10, sort_by: str = "trurisk", tag: str = "", asset_group: str = "") -> dict:
-    """[Risk Management] Weekly priorities — top high-risk assets ranked by TruRisk, risk distribution across severity tiers, and container risks.
+    """[Risk Management] Weekly priorities — top high-risk assets ranked by TruRisk, risk distribution across severity tiers, and container risks. @slow
 
     USE WHEN: "what should I work on this week?", "top priorities", "what should we fix first?", sprint planning, or risk-ranked remediation lists.
     DO NOT USE WHEN: Asking about what happened today/overnight, drilling into a single asset, or checking cloud posture.
-    PREFER INSTEAD: get_morning_report for daily briefing ("what happened overnight?"); get_asset_risk for single-asset drill-down; get_cloud_risk for cloud posture; get_eliminate_status for patch deployment status.
+    PREFER INSTEAD: get_morning_report for daily briefing ("what happened overnight?"); get_asset for single-asset drill-down; get_cloud_risk for cloud posture; get_eliminate_status for patch deployment status.
 
     Parameters:
         limit: max top-risk assets to return (default 10)
@@ -1157,7 +1170,7 @@ def get_weekly_priorities(limit: int = 10, sort_by: str = "trurisk", tag: str = 
         result['priorities'].append({
             'rank': rank, 'severity': 5,
             'title': f"Remediate {risk_900} critical-risk assets (TruRisk > 900)",
-            'action': 'Use get_asset_risk(assetId) for specific vulnerabilities per asset',
+            'action': 'Use get_asset(assetId) for specific vulnerabilities per asset',
         })
         rank += 1
 
@@ -1190,7 +1203,7 @@ def get_weekly_priorities(limit: int = 10, sort_by: str = "trurisk", tag: str = 
         })
         result['summary']['containersAtRisk'] = len(at_risk)
 
-    return compact(result)
+    return _with_meta(result, 'topRiskAssets')
 
 
 def _extract_software_keywords(title):
@@ -1237,7 +1250,7 @@ def _extract_software_keywords(title):
 
 @mcp.tool()
 def investigate_cve(cve: str) -> dict:
-    """[Vulnerability Intelligence] Single-CVE deep investigation — maps CVE to QIDs, retrieves KB details (severity, patches, threat intel, ransomware), and searches your asset inventory for affected software.
+    """[Vulnerability Intelligence] Single-CVE deep investigation — maps CVE to QIDs, retrieves KB details (severity, patches, threat intel, ransomware), and searches your asset inventory for affected software. @slow
 
     USE WHEN: Deep-diving a single CVE — "are we affected by CVE-2024-3400?", incident response triage, tracing a CVE to specific assets, or "what's the impact of CVE-X?"
     DO NOT USE WHEN: Looking up multiple CVEs at once (bulk metadata), searching KB by software/threat type, or checking confirmed detection status on assets.
@@ -1363,7 +1376,7 @@ def investigate_cve(cve: str) -> dict:
                         'riskScore': a.get('riskScore', 0),
                         'os': (a.get('operatingSystem') or {}).get('osName', ''),
                     } for a in (os_assets or [])[:5]],
-                    'note': f'No specific software match but {os_count} {os_filter["value"]} assets could be affected. Use get_asset_risk(assetId) to confirm.',
+                    'note': f'No specific software match but {os_count} {os_filter["value"]} assets could be affected. Use get_asset(assetId) to confirm.',
                 }
                 result['summary']['assetsWithSoftware'] = 0
                 result['summary']['osExposedAssets'] = os_count
@@ -1377,11 +1390,11 @@ def investigate_cve(cve: str) -> dict:
                         'riskScore': a.get('riskScore', 0),
                         'os': (a.get('operatingSystem') or {}).get('osName', ''),
                     } for a in best_assets[:5]],
-                    'note': 'Assets running the affected software (potential exposure). Use get_asset_risk(assetId) for confirmed vulnerability details.',
+                    'note': 'Assets running the affected software (potential exposure). Use get_asset(assetId) for confirmed vulnerability details.',
                 }
                 result['summary']['assetsWithSoftware'] = best_count
 
-    return compact(result)
+    return _with_meta(result, 'allKbDetails')
 
 
 def get_security_posture(tag: str = "", asset_group: str = "") -> dict:
@@ -1472,7 +1485,7 @@ def get_patch_status(limit: int = 20, tag: str = "", asset_group: str = "") -> d
 
     USE WHEN: "how is our patching going?", "how many assets are unpatched?", assessing patch posture, or identifying top unpatched assets by risk tier.
     DO NOT USE WHEN: Checking active patch job deployment, viewing PM job details per platform, or looking at single-asset patch details.
-    PREFER INSTEAD: get_eliminate_status when "what patches are deploying right now?" or active job status; get_pm_status when user specifically asks about Patch Management module jobs per platform; get_asset_risk for single-asset patch/vuln details.
+    PREFER INSTEAD: get_eliminate_status when "what patches are deploying right now?" or active job status; get_asset for single-asset patch/vuln details.
 
     Parameters:
         limit: max high-risk assets to return (default 20)
@@ -1540,7 +1553,7 @@ def get_patch_status(limit: int = 20, tag: str = "", asset_group: str = "") -> d
     if total > 0:
         result['coverage'] = round((total - risk_100) / total * 100, 1)
 
-    return compact(result)
+    return _with_meta(result, 'highRiskAssets', total)
 
 
 @mcp.tool()
@@ -1595,13 +1608,13 @@ def search_vulns(days: int = 7, threat_type: str = "", software: str = "", limit
     )
     if not data:
         result['summary'] = 'Failed to fetch KB data'
-        return compact(result)
+        return _with_meta(result, 'vulns')
 
     try:
         root = ET.fromstring(data)
     except ET.ParseError:
         result['summary'] = 'Failed to parse KB data'
-        return compact(result)
+        return _with_meta(result, 'vulns')
 
     # Parse all vulns, apply filters client-side
     all_vulns_xml = root.findall('.//VULN')
@@ -1685,7 +1698,7 @@ def search_vulns(days: int = 7, threat_type: str = "", software: str = "", limit
         f"{len(matching)} matching vulns ({filter_label}) out of {len(all_vulns_xml)} "
         f"published in last {days} days. {patched} have patches available."
     )
-    return compact(result)
+    return _with_meta(result, 'vulns', result.get('totalMatching', len(matching)))
 
 
 def _get_first_cloud_evals():
@@ -1712,7 +1725,7 @@ def get_recommendations() -> dict:
 
     USE WHEN: Gap analysis, program improvement, "what modules should we add?", "what should we invest in?", "what's missing from our security program?", or "how do we reduce our TruRisk score?"
     DO NOT USE WHEN: Responding to immediate threats, looking at asset-level vuln details, or checking patching status.
-    PREFER INSTEAD: get_morning_report for immediate threat response; get_asset_risk for asset-level details; get_eliminate_status for patching status.
+    PREFER INSTEAD: get_morning_report for immediate threat response; get_asset for asset-level details; get_eliminate_status for patching status.
 
     Returns: recommendations (prioritized list with priority, area, finding, qualysModule, riskAction=eliminate|mitigate), coverage (map of active vs missing capabilities), riskActions (eliminate/mitigate counts), summary.
 
@@ -1930,7 +1943,7 @@ def get_recommendations() -> dict:
         f'patch acceleration'
     )
 
-    return compact(result)
+    return _with_meta(result, 'recommendations')
 
 
 @mcp.tool()
@@ -1939,7 +1952,7 @@ def get_eliminate_status() -> dict:
 
     USE WHEN: "what patches are deploying right now?", "are patches deploying?", "how many mitigation jobs are running?", "what's our patch catalog size?", or checking active risk elimination progress.
     DO NOT USE WHEN: Assessing overall patch coverage by risk tier, viewing per-platform PM job details, or checking single-asset patch status.
-    PREFER INSTEAD: get_patch_status when "how is our patching going?" (coverage/gaps summary); get_pm_status when user specifically asks about Patch Management module per platform; get_asset_risk for per-asset details.
+    PREFER INSTEAD: get_patch_status when "how is our patching going?" (coverage/gaps summary); get_asset for per-asset details.
 
     Returns: patchManagement (per-platform: totalJobs, activeJobs, byStatus, recentJobs, managedAssets), mitigations (per-platform: totalJobs, activeJobs, byStatus, recentJobs), patchCatalog (windows/linux totals and severity breakdown), summary.
 
@@ -2059,7 +2072,7 @@ def get_eliminate_status() -> dict:
         f'Use Mitigate to apply compensating controls when no patch exists.'
     )
 
-    return compact(result)
+    return _with_meta(result)
 
 
 @mcp.tool()
@@ -2176,12 +2189,12 @@ def get_scanner_health() -> dict:
         + (f'Warnings: {"; ".join(warnings)}.' if warnings else 'No warnings.')
     )
 
-    return compact(result)
+    return _with_meta(result, 'scanners')
 
 
 @mcp.tool()
 def get_etm_findings(qql: str = "", report_id: str = "") -> dict:
-    """[Enterprise TruRisk] Confirmed vulnerability and misconfiguration findings in YOUR environment — from VMDR, TotalCloud, and third-party scanners. Returns per-asset findings with TruRisk, QDS, CVSS, patch status.
+    """[Enterprise TruRisk] Confirmed vulnerability and misconfiguration findings in YOUR environment — from VMDR, TotalCloud, and third-party scanners. Returns per-asset findings with TruRisk, QDS, CVSS, patch status. @slow
 
     USE WHEN: User asks what vulns exist on their assets — "show me all critical vulns on PCI assets", "find Log4Shell across the environment", "what's confirmed in our scans?". Best for rich QQL filtering across confirmed detections.
     DO NOT USE WHEN: Searching the KB for newly published vulns (not yet scanned), doing single-CVE investigation with asset software search, or checking cloud misconfigs.
@@ -2234,7 +2247,7 @@ def get_etm_findings(qql: str = "", report_id: str = "") -> dict:
         if not detail:
             result['reportStatus'] = 'error'
             result['summary'] = {'error': 'Could not retrieve report status'}
-            return compact(result)
+            return _with_meta(result, 'findings')
 
         result['reportStatus'] = detail.get('status', 'UNKNOWN')
         if detail['status'] == 'COMPLETED':
@@ -2252,17 +2265,17 @@ def get_etm_findings(qql: str = "", report_id: str = "") -> dict:
             if not qql:
                 ETM_RESULT_CACHE = formatted
                 ETM_RESULT_CACHE_TIME = now
-            return compact(formatted)
+            return _with_meta(formatted, 'findings', formatted.get('totalFindings', len(formatted.get('findings', []))))
 
         elif detail['status'] == 'FAILED':
             result['summary'] = {'error': 'Report generation failed', 'reportId': report_id}
-            return compact(result)
+            return _with_meta(result, 'findings')
         else:
             result['summary'] = {
                 'message': f'Report is still processing (status: {detail["status"]}). Try again in 30-60 seconds.',
                 'reportId': report_id,
             }
-            return compact(result)
+            return _with_meta(result, 'findings')
 
     # For unfiltered queries: check in-memory cache first (1-hour TTL)
     if not qql and ETM_RESULT_CACHE is not None and ETM_RESULT_CACHE_TIME:
@@ -2308,7 +2321,7 @@ def get_etm_findings(qql: str = "", report_id: str = "") -> dict:
     if not new_report:
         result['reportStatus'] = 'error'
         result['summary'] = {'error': 'Failed to create ETM report. ETM module may not be enabled.'}
-        return compact(result)
+        return _with_meta(result, 'findings')
 
     rid = new_report.get('id', '')
     result['reportStatus'] = 'creating'
@@ -2317,7 +2330,7 @@ def get_etm_findings(qql: str = "", report_id: str = "") -> dict:
         'reportId': rid,
         'qql': qql or '(all findings)',
     }
-    return compact(result)
+    return _with_meta(result, 'findings')
 
 
 def _format_etm_findings(all_findings, report_detail):
@@ -2440,16 +2453,63 @@ def _format_etm_findings(all_findings, report_detail):
 
 
 @mcp.tool()
-def get_morning_report() -> dict:
-    """[Daily Briefing] Morning security report — last 24h: new vulns, ransomware/exploit/CISA KEV flags, health score, top risk assets, and action items.
+def get_morning_report(quick: bool = False) -> dict:
+    """[Daily Briefing] Morning security report or fast environment snapshot. @slow when quick=False
 
-    USE WHEN: "what happened overnight?", "morning report", "give me a briefing", "what's new today?", shift handover, or starting a session. This is the best first-call for daily situational awareness.
+    USE WHEN: "what happened overnight?", "morning report", "give me a briefing", "what's new today?", "what does our environment look like?", environment overview, asset demographics, shift handover, or starting a session. This is the best first-call for daily situational awareness.
     DO NOT USE WHEN: Planning the week's work, deep-diving a specific CVE, or investigating cloud-specific threats.
-    PREFER INSTEAD: get_weekly_priorities when "what should I work on this week?" or "top priorities"; investigate_cve for single-CVE deep-dive; get_cdr_findings for cloud threat hunting.
+    PREFER INSTEAD: get_weekly_priorities when "what should I work on this week?" or "top priorities"; investigate_cve for single-CVE deep-dive; get_cloud_risk for cloud threat hunting.
 
-    Returns: environment (healthScore, totalAssets, highRiskAssets, eolSystems), newVulns (24h counts by severity + criticalVulns list), threats (ransomwareLinked, activelyExploited, cisaKev), topRiskAssets, actionItems, truriskTrend.
+    Parameters:
+        quick: True for fast environment snapshot only (<3s) — asset counts by OS, cloud, EOL, criticality. False (default) for full daily briefing (~8s).
 
-    Performance: ~8s cold / ~4s warm (parallel: posture + priorities + 4x KB searches + CSAM)."""
+    Returns (quick=False): environment (healthScore, totalAssets, highRiskAssets, eolSystems), newVulns (24h counts by severity + criticalVulns list), threats (ransomwareLinked, activelyExploited, cisaKev), topRiskAssets, actionItems, truriskTrend.
+    Returns (quick=True): totalAssets, byOS, byCloud, eolCounts, byCriticality, summary.
+
+    Performance: ~8s cold / ~4s warm (quick=False). <3s (quick=True)."""
+    # quick=True: fast environment snapshot (replaces get_environment_summary)
+    if quick:
+        concurrent = _run_concurrent(
+            total=lambda: csam_count(),
+            windows=lambda: csam_count([{"field": "operatingSystem.name", "operator": "CONTAINS", "value": "Windows"}]),
+            linux=lambda: csam_count([{"field": "operatingSystem.name", "operator": "CONTAINS", "value": "Linux"}]),
+            macos=lambda: csam_count([{"field": "operatingSystem.name", "operator": "CONTAINS", "value": "Mac"}]),
+            cloud_aws=lambda: csam_count([{"field": "asset.cloudProvider", "operator": "EQUALS", "value": "AWS"}]),
+            cloud_azure=lambda: csam_count([{"field": "asset.cloudProvider", "operator": "EQUALS", "value": "AZURE"}]),
+            cloud_gcp=lambda: csam_count([{"field": "asset.cloudProvider", "operator": "EQUALS", "value": "GCP"}]),
+            eol_os=lambda: csam_count([{"field": "operatingSystem.lifecycle.stage", "operator": "CONTAINS", "value": "EOL"}]),
+            eol_hw=lambda: csam_count([{"field": "hardware.lifecycle.stage", "operator": "CONTAINS", "value": "EOL"}]),
+            crit_high=lambda: csam_count([{"field": "asset.criticality", "operator": "GREATER", "value": "7"}]),
+            crit_med=lambda: csam_count([{"field": "asset.criticality", "operator": "GREATER", "value": "4"}]),
+        )
+        total = concurrent.get('total') or 0
+        windows = concurrent.get('windows') or 0
+        linux = concurrent.get('linux') or 0
+        macos = concurrent.get('macos') or 0
+        aws = concurrent.get('cloud_aws') or 0
+        azure = concurrent.get('cloud_azure') or 0
+        gcp = concurrent.get('cloud_gcp') or 0
+        cloud_total = aws + azure + gcp
+        crit_high = concurrent.get('crit_high') or 0
+        crit_med = concurrent.get('crit_med') or 0
+        snap = {
+            'report': 'Environment Snapshot',
+            'totalAssets': total,
+            'byOS': {'Windows': windows, 'Linux': linux, 'macOS': macos, 'Other': max(0, total - windows - linux - macos)},
+            'byCloud': {'AWS': aws, 'Azure': azure, 'GCP': gcp, 'OnPrem': max(0, total - cloud_total)},
+            'eolCounts': {'eolOS': concurrent.get('eol_os') or 0, 'eolHardware': concurrent.get('eol_hw') or 0},
+            'byCriticality': {'high_8to10': crit_high, 'medium_5to7': max(0, crit_med - crit_high), 'low_1to4': max(0, total - crit_med)},
+            'summary': (
+                f"{total} total assets. "
+                f"OS: {windows} Windows, {linux} Linux, {macos} macOS. "
+                f"Cloud: {aws} AWS, {azure} Azure, {gcp} GCP, {max(0, total - cloud_total)} on-prem. "
+                f"EOL: {concurrent.get('eol_os') or 0} OS, {concurrent.get('eol_hw') or 0} hardware. "
+                f"Criticality: {crit_high} high-criticality assets."
+            ),
+            '_meta': {'returned': 1, 'total': 1, 'truncated': False},
+        }
+        return compact(snap)
+
     result = {'report': 'Daily Security Briefing', 'environment': {},
               'newVulns': {}, 'threats': {}, 'topRiskAssets': [],
               'actionItems': [], 'truriskTrend': {}}
@@ -2550,12 +2610,12 @@ def get_morning_report() -> dict:
             'delta': round(delta),
         }
 
-    return compact(result)
+    return _with_meta(result, 'topRiskAssets')
 
 
 @mcp.tool()
 def get_cve_details(cves: str) -> dict:
-    """[Vulnerability Intelligence] Bulk CVE lookup — severity, patches, threat intel, and remediation for 1-20 CVEs at once. KB data only (no asset search).
+    """[Vulnerability Intelligence] Bulk CVE lookup — severity, patches, threat intel, and remediation for 1-20 CVEs at once. KB data only (no asset search). @slow
 
     USE WHEN: Looking up multiple CVEs at once — "what's the severity of these CVEs?", comparing CVE risk, building a CVE summary table, or quick metadata check for a list of CVEs.
     DO NOT USE WHEN: Investigating a single CVE with asset impact analysis, looking up QIDs (not CVEs), or querying confirmed findings in your environment.
@@ -2636,7 +2696,7 @@ def get_cve_details(cves: str) -> dict:
             result['cves'].append(entry)
 
     result['cves'].sort(key=lambda x: (-x.get('severity', 0), x['cve']))
-    return compact(result)
+    return _with_meta(result, 'cves')
 
 
 @mcp.tool()
@@ -2697,7 +2757,7 @@ def get_qid_details(qids: str) -> dict:
             result['qids'].append({'qid': qid, 'found': False})
 
     result['qids'].sort(key=lambda x: (-x.get('severity', 0), -x.get('qds', 0)))
-    return compact(result)
+    return _with_meta(result, 'qids')
 
 
 def get_compliance_gaps(limit: int = 20) -> dict:
@@ -2727,22 +2787,24 @@ def get_compliance_gaps(limit: int = 20) -> dict:
 
 
 @mcp.tool()
-def get_cloud_risk(limit: int = 20) -> dict:
-    """[Cloud Security] Cloud security posture across AWS, Azure, and GCP — connected accounts, CIS benchmark control failures, and CDR threat summary.
+def get_cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7) -> dict:
+    """[Cloud Security] Cloud security posture + CDR threat findings across AWS, Azure, and GCP — connected accounts, CIS benchmark control failures, and detailed CDR threats. @slow
 
-    USE WHEN: "how are our cloud accounts doing?", cloud security posture overview, CIS benchmark compliance, or cloud risk summary across all providers.
-    DO NOT USE WHEN: Investigating specific CDR threat findings, looking at host-based vulnerabilities, or checking on-prem compliance.
-    PREFER INSTEAD: get_cdr_findings for CDR threat details and incident response; get_etm_findings for host-based vulnerabilities; get_compliance_posture for on-prem/Policy Compliance posture.
+    USE WHEN: "how are our cloud accounts doing?", cloud security posture overview, CIS benchmark compliance, cloud risk summary, investigating active cloud threats, lateral movement, suspicious network activity, or cloud incident response.
+    DO NOT USE WHEN: Looking at host-based vulnerabilities or checking on-prem compliance.
+    PREFER INSTEAD: get_etm_findings for host-based vulnerabilities; get_compliance_posture for on-prem/Policy Compliance posture; get_edr_events for host-based endpoint threats.
 
     Parameters:
         limit: max failed controls and CDR threats to return (default 20)
+        include_threats: include detailed CDR threat findings (default True). Set False for posture-only.
+        days: CDR look-back window in days (default 7). Only used when include_threats=True.
 
-    Returns: accounts (list with id, provider, name), failedControls (CIS benchmark failures by controlId), threats (CDR findings summary), stats (total accounts, critical threats).
+    Returns: accounts (list with id, provider, name), failedControls (CIS benchmark failures by controlId), threats (CDR findings with severity, category, resourceId, provider, account, region), stats (total accounts, critical threats).
 
     Note: CIS evaluations fetched from first account per provider. For multi-account evaluation, use Qualys TotalCloud console.
 
     Performance: ~6s cold / ~3s warm (parallel: 3 provider connectors + evaluations + CDR)."""
-    result = {'accounts': [], 'failedControls': [], 'threats': [], 'stats': {'total': 0, 'critical': 0}}
+    result = {'accounts': [], 'failedControls': [], 'threats': [], 'stats': {'total': 0, 'critical': 0, 'high': 0, 'medium': 0, 'low': 0}}
 
     # Fetch all three cloud providers' connectors in parallel
     connector_results = _run_concurrent(
@@ -2760,7 +2822,6 @@ def get_cloud_risk(limit: int = 20) -> dict:
         for c in conns:
             acc = c.get(acc_key, '')
             result['accounts'].append({'id': acc, 'provider': provider.upper(), 'name': c.get('name', '')})
-        # Track first account per provider for evaluation fetch
         first_acc = conns[0].get(acc_key, '')
         if first_acc:
             first_accounts[provider] = first_acc
@@ -2772,7 +2833,8 @@ def get_cloud_risk(limit: int = 20) -> dict:
         f'evals_{p}': (lambda p=p, a=a: get_evaluations(a, p, 500))
         for p, a in first_accounts.items()
     }
-    eval_tasks['cdr'] = lambda: get_cdr(7, limit)
+    if include_threats:
+        eval_tasks['cdr'] = lambda: get_cdr(days, limit)
     eval_results = _run_concurrent(**eval_tasks)
 
     # Aggregate evaluation failures across all providers
@@ -2788,132 +2850,242 @@ def get_cloud_risk(limit: int = 20) -> dict:
         for c, n in sorted(fails.items(), key=lambda x: x[1], reverse=True)[:limit]
     ]
 
-    # CDR threats
-    for f in (eval_results.get('cdr') or []):
-        sev = str(f.get('severity', ''))
-        if sev in ['CRITICAL', '5']:
-            result['stats']['critical'] += 1
-        result['threats'].append({'severity': sev, 'category': f.get('category', ''), 'resource': f.get('resourceId', '')})
+    # CDR threats — detailed findings (merged from get_cdr_findings)
+    if include_threats:
+        sev_map = {'1': 'LOW', '2': 'MEDIUM', '3': 'HIGH', '4': 'CRITICAL'}
+        by_provider = {}
+        by_category = {}
+        findings = eval_results.get('cdr') or []
+
+        for f in findings:
+            sev = str(f.get('severity', '')).upper()
+            sev_label = sev_map.get(sev, sev)
+
+            if sev_label == 'CRITICAL':
+                result['stats']['critical'] += 1
+            elif sev_label == 'HIGH':
+                result['stats']['high'] += 1
+            elif sev_label == 'MEDIUM':
+                result['stats']['medium'] += 1
+            elif sev_label == 'LOW':
+                result['stats']['low'] += 1
+
+            provider = f.get('cloudType', '') or f.get('cloudProvider', '') or 'Unknown'
+            by_provider[provider] = by_provider.get(provider, 0) + 1
+
+            cat = f.get('threatCategory', '') or f.get('category', '') or f.get('alertClass', '') or 'Unknown'
+            by_category[cat] = by_category.get(cat, 0) + 1
+
+            remote = f.get('remoteIpDetails', {}) or {}
+            entry = {
+                'severity': sev_label,
+                'category': cat,
+                'eventMessage': (f.get('eventMessage', '') or '')[:200],
+                'resourceId': f.get('resourceId', '') or f.get('affectedResource', ''),
+                'resourceType': f.get('resourceType', ''),
+                'provider': provider,
+                'account': f.get('cspAccount', '') or f.get('cloudAccount', ''),
+                'region': f.get('cspRegion', '') or f.get('region', ''),
+                'timestamp': f.get('timestamp', '') or f.get('createdAt', ''),
+            }
+            if remote and (remote.get('ipAddressV4') or remote.get('ip')):
+                entry['remoteIp'] = {
+                    'ip': remote.get('ipAddressV4', '') or remote.get('ip', ''),
+                    'country': remote.get('country', ''),
+                    'city': remote.get('city', ''),
+                }
+            result['threats'].append(entry)
+
+        sev_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3}
+        result['threats'].sort(key=lambda x: sev_order.get(x.get('severity', ''), 4))
+        result['byProvider'] = dict(sorted(by_provider.items(), key=lambda x: -x[1]))
+        result['byCategory'] = dict(sorted(by_category.items(), key=lambda x: -x[1]))
+
+        crit = result['stats']['critical']
+        high = result['stats']['high']
+        total_threats = len(findings)
+        providers_str = ', '.join(result['byProvider'].keys()) or 'none'
+        top_cats = ', '.join(list(result['byCategory'].keys())[:3]) or 'none'
+        result['threatSummary'] = (
+            f"{total_threats} cloud threat findings in last {days} days. "
+            f"{crit} critical, {high} high severity. "
+            f"Providers: {providers_str}. Top categories: {top_cats}."
+        )
+
+    total_threats = len(result['threats'])
+    total_controls = len(result['failedControls'])
+    result['_meta'] = {
+        'returned': total_threats + total_controls,
+        'total': total_threats + total_controls,
+        'truncated': False,
+    }
 
     return compact(result)
 
 
 @mcp.tool()
 def get_cdr_findings(days: int = 7, limit: int = 50, severity: str = "", cloud_provider: str = "") -> dict:
-    """[Cloud Security] Cloud Detection and Response (CDR) threat findings — malware, ransomware, crypto-miners, C2, lateral movement, and malicious network activity in cloud workloads.
-
-    USE WHEN: Investigating active cloud threats, lateral movement alerts, suspicious network activity in cloud accounts, or cloud incident response and threat hunting.
-    DO NOT USE WHEN: Checking cloud posture / CIS benchmarks, investigating host-based endpoint threats, or monitoring file integrity changes.
-    PREFER INSTEAD: get_cloud_risk for cloud posture (CIS benchmarks, account inventory, misconfigurations); get_edr_events for host-based endpoint threats; get_fim_events for file integrity monitoring.
-
-    Parameters:
-        days: look-back window in days (default 7)
-        limit: max findings to return (default 50)
-        severity: filter by severity — CRITICAL, HIGH, MEDIUM, LOW (empty = all)
-        cloud_provider: filter by provider — AWS, AZURE, GCP (empty = all)
-
-    CDR categories: Malware, Ransomware, CryptoMiner, C2, LateralMovement, Reconnaissance, DataExfiltration, SuspiciousNetworkActivity, UnauthorizedAccess, PrivilegeEscalation.
-
-    Returns: stats (total, critical, high, medium, low), byProvider, byCategory, findings (severity, category, eventMessage, resourceId, provider, account, region, remoteIp), summary.
-
-    Performance: ~3s cold / ~2s warm."""
-    result = {
-        'days': days,
-        'stats': {'total': 0, 'critical': 0, 'high': 0, 'medium': 0, 'low': 0},
-        'byProvider': {},
-        'byCategory': {},
-        'findings': [],
-        'summary': '',
-    }
-
-    findings = get_cdr(days, limit, severity=severity or None, cloud_provider=cloud_provider or None)
-
-    sev_map = {'1': 'LOW', '2': 'MEDIUM', '3': 'HIGH', '4': 'CRITICAL'}
-
-    for f in findings:
-        sev = str(f.get('severity', '')).upper()
-        sev_label = sev_map.get(sev, sev)
-
-        if sev_label == 'CRITICAL':
-            result['stats']['critical'] += 1
-        elif sev_label == 'HIGH':
-            result['stats']['high'] += 1
-        elif sev_label == 'MEDIUM':
-            result['stats']['medium'] += 1
-        elif sev_label == 'LOW':
-            result['stats']['low'] += 1
-
-        provider = f.get('cloudType', '') or f.get('cloudProvider', '') or 'Unknown'
-        result['byProvider'][provider] = result['byProvider'].get(provider, 0) + 1
-
-        cat = f.get('threatCategory', '') or f.get('category', '') or f.get('alertClass', '') or 'Unknown'
-        result['byCategory'][cat] = result['byCategory'].get(cat, 0) + 1
-
-        remote = f.get('remoteIpDetails', {}) or {}
-        remote_info = {}
-        if remote:
-            remote_info = {
-                'ip': remote.get('ipAddressV4', '') or remote.get('ip', ''),
-                'country': remote.get('country', ''),
-                'city': remote.get('city', ''),
-            }
-
-        entry = {
-            'severity': sev_label,
-            'category': cat,
-            'eventMessage': (f.get('eventMessage', '') or '')[:200],
-            'resourceId': f.get('resourceId', '') or f.get('affectedResource', ''),
-            'resourceType': f.get('resourceType', ''),
-            'provider': provider,
-            'account': f.get('cspAccount', '') or f.get('cloudAccount', ''),
-            'region': f.get('cspRegion', '') or f.get('region', ''),
-            'timestamp': f.get('timestamp', '') or f.get('createdAt', ''),
-        }
-        if remote_info and remote_info.get('ip'):
-            entry['remoteIp'] = remote_info
-
-        result['findings'].append(entry)
-
-    result['stats']['total'] = len(findings)
-    result['byCategory'] = dict(sorted(result['byCategory'].items(), key=lambda x: -x[1]))
-    result['byProvider'] = dict(sorted(result['byProvider'].items(), key=lambda x: -x[1]))
-
-    sev_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3}
-    result['findings'].sort(key=lambda x: sev_order.get(x.get('severity', ''), 4))
-
-    crit = result['stats']['critical']
-    high = result['stats']['high']
-    total = result['stats']['total']
-    providers = ', '.join(result['byProvider'].keys()) or 'none'
-    top_cats = ', '.join(list(result['byCategory'].keys())[:3]) or 'none'
-    result['summary'] = (
-        f"{total} cloud threat findings in last {days} days. "
-        f"{crit} critical, {high} high severity. "
-        f"Providers: {providers}. Top categories: {top_cats}."
-    )
-
-    return compact(result)
+    """DEPRECATED: Use get_cloud_risk(include_threats=True, days=N) instead. CDR findings are now included in get_cloud_risk."""
+    return {'error': "get_cdr_findings has been removed. Use get_cloud_risk(include_threats=True, days=...) instead.", 'replacement': 'get_cloud_risk'}
 
 
 @mcp.tool()
-def get_asset_risk(asset_id: str, tag: str = "", asset_group: str = "") -> dict:
-    """[Asset Risk] Single-asset risk profile — TruRisk score, OS, criticality, installed software with lifecycle status, EOL flags, and VMDR detections.
+def get_asset(asset_id: str, detail: str = "summary") -> dict:
+    """[Asset Risk] Single-asset risk profile — TruRisk score, OS, criticality, software, EOL flags, and vulnerability detections. @slow when detail='full'
 
-    USE WHEN: Drilling into one specific asset — "what's the risk on this server?", checking installed software, confirming EOL status, or reviewing VMDR detections for a host. Pass assetId from get_weekly_priorities, get_patch_status, get_etm_findings, or get_asset_inventory.
-    DO NOT USE WHEN: You need the most complete profile with ETM+VMDR+CSAM combined, browsing multiple assets, or viewing environment-wide risk.
-    PREFER INSTEAD: get_asset_full_profile when user explicitly asks for "full" or "complete" profile (adds ETM confirmed findings); get_weekly_priorities or get_asset_inventory for multi-asset browsing; get_risk_by_tag for aggregate risk by tag group.
+    USE WHEN: Drilling into one specific asset — "what's the risk on this server?", "full profile", "complete profile", or "everything about this asset". Pass assetId from get_weekly_priorities, get_patch_status, get_etm_findings, or get_asset_inventory.
+    DO NOT USE WHEN: Browsing multiple assets or viewing environment-wide risk.
+    PREFER INSTEAD: get_weekly_priorities or get_asset_inventory for multi-asset browsing; get_risk_by_tag for aggregate risk by tag group.
 
     Parameters:
         asset_id: CSAM assetId (string) from any tool that returns asset lists
-        tag: filter to assets with this tag (e.g. Production, PCI, cloud) — confirms asset belongs to scope
-        asset_group: filter to assets in this Qualys asset group — confirms asset belongs to scope
+        detail: 'summary' (fast, CSAM+VMDR only, ~2s) or 'full' (complete, CSAM+ETM+VMDR parallel, ~6s)
 
-    Returns: riskScore, truriskScore, hostname, ip, os, criticality, software list with lifecycle, eolSoftware, vulns (VMDR detections with KB enrichment), vulnCount.
+    Returns: riskScore, hostname, ip, os, criticality, software, eolSoftware, vulns.
+    With detail='full': also etmFindings, vmdrDetections, tags, and summary counts.
 
-    Performance: ~3s cold / ~2s warm (CSAM cached). +2s if VMDR detections fetched."""
-    result = {'assetId': asset_id, 'riskScore': 0, 'truriskScore': 0, 'software': [], 'eolSoftware': []}
+    Performance: ~3s cold / ~2s warm (detail='summary'). ~5-8s cold / ~2s warm (detail='full')."""
+    result = {
+        'assetId': asset_id, 'riskScore': 0, 'truriskScore': 0,
+        'software': [], 'eolSoftware': [],
+        '_meta': {'returned': 1, 'total': 1, 'truncated': False},
+    }
 
-    filters = _scope_filters([{"field": "asset.id", "operator": "EQUALS", "value": str(asset_id)}], tag, asset_group)
+    if detail == 'full':
+        # Full profile: CSAM + ETM + VMDR in parallel
+        asset = get_asset_by_id(asset_id)
+        if not asset:
+            result['_meta'] = {'returned': 0, 'total': 0, 'truncated': False}
+            result['error'] = f'Asset {asset_id} not found in CSAM'
+            return compact(result)
+
+        host_id = str(asset.get('hostId') or '')
+        hostname = asset.get('dnsHostName', '') or asset.get('dnsName', '') or asset.get('address', '')
+        os_name = (asset.get('operatingSystem') or {}).get('osName', '')
+
+        # Build CSAM profile
+        sw_list = asset.get('softwareListData', {}) or {}
+        software = []
+        eol_software = []
+        for sw in (sw_list.get('software') or [])[:30]:
+            name = sw.get('fullName') or sw.get('productName') or sw.get('name') or ''
+            sw_info = {'name': name.strip()[:60], 'version': sw.get('version', '')}
+            lifecycle = (sw.get('lifecycle') or {})
+            if lifecycle.get('stage') and lifecycle['stage'] not in ('Unknown', 'Not Applicable', 'OS Dependent'):
+                sw_info['lifecycleStage'] = lifecycle['stage']
+                if is_eol_stage(lifecycle['stage']):
+                    eol_software.append(sw_info)
+            software.append(sw_info)
+
+        result['csam'] = {
+            'hostname': hostname,
+            'ip': asset.get('address', ''),
+            'os': os_name,
+            'hostId': host_id,
+            'riskScore': int(asset.get('riskScore') or 0),
+            'criticality': get_criticality(asset),
+            'lastSeen': short_date(asset.get('lastModifiedDate', '')),
+            'software': software[:20],
+            'eolSoftware': eol_software,
+            'tags': [t.get('name', '') for t in (asset.get('tags') or {}).get('tag', [])[:10]],
+        }
+        result['riskScore'] = result['csam']['riskScore']
+        result['truriskScore'] = result['csam']['riskScore']
+
+        # Fetch ETM findings and VMDR detections in parallel
+        def _fetch_etm():
+            if ETM_RESULT_CACHE:
+                all_findings = ETM_RESULT_CACHE.get('findings', [])
+                return [f for f in all_findings if
+                        f.get('assetId') == asset_id or
+                        f.get('assetName', '').lower() == hostname.lower()][:50]
+            if hostname:
+                qql = f'asset.name:{hostname}'
+                body = {
+                    'reportName': f'mcp-profile-{int(datetime.now(timezone.utc).timestamp())}',
+                    'reportFormat': 'JSON',
+                    'findingFilter': {'qql': qql},
+                }
+                new_report = etm_api('POST', '/etm/api/rest/v1/reports/findings', body)
+                if new_report:
+                    return [{'_async': True, 'reportId': new_report.get('id', ''),
+                             'message': 'ETM report requested — call get_etm_findings(report_id=...) to retrieve'}]
+            return []
+
+        def _fetch_vmdr():
+            if not host_id:
+                return []
+            return get_host_detections(host_id, severity=4, days=30)
+
+        parallel = _run_concurrent(etm=_fetch_etm, vmdr=_fetch_vmdr)
+
+        etm_raw = parallel.get('etm') or []
+        vmdr_raw = parallel.get('vmdr') or []
+
+        # Format ETM findings
+        etm_findings = []
+        etm_async = False
+        for f in etm_raw:
+            if f.get('_async'):
+                etm_async = True
+                result['etmAsync'] = f
+                break
+            etm_findings.append({
+                'title': f.get('title', '')[:100],
+                'cveId': f.get('cveId', ''),
+                'severity': f.get('severity', 0),
+                'qds': f.get('qds', 0),
+                'truRiskScore': f.get('truRiskScore', 0),
+                'isPatchAvailable': f.get('isPatchAvailable', False),
+                'status': f.get('status', ''),
+                'category': f.get('category', ''),
+            })
+        etm_findings.sort(key=lambda x: (-x['severity'], -(x['truRiskScore'] or 0)))
+        result['etmFindings'] = etm_findings[:30]
+
+        # Format VMDR detections — enrich with KB data
+        vmdr_qids = list({d.get('qid', 0) for d in vmdr_raw if d.get('qid')})
+        vmdr_kb = get_kb_batch(vmdr_qids[:50]) if vmdr_qids else {}
+        vmdr_dets = []
+        for d in vmdr_raw:
+            kb = vmdr_kb.get(d.get('qid', 0)) or {}
+            vmdr_dets.append({
+                'qid': d.get('qid', 0),
+                'title': kb.get('title', '')[:80],
+                'severity': d.get('severity', 0),
+                'qds': d.get('qds', 0) or kb.get('qds', 0),
+                'cvss_v3': kb.get('cvss_v3'),
+                'cvss_v3_vector': kb.get('cvss_v3_vector', ''),
+                'cves': kb.get('cves', []),
+                'patchAvailable': kb.get('patch_available', False),
+                'has_exploit': kb.get('has_exploit', False),
+                'ransomware': kb.get('ransomware', False),
+                'status': d.get('status', ''),
+                'firstFound': short_date(d.get('first_found', '')),
+            })
+        vmdr_dets.sort(key=lambda x: (-x['severity'], -x['qds']))
+        result['vmdrDetections'] = vmdr_dets[:30]
+
+        # Summary
+        crit_etm = sum(1 for f in etm_findings if f['severity'] >= 5)
+        high_etm = sum(1 for f in etm_findings if f['severity'] == 4)
+        patchable_etm = sum(1 for f in etm_findings if f['isPatchAvailable'])
+        result['summary'] = {
+            'riskScore': result['csam']['riskScore'],
+            'criticality': result['csam']['criticality'],
+            'etmFindings': len(etm_findings),
+            'etmCritical': crit_etm,
+            'etmHigh': high_etm,
+            'etmPatchable': patchable_etm,
+            'vmdrDetections': len(vmdr_dets),
+            'eolSoftware': len(eol_software),
+            'etmAsync': etm_async,
+        }
+
+        return compact(result)
+
+    # detail='summary' — fast path (CSAM + VMDR only)
+    filters = [{"field": "asset.id", "operator": "EQUALS", "value": str(asset_id)}]
     asset = csam_search(filters=filters, limit=1)
     asset = asset[0] if asset else None
     if asset:
@@ -2976,17 +3148,25 @@ def get_asset_risk(asset_id: str, tag: str = "", asset_group: str = "") -> dict:
                     })
                 result['vulns'] = vulns[:50]
                 result['vulnCount'] = len(dets)
+    else:
+        result['_meta'] = {'returned': 0, 'total': 0, 'truncated': False}
 
     return compact(result)
 
 
 @mcp.tool()
+def get_asset_risk(asset_id: str, tag: str = "", asset_group: str = "") -> dict:
+    """DEPRECATED: Use get_asset(asset_id, detail='summary') instead. This tool has been consolidated into get_asset()."""
+    return {'error': "get_asset_risk has been removed. Use get_asset(asset_id='...', detail='summary') instead.", 'replacement': 'get_asset'}
+
+
+@mcp.tool()
 def get_tech_debt(limit: int = 100) -> dict:
-    """[Asset Lifecycle] End-of-life and end-of-support systems — OS and hardware assets running unsupported software, sorted by criticality and risk score.
+    """[Asset Lifecycle] End-of-life and end-of-support systems — OS and hardware assets running unsupported software, sorted by criticality and risk score. @slow
 
     USE WHEN: "which systems are unsupported?", tech debt assessment, EOL/EOS exposure audit, or upgrade planning. Returns both OS EOL (e.g. Windows Server 2012) and hardware EOL assets.
     DO NOT USE WHEN: Checking EOL status for a single asset, browsing general asset inventory, or getting environment overview counts.
-    PREFER INSTEAD: get_asset_risk for single-asset EOL check; get_asset_inventory for general asset browsing; get_environment_summary for quick environment counts.
+    PREFER INSTEAD: get_asset for single-asset EOL check; get_asset_inventory for general asset browsing; get_morning_report(quick=True) for quick environment counts.
 
     Parameters:
         limit: max assets per category (default 100). Use 500 for full inventory.
@@ -3009,7 +3189,7 @@ def get_tech_debt(limit: int = 100) -> dict:
     result['hardware'].sort(key=lambda x: (-x['criticality'], -x['riskScore']))
     result['summary'] = {'osEOL': len(result['os']), 'hardwareEOL': len(result['hardware'])}
 
-    return compact(result)
+    return _with_meta(result, 'os', len(result['os']) + len(result['hardware']))
 
 
 @mcp.tool()
@@ -3018,7 +3198,7 @@ def get_image_vulns(image_id: str, limit: int = 50) -> dict:
 
     USE WHEN: Investigating vulnerabilities in a specific container image, pre-deployment image scanning review, or container remediation planning.
     DO NOT USE WHEN: Listing all container images, checking host-based vulnerabilities, or viewing cloud posture.
-    PREFER INSTEAD: get_asset_inventory for listing container images; get_asset_risk for host-based vulnerabilities; get_cloud_risk for cloud posture overview.
+    PREFER INSTEAD: get_asset_inventory for listing container images; get_asset for host-based vulnerabilities; get_cloud_risk for cloud posture overview.
 
     Parameters:
         image_id: TotalCloud imageId (from get_asset_inventory or get_weekly_priorities container risk section)
@@ -3065,7 +3245,7 @@ def get_image_vulns(image_id: str, limit: int = 50) -> dict:
 
     result['stats']['total'] = len(vulns)
     result['vulns'] = sorted(result['vulns'], key=lambda x: x['severity'], reverse=True)[:limit]
-    return compact(result)
+    return _with_meta(result, 'vulns', len(vulns))
 
 
 @mcp.tool()
@@ -3247,7 +3427,7 @@ def get_expiring_certs(days: int = 90, include_expired: bool = True, weak_only: 
     severity_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3}
     result['issues'].sort(key=lambda x: severity_order.get(x.get('severity', 'LOW'), 4))
 
-    return compact(result)
+    return _with_meta(result, 'expiringSoon', result.get('summary', {}).get('total', len(result.get('expiringSoon', []))))
 
 
 def get_threats(days: int = 7, limit: int = 50) -> dict:
@@ -3317,7 +3497,7 @@ def get_webapp_vulns(severity: int = 0, days: int = 30, app_name: str = "", owas
 
     USE WHEN: "what web app vulns do we have?", OWASP Top 10 findings, XSS/SQLi/CSRF issues, per-app vulnerability posture, or web application security audit.
     DO NOT USE WHEN: Looking at host-based vulnerabilities, network-level findings, or SSL/TLS certificate issues.
-    PREFER INSTEAD: get_etm_findings for host/network-level vulnerability findings; get_asset_risk for host-based vuln details; get_expiring_certs for SSL/TLS certificate issues.
+    PREFER INSTEAD: get_etm_findings for host/network-level vulnerability findings; get_asset for host-based vuln details; get_expiring_certs for SSL/TLS certificate issues.
 
     Parameters:
         severity: Minimum severity filter (0=all, 1-5). 4=high+critical, 5=critical only.
@@ -3477,166 +3657,13 @@ def get_webapp_vulns(severity: int = 0, days: int = 30, app_name: str = "", owas
     # Sort byCategory and owaspTop10 by count descending
     result['byCategory'] = dict(sorted(result['byCategory'].items(), key=lambda x: x[1], reverse=True))
     result['owaspTop10'] = dict(sorted(result['owaspTop10'].items(), key=lambda x: x[1], reverse=True))
-    return compact(result)
+    return _with_meta(result, 'findings', result['stats']['total'])
 
 
 @mcp.tool()
 def get_asset_full_profile(asset_id: str) -> dict:
-    """[Asset Risk] Most complete single-asset risk profile — combines CSAM inventory, ETM confirmed findings, and VMDR host detections in parallel.
-
-    USE WHEN: User explicitly asks for "full profile", "complete profile", or "everything about this asset". Pre-remediation planning, building per-asset remediation tickets, or needing ETM+VMDR+CSAM data in one call.
-    DO NOT USE WHEN: You only need basic asset info or software list (faster with get_asset_risk), browsing multiple assets, or viewing environment-wide vulnerability counts.
-    PREFER INSTEAD: get_asset_risk when you need quick risk score + software + VMDR detections without ETM; get_weekly_priorities or get_asset_inventory for multi-asset browsing.
-
-    Parameters:
-        asset_id: CSAM assetId (string) from any tool that returns asset lists
-
-    Returns: csam (hostname, ip, os, hostId, riskScore, criticality, software, eolSoftware, tags), etmFindings (confirmed findings with QDS, CVSS, TruRisk, patch status), vmdrDetections (active detections with KB enrichment), summary (counts and flags).
-
-    Performance: ~5-8s cold / ~2s warm (CSAM+KB cached). ETM may be async if no cached report exists."""
-    result = {
-        'assetId': asset_id,
-        'csam': {},
-        'etmFindings': [],
-        'vmdrDetections': [],
-        'summary': {},
-    }
-
-    # Step 1: Fetch CSAM asset to get metadata including hostId
-    asset = get_asset_by_id(asset_id)
-    if not asset:
-        result['summary'] = {'error': f'Asset {asset_id} not found in CSAM'}
-        return compact(result)
-
-    host_id = str(asset.get('hostId') or '')
-    hostname = asset.get('dnsHostName', '') or asset.get('dnsName', '') or asset.get('address', '')
-    os_name = (asset.get('operatingSystem') or {}).get('osName', '')
-
-    # Build CSAM profile
-    sw_list = asset.get('softwareListData', {}) or {}
-    software = []
-    eol_software = []
-    for sw in (sw_list.get('software') or [])[:30]:
-        name = sw.get('fullName') or sw.get('productName') or sw.get('name') or ''
-        sw_info = {'name': name.strip()[:60], 'version': sw.get('version', '')}
-        lifecycle = (sw.get('lifecycle') or {})
-        if lifecycle.get('stage') and lifecycle['stage'] not in ('Unknown', 'Not Applicable', 'OS Dependent'):
-            sw_info['lifecycleStage'] = lifecycle['stage']
-            if is_eol_stage(lifecycle['stage']):
-                eol_software.append(sw_info)
-        software.append(sw_info)
-
-    result['csam'] = {
-        'hostname': hostname,
-        'ip': asset.get('address', ''),
-        'os': os_name,
-        'hostId': host_id,
-        'riskScore': int(asset.get('riskScore') or 0),
-        'criticality': get_criticality(asset),
-        'lastSeen': short_date(asset.get('lastModifiedDate', '')),
-        'software': software[:20],
-        'eolSoftware': eol_software,
-        'tags': [t.get('name', '') for t in (asset.get('tags') or {}).get('tag', [])[:10]],
-    }
-
-    # Step 2: Fetch ETM findings and VMDR detections in parallel
-    def _fetch_etm():
-        """Fetch ETM findings filtered to this asset."""
-        # Use cached ETM result if available, filter to this asset
-        if ETM_RESULT_CACHE:
-            all_findings = ETM_RESULT_CACHE.get('findings', [])
-            return [f for f in all_findings if
-                    f.get('assetId') == asset_id or
-                    f.get('assetName', '').lower() == hostname.lower()][:50]
-        # Otherwise query ETM by asset name
-        if hostname:
-            qql = f'asset.name:{hostname}'
-            body = {
-                'reportName': f'mcp-profile-{int(datetime.now(timezone.utc).timestamp())}',
-                'reportFormat': 'JSON',
-                'findingFilter': {'qql': qql},
-            }
-            new_report = etm_api('POST', '/etm/api/rest/v1/reports/findings', body)
-            if new_report:
-                return [{'_async': True, 'reportId': new_report.get('id', ''),
-                         'message': 'ETM report requested — call get_etm_findings(report_id=...) to retrieve'}]
-        return []
-
-    def _fetch_vmdr():
-        """Fetch VMDR host detections for this asset's hostId."""
-        if not host_id:
-            return []
-        return get_host_detections(host_id, severity=4, days=30)
-
-    parallel = _run_concurrent(
-        etm=_fetch_etm,
-        vmdr=_fetch_vmdr,
-    )
-
-    etm_raw = parallel.get('etm') or []
-    vmdr_raw = parallel.get('vmdr') or []
-
-    # Format ETM findings
-    etm_findings = []
-    etm_async = False
-    for f in etm_raw:
-        if f.get('_async'):
-            etm_async = True
-            result['etmAsync'] = f
-            break
-        etm_findings.append({
-            'title': f.get('title', '')[:100],
-            'cveId': f.get('cveId', ''),
-            'severity': f.get('severity', 0),
-            'qds': f.get('qds', 0),
-            'truRiskScore': f.get('truRiskScore', 0),
-            'isPatchAvailable': f.get('isPatchAvailable', False),
-            'status': f.get('status', ''),
-            'category': f.get('category', ''),
-        })
-    etm_findings.sort(key=lambda x: (-x['severity'], -(x['truRiskScore'] or 0)))
-    result['etmFindings'] = etm_findings[:30]
-
-    # Format VMDR detections — enrich with KB data
-    vmdr_qids = list({d.get('qid', 0) for d in vmdr_raw if d.get('qid')})
-    vmdr_kb = get_kb_batch(vmdr_qids[:50]) if vmdr_qids else {}
-    vmdr_dets = []
-    for d in vmdr_raw:
-        kb = vmdr_kb.get(d.get('qid', 0)) or {}
-        vmdr_dets.append({
-            'qid': d.get('qid', 0),
-            'title': kb.get('title', '')[:80],
-            'severity': d.get('severity', 0),
-            'qds': d.get('qds', 0) or kb.get('qds', 0),
-            'cvss_v3': kb.get('cvss_v3'),
-            'cvss_v3_vector': kb.get('cvss_v3_vector', ''),
-            'cves': kb.get('cves', []),
-            'patchAvailable': kb.get('patch_available', False),
-            'has_exploit': kb.get('has_exploit', False),
-            'ransomware': kb.get('ransomware', False),
-            'status': d.get('status', ''),
-            'firstFound': short_date(d.get('first_found', '')),
-        })
-    vmdr_dets.sort(key=lambda x: (-x['severity'], -x['qds']))
-    result['vmdrDetections'] = vmdr_dets[:30]
-
-    # Summary
-    crit_etm = sum(1 for f in etm_findings if f['severity'] >= 5)
-    high_etm = sum(1 for f in etm_findings if f['severity'] == 4)
-    patchable_etm = sum(1 for f in etm_findings if f['isPatchAvailable'])
-    result['summary'] = {
-        'riskScore': result['csam']['riskScore'],
-        'criticality': result['csam']['criticality'],
-        'etmFindings': len(etm_findings),
-        'etmCritical': crit_etm,
-        'etmHigh': high_etm,
-        'etmPatchable': patchable_etm,
-        'vmdrDetections': len(vmdr_dets),
-        'eolSoftware': len(eol_software),
-        'etmAsync': etm_async,
-    }
-
-    return compact(result)
+    """DEPRECATED: Use get_asset(asset_id, detail='full') instead. This tool has been consolidated into get_asset()."""
+    return {'error': "get_asset_full_profile has been removed. Use get_asset(asset_id='...', detail='full') instead.", 'replacement': 'get_asset'}
 
 
 @mcp.tool()
@@ -3645,7 +3672,7 @@ def get_risk_by_tag(tag: str, limit: int = 10) -> dict:
 
     USE WHEN: User asks about risk for a team, environment, or tag segment — "what's the risk for PCI assets?", "show me Production risk", "how is the DMZ doing?", or any business-unit/compliance-scope risk question.
     DO NOT USE WHEN: You need global risk overview (not scoped to a tag), single-asset details, or cloud posture.
-    PREFER INSTEAD: get_weekly_priorities for global risk overview across all assets; get_asset_risk or get_asset_full_profile for single-asset drill-down; get_cloud_risk for cloud-specific posture.
+    PREFER INSTEAD: get_weekly_priorities for global risk overview across all assets; get_asset for single-asset drill-down; get_cloud_risk for cloud-specific posture.
 
     Parameters:
         tag: tag name to filter by (e.g. 'PCI', 'Production', 'DMZ', 'AWS', 'HIPAA')
@@ -3711,90 +3738,13 @@ def get_risk_by_tag(tag: str, limit: int = 10) -> dict:
         f"{eol} EOL/EOS systems."
     )
 
-    return compact(result)
+    return _with_meta(result, 'topRiskAssets', total)
 
 
 @mcp.tool()
 def get_environment_summary() -> dict:
-    """[Dashboard] Fast environment snapshot — asset counts by OS family, cloud provider, EOL status, and criticality tiers.
-
-    USE WHEN: "what does our environment look like?", environment overview, asset demographics, or quick orientation before deeper analysis. Much faster than other overview tools.
-    DO NOT USE WHEN: Looking for vulnerability counts, top risky assets, or detailed risk scores.
-    PREFER INSTEAD: get_weekly_priorities for top risky assets and remediation priorities; get_morning_report for daily security briefing with vulns; get_asset_risk for single-asset risk details.
-
-    Returns: totalAssets, byOS (Windows/Linux/macOS/Other), byCloud (AWS/Azure/GCP/OnPrem), eolCounts (eolOS, eolHardware), byCriticality (high/medium/low), summary.
-
-    Performance: ~3s (parallel CSAM count queries, no vuln or container data fetched)."""
-    result = {
-        'totalAssets': 0,
-        'byOS': {},
-        'byCloud': {},
-        'eolCounts': {},
-        'byCriticality': {},
-        'summary': '',
-    }
-
-    # All parallel CSAM count queries
-    concurrent = _run_concurrent(
-        total=lambda: csam_count(),
-        windows=lambda: csam_count([{"field": "operatingSystem.name", "operator": "CONTAINS", "value": "Windows"}]),
-        linux=lambda: csam_count([{"field": "operatingSystem.name", "operator": "CONTAINS", "value": "Linux"}]),
-        macos=lambda: csam_count([{"field": "operatingSystem.name", "operator": "CONTAINS", "value": "Mac"}]),
-        cloud_aws=lambda: csam_count([{"field": "asset.cloudProvider", "operator": "EQUALS", "value": "AWS"}]),
-        cloud_azure=lambda: csam_count([{"field": "asset.cloudProvider", "operator": "EQUALS", "value": "AZURE"}]),
-        cloud_gcp=lambda: csam_count([{"field": "asset.cloudProvider", "operator": "EQUALS", "value": "GCP"}]),
-        eol_os=lambda: csam_count([{"field": "operatingSystem.lifecycle.stage", "operator": "CONTAINS", "value": "EOL"}]),
-        eol_hw=lambda: csam_count([{"field": "hardware.lifecycle.stage", "operator": "CONTAINS", "value": "EOL"}]),
-        crit_high=lambda: csam_count([{"field": "asset.criticality", "operator": "GREATER", "value": "7"}]),
-        crit_med=lambda: csam_count([{"field": "asset.criticality", "operator": "GREATER", "value": "4"}]),
-    )
-
-    total = concurrent.get('total') or 0
-    result['totalAssets'] = total
-
-    windows = concurrent.get('windows') or 0
-    linux = concurrent.get('linux') or 0
-    macos = concurrent.get('macos') or 0
-    result['byOS'] = {
-        'Windows': windows,
-        'Linux': linux,
-        'macOS': macos,
-        'Other': max(0, total - windows - linux - macos),
-    }
-
-    aws = concurrent.get('cloud_aws') or 0
-    azure = concurrent.get('cloud_azure') or 0
-    gcp = concurrent.get('cloud_gcp') or 0
-    cloud_total = aws + azure + gcp
-    result['byCloud'] = {
-        'AWS': aws,
-        'Azure': azure,
-        'GCP': gcp,
-        'OnPrem': max(0, total - cloud_total),
-    }
-
-    result['eolCounts'] = {
-        'eolOS': concurrent.get('eol_os') or 0,
-        'eolHardware': concurrent.get('eol_hw') or 0,
-    }
-
-    crit_high = concurrent.get('crit_high') or 0
-    crit_med = concurrent.get('crit_med') or 0
-    result['byCriticality'] = {
-        'high_8to10': crit_high,
-        'medium_5to7': max(0, crit_med - crit_high),
-        'low_1to4': max(0, total - crit_med),
-    }
-
-    result['summary'] = (
-        f"{total} total assets. "
-        f"OS: {windows} Windows, {linux} Linux, {macos} macOS. "
-        f"Cloud: {aws} AWS, {azure} Azure, {gcp} GCP, {max(0, total - cloud_total)} on-prem. "
-        f"EOL: {result['eolCounts']['eolOS']} OS, {result['eolCounts']['eolHardware']} hardware. "
-        f"Criticality: {crit_high} high-criticality assets."
-    )
-
-    return compact(result)
+    """DEPRECATED: Use get_morning_report(quick=True) instead. Environment snapshot is now part of get_morning_report."""
+    return {'error': "get_environment_summary has been removed. Use get_morning_report(quick=True) instead.", 'replacement': 'get_morning_report'}
 
 
 @mcp.tool()
@@ -3861,6 +3811,7 @@ def cache_status(clear: bool = False) -> dict:
         result['scanner_cache_age_seconds'] = None
         result['etm_cache_age_seconds'] = None
 
+    result['_meta'] = {'returned': 1, 'total': 1, 'truncated': False}
     return compact(result)
 
 
@@ -3870,7 +3821,7 @@ def get_edr_events(days: int = 7, severity: str = "", category: str = "", host: 
 
     USE WHEN: Investigating endpoint threats, malware detections, suspicious process executions, or host-level incident response. Filter by severity, category, or specific host.
     DO NOT USE WHEN: Monitoring file integrity changes, investigating cloud threats, or querying network-level vulnerability findings.
-    PREFER INSTEAD: get_fim_events for file integrity changes; get_cdr_findings for cloud threats (CDR); get_etm_findings for network-level vulnerability findings.
+    PREFER INSTEAD: get_fim_events for file integrity changes; get_cloud_risk(include_threats=True) for cloud threats (CDR); get_etm_findings for network-level vulnerability findings.
 
     Parameters:
         days: look-back window in days (default 7)
@@ -3960,7 +3911,7 @@ def get_edr_events(days: int = 7, severity: str = "", category: str = "", host: 
         reverse=True,
     )[:10]
 
-    return compact({
+    _r = {
         'summary': {
             'total': total,
             'critical': sev_counts['CRITICAL'],
@@ -3972,7 +3923,8 @@ def get_edr_events(days: int = 7, severity: str = "", category: str = "", host: 
         'byCategory': by_category,
         'topHosts': top_hosts,
         'events': events_out,
-    })
+    }
+    return _with_meta(_r, 'events', total)
 
 
 @mcp.tool()
@@ -3981,7 +3933,7 @@ def get_fim_events(days: int = 1, severity: str = "", host: str = "", path: str 
 
     USE WHEN: Investigating file changes on hosts, "were any system files modified?", checking /etc/passwd or registry changes, reviewing off-hours activity, or auditing file integrity for compliance.
     DO NOT USE WHEN: Investigating process-level threats, malware detection, or cloud threat activity.
-    PREFER INSTEAD: get_edr_events for process-level threats and malware detection; get_cdr_findings for cloud threat activity.
+    PREFER INSTEAD: get_edr_events for process-level threats and malware detection; get_cloud_risk(include_threats=True) for cloud threat activity.
 
     Parameters:
         days: look-back window in days (default 1)
@@ -4093,7 +4045,7 @@ def get_fim_events(days: int = 1, severity: str = "", host: str = "", path: str 
         reverse=True,
     )[:10]
 
-    return compact({
+    _r = {
         'summary': {
             'total': total,
             'critical': sev_counts['CRITICAL'],
@@ -4106,7 +4058,8 @@ def get_fim_events(days: int = 1, severity: str = "", host: str = "", path: str 
         'topHosts': top_hosts,
         'criticalChanges': critical_changes,
         'events': events_out,
-    })
+    }
+    return _with_meta(_r, 'events', total)
 
 
 def _parse_duration(duration_str):
@@ -4136,7 +4089,7 @@ def get_scan_status(state: str = "Running,Paused,Queued,Error", days: int = 7, l
 
     USE WHEN: "are any scans running?", checking scan progress, troubleshooting failed scans, or reviewing scan history for the week.
     DO NOT USE WHEN: Checking scanner appliance health, looking at vulnerability findings from scans, or checking patch deployment status.
-    PREFER INSTEAD: get_scanner_health for scanner appliance health (online/offline, capacity); get_etm_findings for vulnerability findings from scans; get_pm_status for patch deployment status.
+    PREFER INSTEAD: get_scanner_health for scanner appliance health (online/offline, capacity); get_etm_findings for vulnerability findings from scans; get_eliminate_status for patch deployment status.
 
     Parameters:
         state: comma-separated states to filter — Running, Paused, Queued, Error (default all four)
@@ -4242,172 +4195,77 @@ def get_scan_status(state: str = "Running,Paused,Queued,Error", days: int = 7, l
     if result['failedScans']:
         result['summary'] += ' ⚠ Use get_scanner_health() to check scanner appliance status for failed scans.'
 
-    return compact(result)
+    return _with_meta(result, 'scans', total)
 
 
 @mcp.tool()
 def get_pm_status(platform: str = "Windows", days: int = 30, status: str = "", limit: int = 20) -> dict:
-    """[PM] Patch Management module details — per-platform jobs, patch severity breakdown, and asset coverage percentage.
-
-    USE WHEN: User specifically asks about Patch Management module, PM job details per platform, patch severity breakdown, or asset coverage percentage. More granular than get_eliminate_status.
-    DO NOT USE WHEN: Looking for high-level eliminate/mitigate overview, risk-tier-based patch coverage, or per-asset patch details.
-    PREFER INSTEAD: get_eliminate_status for high-level TruRisk Eliminate overview (PM+MTG combined); get_patch_status for risk-tier-based patch coverage; get_asset_risk for per-asset details.
-
-    Parameters:
-        platform: Windows, Linux, macOS, or 'all' (loops all three). Default 'Windows'.
-        days: only include jobs from the last N days (default 30)
-        status: filter by job status (e.g. 'Success', 'Failed', 'Running'). Empty = all.
-        limit: max jobs/assets to return (default 20)
-
-    Returns: summary (platform, totalJobs, activeJobs, failedJobs, patchCoverage %, criticalPatches), jobs (list with id, name, status, completion, assets), patchSeverity (by vendor severity), topAssets.
-
-    Performance: ~5s per platform (parallel jobs + patches + assets queries)."""
-    platforms = ['Windows', 'Linux', 'macOS'] if platform.lower() == 'all' else [platform]
-
-    def _pm_for_platform(plat):
-        try:
-            concurrent = _run_concurrent(
-                jobs=lambda p=plat: get_pm_jobs(p, limit),
-                patches_by_sev=lambda p=plat: get_pm_patches_count(p, 'vendorSeverity'),
-                assets=lambda p=plat: get_pm_assets(p, limit),
-            )
-
-            # --- Jobs ---
-            raw_jobs = concurrent.get('jobs') or []
-            if isinstance(raw_jobs, dict):
-                raw_jobs = raw_jobs.get('jobs', raw_jobs.get('data', []))
-            if not isinstance(raw_jobs, list):
-                raw_jobs = []
-
-            cutoff = datetime.now(timezone.utc) - timedelta(days=days)
-            job_list = []
-            active_count = 0
-            failed_count = 0
-            for j in raw_jobs:
-                if not isinstance(j, dict):
-                    continue
-                # Date filter
-                created = j.get('createdDate', '') or j.get('created', '')
-                if created:
-                    try:
-                        job_dt = datetime.fromisoformat(created.replace('Z', '+00:00'))
-                        if job_dt < cutoff:
-                            continue
-                    except (ValueError, TypeError):
-                        pass
-                # Status filter
-                job_status = j.get('status', '')
-                if status and job_status.lower() != status.lower():
-                    continue
-                if job_status in ('Running', 'Queued', 'Scheduled', 'InProgress'):
-                    active_count += 1
-                if job_status in ('Failed', 'Error'):
-                    failed_count += 1
-                job_list.append({
-                    'id': j.get('id', ''),
-                    'name': j.get('name', ''),
-                    'status': job_status,
-                    'platform': plat,
-                    'createdDate': created,
-                    'completion': j.get('completionPercent'),
-                    'assets': j.get('applicableAssetCount') or j.get('assetCount') or 0,
-                })
-                if len(job_list) >= limit:
-                    break
-
-            # --- Patch severity ---
-            patches_by_sev = concurrent.get('patches_by_sev') or {}
-            sev_data = patches_by_sev.get('vendorSeverity', patches_by_sev) if isinstance(patches_by_sev, dict) else {}
-            critical = 0
-            if isinstance(sev_data, dict):
-                critical = sev_data.get('Critical', 0) + sev_data.get('critical', 0)
-
-            # --- Assets & coverage ---
-            raw_assets = concurrent.get('assets') or []
-            if isinstance(raw_assets, dict):
-                raw_assets = raw_assets.get('assets', raw_assets.get('data', []))
-            if not isinstance(raw_assets, list):
-                raw_assets = []
-
-            total_assets = len(raw_assets)
-            patched_assets = sum(1 for a in raw_assets if isinstance(a, dict) and a.get('patchStatus', '') in ('Patched', 'UpToDate', 'patched'))
-            coverage_pct = round(patched_assets / total_assets * 100, 1) if total_assets > 0 else 0.0
-
-            top_assets = []
-            for a in raw_assets[:limit]:
-                if isinstance(a, dict):
-                    top_assets.append({
-                        'id': a.get('id', ''),
-                        'name': a.get('name', '') or a.get('hostname', ''),
-                        'os': a.get('os', '') or a.get('operatingSystem', ''),
-                        'patchStatus': a.get('patchStatus', ''),
-                    })
-
-            return compact({
-                'summary': {
-                    'platform': plat,
-                    'total': len(job_list),
-                    'active': active_count,
-                    'failed': failed_count,
-                    'patchCoverage': f"{coverage_pct}%",
-                    'criticalPatches': critical,
-                },
-                'jobs': job_list,
-                'patchSeverity': sev_data,
-                'topAssets': top_assets,
-            })
-        except Exception as e:
-            _log(f"PM status error for {plat}: {e}")
-            return compact({
-                'summary': {'platform': plat, 'error': str(e)},
-                'jobs': [], 'patchSeverity': {}, 'topAssets': [],
-            })
-
-    if len(platforms) == 1:
-        return compact(_pm_for_platform(platforms[0]))
-
-    # Multi-platform: run in parallel
-    tasks = {p: lambda p=p: _pm_for_platform(p) for p in platforms}
-    concurrent = _run_concurrent(**tasks)
-    results = {}
-    for p in platforms:
-        results[p.lower()] = concurrent.get(p) or {
-            'summary': {'platform': p, 'error': 'No data'},
-            'jobs': [], 'patchSeverity': {}, 'topAssets': [],
-        }
-    # Aggregate summary
-    total_jobs = sum(r['summary'].get('total', 0) for r in results.values())
-    active_jobs = sum(r['summary'].get('active', 0) for r in results.values())
-    failed_jobs = sum(r['summary'].get('failed', 0) for r in results.values())
-    results['summary'] = f"All platforms: {total_jobs} jobs ({active_jobs} active, {failed_jobs} failed)"
-    return compact(results)
+    """DEPRECATED: Use get_eliminate_status() instead. PM status is fully covered by get_eliminate_status."""
+    return {'error': "get_pm_status has been removed. Use get_eliminate_status() instead — it covers PM+MTG combined.", 'replacement': 'get_eliminate_status'}
 
 
 @mcp.tool()
-def get_asset_inventory(query: str = "", tag: str = "", os: str = "", days_since_seen: int = 0, eol_only: bool = False, limit: int = 50) -> dict:
-    """[CSAM] Asset inventory search — find assets by OS, tag, keyword, EOL status, or staleness.
+def get_asset_inventory(query: str = "", tag: str = "", os: str = "", days_since_seen: int = 0,
+                        eol_only: bool = False, limit: int = 50,
+                        list_tags: bool = False, list_groups: bool = False) -> dict:
+    """[CSAM] Asset inventory search — find assets by OS, tag, keyword, EOL status, or staleness. Also lists tags and asset groups.
 
-    USE WHEN: Searching for assets by name/OS/tag, finding stale assets, building asset lists for remediation, or finding container image IDs for get_image_vulns.
-    DO NOT USE WHEN: Looking at single-asset risk details, only needing environment-wide counts, or wanting risk-ranked asset lists.
-    PREFER INSTEAD: get_asset_risk for single-asset risk details; get_environment_summary for quick environment counts; get_weekly_priorities for risk-ranked asset lists.
+    USE WHEN: Searching for assets by name/OS/tag, finding stale assets, building asset lists for remediation, finding container image IDs for get_image_vulns, browsing available tags, or listing asset groups.
+    DO NOT USE WHEN: Looking at single-asset risk details or wanting risk-ranked asset lists.
+    PREFER INSTEAD: get_asset for single-asset risk details; get_weekly_priorities for risk-ranked asset lists; get_morning_report(quick=True) for quick environment counts.
 
     CSAM filter examples (applied automatically from parameters):
-      - os="Windows Server 2019"      → operatingSystem.osName CONTAINS 'Windows Server 2019'
-      - tag="PCI"                      → tags.name CONTAINS 'PCI'
-      - eol_only=True                  → operatingSystem.lifecycle.stage CONTAINS 'EOL'
-      - days_since_seen=30             → assets not seen in 30+ days (stale)
+      - os="Windows Server 2019"      -> operatingSystem.osName CONTAINS 'Windows Server 2019'
+      - tag="PCI"                      -> tags.name CONTAINS 'PCI'
+      - eol_only=True                  -> operatingSystem.lifecycle.stage CONTAINS 'EOL'
+      - days_since_seen=30             -> assets not seen in 30+ days (stale)
 
     Parameters:
         query: free-text search on hostname/name
-        tag: filter by asset tag name
+        tag: filter by asset tag name (also replaces get_assets_by_tag)
         os: filter by OS (e.g. "Windows", "Linux", "Ubuntu", "CentOS")
         days_since_seen: only assets NOT seen in last N days (stale assets); 0 = no filter
         eol_only: only return end-of-life assets
         limit: max results (default 50)
+        list_tags: if True, return sorted list of all distinct tag names (replaces get_tags)
+        list_groups: if True, return sorted list of all distinct asset group names (replaces get_asset_groups)
 
     Returns: summary (total, returned, byOS, byTag, eolCount), assets (list with id, name, ip, os, lastSeen, tags, truRiskScore, openVulns, eolStatus).
+    With list_tags=True: adds tags (sorted list of distinct tag names).
+    With list_groups=True: adds assetGroups (sorted list of distinct group names).
 
     Performance: ~3s (parallel CSAM search + count)."""
+    # Handle list_tags and list_groups metadata queries
+    if list_tags or list_groups:
+        fields = "tags,tagList"
+        if list_groups:
+            fields += ",assetGroups"
+        assets_raw = csam_search(limit=limit or 500, fields=fields, fetch_all=False)
+        result = {}
+        if list_tags:
+            tag_set = set()
+            for a in assets_raw:
+                for t in a.get('tags', []) or a.get('tagList', []) or []:
+                    name = t.get('name', '') if isinstance(t, dict) else str(t)
+                    if name:
+                        tag_set.add(name)
+            tags_sorted = sorted(tag_set)
+            result['totalTags'] = len(tags_sorted)
+            result['tags'] = tags_sorted
+        if list_groups:
+            group_set = set()
+            for a in assets_raw:
+                for g in a.get('assetGroups', []) or []:
+                    name = g.get('name', '') if isinstance(g, dict) else str(g)
+                    if name:
+                        group_set.add(name)
+            groups_sorted = sorted(group_set)
+            result['totalGroups'] = len(groups_sorted)
+            result['assetGroups'] = groups_sorted
+        total_items = result.get('totalTags', 0) + result.get('totalGroups', 0)
+        result['_meta'] = {'returned': total_items, 'total': total_items, 'truncated': False}
+        return compact(result)
+
     filters = []
     if os:
         filters.append({"field": "operatingSystem.osName", "operator": "CONTAINS", "value": os})
@@ -4467,7 +4325,10 @@ def get_asset_inventory(query: str = "", tag: str = "", os: str = "", days_since
         })
 
     result_assets.sort(key=lambda x: -x['truRiskScore'])
-    return compact({'summary': summary, 'assets': result_assets})
+    return compact({
+        'summary': summary, 'assets': result_assets,
+        '_meta': {'returned': len(result_assets), 'total': total_count, 'truncated': len(result_assets) < total_count},
+    })
 
 
 @mcp.tool()
@@ -4499,13 +4360,13 @@ def get_vuln_exceptions(status: str = "Active", vuln_type: str = "", days_to_exp
     data = api_get(url, timeout=30)
     if not data:
         result['note'] = 'Exceptions API not available — may require additional Qualys subscription'
-        return compact(result)
+        return _with_meta(result, 'exceptions')
 
     try:
         root = ET.fromstring(data)
     except ET.ParseError:
         result['note'] = 'Exceptions API returned invalid response'
-        return compact(result)
+        return _with_meta(result, 'exceptions')
 
     today = datetime.now(timezone.utc)
     expiry_cutoff = today + timedelta(days=days_to_expiry) if days_to_expiry > 0 else None
@@ -4554,7 +4415,7 @@ def get_vuln_exceptions(status: str = "Active", vuln_type: str = "", days_to_exp
             result['exceptions'].append(entry)
 
     result['stats']['total'] = sum(result['stats']['byType'].values())
-    return compact(result)
+    return _with_meta(result, 'exceptions', result['stats']['total'])
 
 
 @mcp.tool()
@@ -4724,7 +4585,7 @@ def get_compliance_posture(framework: str = "", platform: str = "", limit: int =
             ]
             result['source'] = 'cloud_compliance_fallback'
             result['note'] = 'Data from cloud compliance evaluations (TotalCloud). Enable Policy Compliance module for on-prem/endpoint posture.'
-            return compact(result)
+            return _with_meta(result, 'topFailingControls')
     except Exception as e:
         _log(f"Compliance posture: cloud fallback failed: {e}")
 
@@ -4732,7 +4593,7 @@ def get_compliance_posture(framework: str = "", platform: str = "", limit: int =
     result = _empty_result()
     result['error'] = 'PC module not licensed or no compliance data available'
     result['suggestion'] = 'Enable the Qualys Policy Compliance (PC) module, or use get_cloud_risk() for cloud CIS compliance.'
-    return compact(result)
+    return _with_meta(result, 'topFailingControls')
 
 
 @mcp.tool()
@@ -4741,7 +4602,7 @@ def get_trurisk_score(days: int = 30, breakdown_by: str = "tag") -> dict:
 
     USE WHEN: "what's our org risk?", "is risk going up or down?", overall TruRisk score, risk trends, or risk breakdown by business unit/tag.
     DO NOT USE WHEN: Drilling into a single asset, planning weekly remediation, or investigating a specific vulnerability.
-    PREFER INSTEAD: get_asset_risk for single-asset risk; get_weekly_priorities for weekly remediation planning; investigate_cve for vulnerability investigation.
+    PREFER INSTEAD: get_asset for single-asset risk; get_weekly_priorities for weekly remediation planning; investigate_cve for vulnerability investigation.
 
     Parameters:
         days: trend window in days (default 30). Compares current avg TruRisk vs N days ago.
@@ -4874,353 +4735,246 @@ def get_trurisk_score(days: int = 30, breakdown_by: str = "tag") -> dict:
         breakdown.sort(key=lambda x: -x['avgTruRisk'])
         result['breakdown'] = breakdown[:20]
 
-    return compact(result)
+    return _with_meta(result, 'topAssets')
 
 
 @mcp.tool()
 def get_tags(limit: int = 500) -> dict:
-    """[CSAM] List all asset tags defined in the environment.
-
-    USE WHEN: Browsing available tags, looking up tag names before filtering other tools, or giving an agent the tag vocabulary to use in get_risk_by_tag / get_assets_by_tag calls.
-    DO NOT USE WHEN: You already know the tag name and want to filter by it.
-    PREFER INSTEAD: get_risk_by_tag to see risk for a known tag; get_assets_by_tag to list assets for a known tag; get_asset_inventory for broader asset search.
-
-    Parameters:
-        limit: max assets to sample for tag extraction (default 500)
-
-    Returns: totalTags (count), tags (sorted list of distinct tag names).
-
-    Performance: ~2s."""
-    assets = csam_search(limit=limit, fields="tags,tagList", fetch_all=False)
-    tag_set = set()
-    for a in assets:
-        for t in a.get('tags', []) or a.get('tagList', []) or []:
-            name = t.get('name', '') if isinstance(t, dict) else str(t)
-            if name:
-                tag_set.add(name)
-    tags_sorted = sorted(tag_set)
-    return compact({'totalTags': len(tags_sorted), 'tags': tags_sorted})
-
+    """DEPRECATED: Use get_asset_inventory(list_tags=True) instead."""
+    return {'error': "get_tags has been removed. Use get_asset_inventory(list_tags=True) instead.", 'replacement': 'get_asset_inventory'}
 
 @mcp.tool()
 def get_asset_groups(limit: int = 500) -> dict:
-    """[CSAM] List all Qualys asset groups.
-
-    USE WHEN: User asks about asset groups, wants to scope queries to a group, or needs group names for filtering other tools (asset_group parameter).
-    DO NOT USE WHEN: You already know the asset group name, or you want tag-based grouping instead.
-    PREFER INSTEAD: get_tags for tag-based grouping; get_asset_inventory with asset_group parameter for assets in a known group.
-
-    Parameters:
-        limit: max assets to sample for group extraction (default 500)
-
-    Returns: totalGroups (count), assetGroups (sorted list of distinct group names).
-
-    Performance: ~2s."""
-    assets = csam_search(limit=limit, fields="assetGroups,tags", fetch_all=False)
-    group_set = set()
-    for a in assets:
-        for g in a.get('assetGroups', []) or []:
-            name = g.get('name', '') if isinstance(g, dict) else str(g)
-            if name:
-                group_set.add(name)
-    groups_sorted = sorted(group_set)
-    return compact({'totalGroups': len(groups_sorted), 'assetGroups': groups_sorted})
-
+    """DEPRECATED: Use get_asset_inventory(list_groups=True) instead."""
+    return {'error': "get_asset_groups has been removed. Use get_asset_inventory(list_groups=True) instead.", 'replacement': 'get_asset_inventory'}
 
 @mcp.tool()
 def get_assets_by_tag(tag_name: str, limit: int = 50) -> dict:
-    """[CSAM] List assets matching a specific tag — returns asset list with TruRisk, OS, tags, and last seen.
-
-    USE WHEN: "show me Production assets", "list assets tagged PCI", or browsing assets in a specific tag group.
-    DO NOT USE WHEN: You want risk aggregation for a tag (not individual assets), or you need broader search criteria beyond a single tag.
-    PREFER INSTEAD: get_risk_by_tag for aggregate risk distribution for a tag; get_asset_inventory for multi-criteria asset search (OS, keyword, EOL, stale).
-
-    Parameters:
-        tag_name: the tag to filter by (e.g. Production, PCI, cloud, DMZ)
-        limit: max assets to return (default 50)
-
-    Returns: tag, total (count), returned (count), assets (list with assetId, hostname, ip, riskScore, os, tags, lastSeen, criticality).
-
-    Performance: ~3s (parallel CSAM search + count)."""
-    filters = [{"field": "asset.tags.name", "operator": "EQUALS", "value": tag_name}]
-    data = _run_concurrent(
-        assets=lambda: csam_search(
-            filters=filters, limit=limit,
-            fields="operatingSystem,hardware,tags,tagList,truRisk,truRiskScoreFactors"
-        ),
-        total=lambda: csam_count(filters),
-    )
-    assets = data.get('assets', [])
-    total_count = data.get('total', len(assets))
-
-    result_assets = []
-    for a in assets:
-        os_info = a.get('operatingSystem', {}) or {}
-        asset_tags = []
-        for t in a.get('tags', []) or a.get('tagList', []) or []:
-            name = t.get('name', '') if isinstance(t, dict) else str(t)
-            if name:
-                asset_tags.append(name)
-        result_assets.append({
-            'assetId': str(a.get('assetId', '')),
-            'hostname': short_host(a.get('dnsHostName', '') or a.get('dnsName', '')),
-            'ip': a.get('address', ''),
-            'riskScore': int(a.get('riskScore') or 0),
-            'os': os_info.get('osName', ''),
-            'tags': asset_tags,
-            'lastSeen': short_date(a.get('lastModifiedDate', '')),
-            'criticality': get_criticality(a),
-        })
-
-    result_assets.sort(key=lambda x: -x['riskScore'])
-    return compact({
-        'tag': tag_name,
-        'total': total_count,
-        'returned': len(result_assets),
-        'assets': result_assets,
-    })
+    """DEPRECATED: Use get_asset_inventory(tag='...') instead."""
+    return {'error': f"get_assets_by_tag has been removed. Use get_asset_inventory(tag='{tag_name}') instead.", 'replacement': 'get_asset_inventory'}
 
 
 # ---------------------------------------------------------------------------
-# Report Center tools
+# Report Center — consolidated reports() tool
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
-def list_reports(limit: int = 50) -> dict:
-    """[Reporting] List all available Qualys reports with status, type, and output format.
+def reports(action: str, report_id: str = "", template_id: str = "", asset_group_ids: str = "",
+            template_name: str = "", report_title: str = "", output_format: str = "pdf") -> dict:
+    """[Reporting] Unified report operations — list, templates, generate, status, download, delete.
 
-    USE WHEN: "show my reports", "list reports", "what reports are available?", or checking report generation status.
-    DO NOT USE WHEN: You need real-time security data — use the other tools instead. Reports are pre-generated snapshots.
-    PREFER INSTEAD: get_report_status to check a specific report's status; generate_report to create a new report.
+    USE WHEN: Any report-related task — listing reports, finding templates, generating, checking status, downloading, or deleting reports.
+    DO NOT USE WHEN: You need real-time security data — use analysis tools instead. Reports are pre-generated snapshots.
 
     Parameters:
-        limit: max reports to return (default 50)
+        action: 'list' | 'templates' | 'generate' | 'status' | 'download' | 'delete'
+        report_id: required for 'status', 'download', 'delete'
+        template_id: required for 'generate' (from action='templates')
+        asset_group_ids: optional comma-separated asset group IDs for 'generate'
+        template_name: optional filter substring for 'templates'
+        report_title: optional title for 'generate'
+        output_format: pdf, html, mht, xml, csv, or docx (default 'pdf') for 'generate'
 
-    Returns: total (count), reports (list with id, title, type, status, percentComplete, launchDatetime, outputFormat, size).
+    Returns vary by action:
+        list: total, reports (id, title, type, status, percentComplete, launchDatetime, outputFormat, size)
+        templates: total, templates (id, title, type, isGlobal)
+        generate: reportId, message
+        status: id, title, status, percentComplete, outputFormat, size, launchDatetime
+        download: reportId, contentType, encoding, data
+        delete: reportId, message
 
-    Performance: ~3s."""
-    data = api_get(f"{BASE_URL}/api/2.0/fo/report/?action=list", timeout=30)
-    if not data:
-        return compact({'error': 'Failed to fetch report list', 'reports': []})
-    reports = []
-    try:
-        root = ET.fromstring(data)
-        for r in root.findall('.//REPORT')[:limit]:
-            reports.append({
+    Performance: ~2-5s depending on action."""
+    action = action.strip().lower()
+
+    if action == 'list':
+        data = api_get(f"{BASE_URL}/api/2.0/fo/report/?action=list", timeout=30)
+        if not data:
+            return compact({'error': 'Failed to fetch report list', 'reports': [], '_meta': {'returned': 0, 'total': 0, 'truncated': False}})
+        report_list = []
+        try:
+            root = ET.fromstring(data)
+            for r in root.findall('.//REPORT'):
+                report_list.append({
+                    'id': r.findtext('ID', ''),
+                    'title': r.findtext('TITLE', ''),
+                    'type': r.findtext('TYPE', ''),
+                    'status': r.findtext('STATUS/STATE', ''),
+                    'percentComplete': r.findtext('STATUS/PERCENT', ''),
+                    'launchDatetime': short_date(r.findtext('LAUNCH_DATETIME', '')),
+                    'outputFormat': r.findtext('OUTPUT_FORMAT', ''),
+                    'size': r.findtext('SIZE', ''),
+                })
+        except ET.ParseError:
+            return compact({'error': 'Failed to parse report list XML', 'reports': [], '_meta': {'returned': 0, 'total': 0, 'truncated': False}})
+        return compact({'total': len(report_list), 'reports': report_list,
+                         '_meta': {'returned': len(report_list), 'total': len(report_list), 'truncated': False}})
+
+    elif action == 'templates':
+        data = api_get(f"{BASE_URL}/api/2.0/fo/report/template/?action=list", timeout=30)
+        if not data:
+            return compact({'error': 'Failed to fetch report templates', 'templates': [], '_meta': {'returned': 0, 'total': 0, 'truncated': False}})
+        templates = []
+        try:
+            root = ET.fromstring(data)
+            for t in root.findall('.//REPORT_TEMPLATE'):
+                title = t.findtext('TITLE', '')
+                if template_name and template_name.lower() not in title.lower():
+                    continue
+                templates.append({
+                    'id': t.findtext('ID', ''),
+                    'title': title,
+                    'type': t.findtext('TYPE', ''),
+                    'isGlobal': t.findtext('GLOBAL', '') == '1',
+                })
+        except ET.ParseError:
+            return compact({'error': 'Failed to parse template list XML', 'templates': [], '_meta': {'returned': 0, 'total': 0, 'truncated': False}})
+        return compact({'total': len(templates), 'templates': templates,
+                         '_meta': {'returned': len(templates), 'total': len(templates), 'truncated': False}})
+
+    elif action == 'generate':
+        if not template_id:
+            return compact({'error': "template_id is required for action='generate'. Use reports(action='templates') to find available templates."})
+        params = {'action': 'launch', 'template_id': template_id, 'output_format': output_format}
+        if report_title:
+            params['report_title'] = report_title
+        if asset_group_ids:
+            params['asset_group_ids'] = asset_group_ids
+        post_data = urlencode(params).encode()
+        req = Request(f"{BASE_URL}/api/2.0/fo/report/", data=post_data, method='POST')
+        req.add_header('Authorization', f'Basic {BASIC_AUTH}')
+        req.add_header('X-Requested-With', 'qualys-mcp')
+        try:
+            with _open(req, timeout=60) as resp:
+                body = resp.read()
+        except HTTPError as e:
+            body = e.read() if hasattr(e, 'read') else b''
+            _log(f"Report launch error {e.code}")
+            return compact({'error': f'API error {e.code}', 'detail': body.decode(errors='replace')[:500]})
+        except Exception as e:
+            return compact({'error': str(e)})
+        try:
+            root = ET.fromstring(body)
+            text = root.findtext('.//TEXT', '')
+            rid = ''
+            for item in root.findall('.//ITEM'):
+                if item.findtext('KEY', '') == 'ID':
+                    rid = item.findtext('VALUE', '')
+                    break
+            if rid:
+                return compact({'reportId': rid, 'message': text, '_meta': {'returned': 1, 'total': 1, 'truncated': False}})
+            return compact({'error': text or 'Unknown error launching report'})
+        except ET.ParseError:
+            return compact({'error': 'Failed to parse launch response', 'raw': body.decode(errors='replace')[:500]})
+
+    elif action == 'status':
+        if not report_id:
+            return compact({'error': "report_id is required for action='status'"})
+        data = api_get(f"{BASE_URL}/api/2.0/fo/report/?action=list&id={report_id}", timeout=30)
+        if not data:
+            return compact({'error': 'Failed to fetch report status'})
+        try:
+            root = ET.fromstring(data)
+            r = root.find('.//REPORT')
+            if r is None:
+                return compact({'error': f'Report {report_id} not found'})
+            return compact({
                 'id': r.findtext('ID', ''),
                 'title': r.findtext('TITLE', ''),
-                'type': r.findtext('TYPE', ''),
                 'status': r.findtext('STATUS/STATE', ''),
                 'percentComplete': r.findtext('STATUS/PERCENT', ''),
-                'launchDatetime': short_date(r.findtext('LAUNCH_DATETIME', '')),
                 'outputFormat': r.findtext('OUTPUT_FORMAT', ''),
                 'size': r.findtext('SIZE', ''),
+                'launchDatetime': short_date(r.findtext('LAUNCH_DATETIME', '')),
+                '_meta': {'returned': 1, 'total': 1, 'truncated': False},
             })
-    except ET.ParseError:
-        return compact({'error': 'Failed to parse report list XML', 'reports': []})
-    return compact({'total': len(reports), 'reports': reports})
+        except ET.ParseError:
+            return compact({'error': 'Failed to parse report status XML'})
 
+    elif action == 'download':
+        if not report_id:
+            return compact({'error': "report_id is required for action='download'"})
+        url = f"{BASE_URL}/api/2.0/fo/report/?action=fetch&id={report_id}"
+        req = Request(url)
+        req.add_header('Authorization', f'Basic {BASIC_AUTH}')
+        req.add_header('X-Requested-With', 'qualys-mcp')
+        try:
+            with _open(req, timeout=120) as resp:
+                content_type = resp.headers.get('Content-Type', 'application/octet-stream')
+                body = resp.read()
+        except HTTPError as e:
+            return compact({'error': f'API error {e.code}'})
+        except Exception as e:
+            return compact({'error': str(e)})
+        text_types = ('text/', 'application/xml', 'application/csv')
+        if any(content_type.startswith(t) for t in text_types):
+            return compact({
+                'reportId': report_id, 'contentType': content_type,
+                'encoding': 'text', 'data': body.decode(errors='replace'),
+                '_meta': {'returned': 1, 'total': 1, 'truncated': False},
+            })
+        return compact({
+            'reportId': report_id, 'contentType': content_type,
+            'encoding': 'base64', 'data': base64.b64encode(body).decode(),
+            '_meta': {'returned': 1, 'total': 1, 'truncated': False},
+        })
+
+    elif action == 'delete':
+        if not report_id:
+            return compact({'error': "report_id is required for action='delete'"})
+        post_data = urlencode({'action': 'delete', 'id': report_id}).encode()
+        req = Request(f"{BASE_URL}/api/2.0/fo/report/", data=post_data, method='POST')
+        req.add_header('Authorization', f'Basic {BASIC_AUTH}')
+        req.add_header('X-Requested-With', 'qualys-mcp')
+        try:
+            with _open(req, timeout=30) as resp:
+                body = resp.read()
+        except HTTPError as e:
+            body = e.read() if hasattr(e, 'read') else b''
+            return compact({'error': f'API error {e.code}', 'detail': body.decode(errors='replace')[:500]})
+        except Exception as e:
+            return compact({'error': str(e)})
+        try:
+            root = ET.fromstring(body)
+            text = root.findtext('.//TEXT', '')
+            return compact({'reportId': report_id, 'message': text or 'Report deleted', '_meta': {'returned': 1, 'total': 1, 'truncated': False}})
+        except ET.ParseError:
+            return compact({'reportId': report_id, 'message': 'Report deleted', '_meta': {'returned': 1, 'total': 1, 'truncated': False}})
+
+    else:
+        return compact({'error': f"Unknown action '{action}'. Valid actions: list, templates, generate, status, download, delete"})
+
+
+# Deprecation stubs for old report tools
+@mcp.tool()
+def list_reports(limit: int = 50) -> dict:
+    """DEPRECATED: Use reports(action='list') instead."""
+    return {'error': "list_reports has been removed. Use reports(action='list') instead.", 'replacement': 'reports'}
+
+@mcp.tool()
+def list_report_templates(limit: int = 100) -> dict:
+    """DEPRECATED: Use reports(action='templates') instead."""
+    return {'error': "list_report_templates has been removed. Use reports(action='templates') instead.", 'replacement': 'reports'}
 
 @mcp.tool()
 def generate_report(template_id: str, report_title: str = "", output_format: str = "pdf",
                     asset_group_ids: str = "", ips: str = "", tags: str = "") -> dict:
-    """[Reporting] Launch a new Qualys report generation job.
-
-    USE WHEN: "generate a report", "create a vulnerability report", "run a report for PCI assets", or creating compliance/audit deliverables.
-    DO NOT USE WHEN: You need real-time data — use analysis tools instead. Reports take time to generate.
-    PREFER INSTEAD: list_report_templates to find available templates first; get_report_status to check progress after launch.
-
-    Parameters:
-        template_id: Qualys report template ID (from list_report_templates). Required.
-        report_title: optional title for the report
-        output_format: pdf, html, mht, xml, csv, or docx (default 'pdf')
-        asset_group_ids: comma-separated asset group IDs to scope the report
-        ips: comma-separated IPs or IP ranges to scope the report
-        tags: comma-separated tag IDs to scope the report
-
-    Returns: reportId and message on success, or error details on failure.
-
-    Performance: ~3s to launch (report generation runs async, check with get_report_status)."""
-    params = {'action': 'launch', 'template_id': template_id, 'output_format': output_format}
-    if report_title:
-        params['report_title'] = report_title
-    if asset_group_ids:
-        params['asset_group_ids'] = asset_group_ids
-    if ips:
-        params['ips'] = ips
-    if tags:
-        params['use_tags'] = '1'
-        params['tag_set_by'] = 'id'
-        params['tag_set_include'] = tags
-    post_data = urlencode(params).encode()
-    req = Request(f"{BASE_URL}/api/2.0/fo/report/", data=post_data, method='POST')
-    req.add_header('Authorization', f'Basic {BASIC_AUTH}')
-    req.add_header('X-Requested-With', 'qualys-mcp')
-    try:
-        with _open(req, timeout=60) as resp:
-            body = resp.read()
-    except HTTPError as e:
-        body = e.read() if hasattr(e, 'read') else b''
-        _log(f"Report launch error {e.code}")
-        return compact({'error': f'API error {e.code}', 'detail': body.decode(errors='replace')[:500]})
-    except Exception as e:
-        return compact({'error': str(e)})
-    try:
-        root = ET.fromstring(body)
-        text = root.findtext('.//TEXT', '')
-        report_id = ''
-        for item in root.findall('.//ITEM'):
-            if item.findtext('KEY', '') == 'ID':
-                report_id = item.findtext('VALUE', '')
-                break
-        if report_id:
-            return compact({'reportId': report_id, 'message': text})
-        return compact({'error': text or 'Unknown error launching report'})
-    except ET.ParseError:
-        return compact({'error': 'Failed to parse launch response', 'raw': body.decode(errors='replace')[:500]})
-
+    """DEPRECATED: Use reports(action='generate', template_id='...') instead."""
+    return {'error': "generate_report has been removed. Use reports(action='generate', template_id='...') instead.", 'replacement': 'reports'}
 
 @mcp.tool()
 def get_report_status(report_id: str) -> dict:
-    """[Reporting] Check the status of a Qualys report.
-
-    USE WHEN: "is my report done?", checking report progress after generate_report, or polling for report completion.
-    DO NOT USE WHEN: You want to list all reports (use list_reports) or download a finished report (use download_report).
-    PREFER INSTEAD: list_reports when browsing all reports; download_report when report is already finished.
-
-    Parameters:
-        report_id: the report ID to check (from generate_report or list_reports)
-
-    Returns: id, title, status, percentComplete, outputFormat, size, launchDatetime.
-
-    Performance: ~2s."""
-    data = api_get(f"{BASE_URL}/api/2.0/fo/report/?action=list&id={report_id}", timeout=30)
-    if not data:
-        return compact({'error': 'Failed to fetch report status'})
-    try:
-        root = ET.fromstring(data)
-        r = root.find('.//REPORT')
-        if r is None:
-            return compact({'error': f'Report {report_id} not found'})
-        return compact({
-            'id': r.findtext('ID', ''),
-            'title': r.findtext('TITLE', ''),
-            'status': r.findtext('STATUS/STATE', ''),
-            'percentComplete': r.findtext('STATUS/PERCENT', ''),
-            'outputFormat': r.findtext('OUTPUT_FORMAT', ''),
-            'size': r.findtext('SIZE', ''),
-            'launchDatetime': short_date(r.findtext('LAUNCH_DATETIME', '')),
-        })
-    except ET.ParseError:
-        return compact({'error': 'Failed to parse report status XML'})
-
+    """DEPRECATED: Use reports(action='status', report_id='...') instead."""
+    return {'error': "get_report_status has been removed. Use reports(action='status', report_id='...') instead.", 'replacement': 'reports'}
 
 @mcp.tool()
 def download_report(report_id: str) -> dict:
-    """[Reporting] Download a finished Qualys report — binary formats (PDF, DOCX, MHT) as base64, text formats (XML, CSV, HTML) as plain text.
-
-    USE WHEN: "download report", "get report content", "fetch the report", or retrieving a completed report's data.
-    DO NOT USE WHEN: Report is still generating (check with get_report_status first) or you haven't generated a report yet.
-    PREFER INSTEAD: get_report_status when report may not be finished yet; generate_report when no report exists.
-
-    Parameters:
-        report_id: the report ID to download (must be in 'Finished' status)
-
-    Returns: reportId, contentType, encoding ('text' or 'base64'), data (report content).
-
-    Performance: ~5s (depends on report size)."""
-    url = f"{BASE_URL}/api/2.0/fo/report/?action=fetch&id={report_id}"
-    req = Request(url)
-    req.add_header('Authorization', f'Basic {BASIC_AUTH}')
-    req.add_header('X-Requested-With', 'qualys-mcp')
-    try:
-        with _open(req, timeout=120) as resp:
-            content_type = resp.headers.get('Content-Type', 'application/octet-stream')
-            body = resp.read()
-    except HTTPError as e:
-        return compact({'error': f'API error {e.code}'})
-    except Exception as e:
-        return compact({'error': str(e)})
-    text_types = ('text/', 'application/xml', 'application/csv')
-    if any(content_type.startswith(t) for t in text_types):
-        return compact({
-            'reportId': report_id,
-            'contentType': content_type,
-            'encoding': 'text',
-            'data': body.decode(errors='replace'),
-        })
-    return compact({
-        'reportId': report_id,
-        'contentType': content_type,
-        'encoding': 'base64',
-        'data': base64.b64encode(body).decode(),
-    })
-
-
-@mcp.tool()
-def list_report_templates(limit: int = 100) -> dict:
-    """[Reporting] List available Qualys report templates.
-
-    USE WHEN: "what report templates are available?", finding template IDs before generate_report, or browsing report template catalog.
-    DO NOT USE WHEN: You already have a template ID and want to generate a report (use generate_report directly).
-    PREFER INSTEAD: generate_report when you already have a template ID.
-
-    Parameters:
-        limit: max templates to return (default 100)
-
-    Returns: total (count), templates (list with id, title, type, isGlobal).
-
-    Performance: ~2s."""
-    data = api_get(f"{BASE_URL}/api/2.0/fo/report/template/?action=list", timeout=30)
-    if not data:
-        return compact({'error': 'Failed to fetch report templates', 'templates': []})
-    templates = []
-    try:
-        root = ET.fromstring(data)
-        for t in root.findall('.//REPORT_TEMPLATE')[:limit]:
-            templates.append({
-                'id': t.findtext('ID', ''),
-                'title': t.findtext('TITLE', ''),
-                'type': t.findtext('TYPE', ''),
-                'isGlobal': t.findtext('GLOBAL', '') == '1',
-            })
-    except ET.ParseError:
-        return compact({'error': 'Failed to parse template list XML', 'templates': []})
-    return compact({'total': len(templates), 'templates': templates})
-
+    """DEPRECATED: Use reports(action='download', report_id='...') instead."""
+    return {'error': "download_report has been removed. Use reports(action='download', report_id='...') instead.", 'replacement': 'reports'}
 
 @mcp.tool()
 def delete_report(report_id: str) -> dict:
-    """[Reporting] Delete a Qualys report.
-
-    USE WHEN: "delete report", "remove report", "clean up old reports", or managing report storage.
-    DO NOT USE WHEN: You want to check report status (use get_report_status) or download it (use download_report).
-    PREFER INSTEAD: get_report_status when you need status info; download_report when you want the content.
-
-    Parameters:
-        report_id: the report ID to delete
-
-    Returns: reportId and confirmation message.
-
-    Performance: ~2s."""
-    post_data = urlencode({'action': 'delete', 'id': report_id}).encode()
-    req = Request(f"{BASE_URL}/api/2.0/fo/report/", data=post_data, method='POST')
-    req.add_header('Authorization', f'Basic {BASIC_AUTH}')
-    req.add_header('X-Requested-With', 'qualys-mcp')
-    try:
-        with _open(req, timeout=30) as resp:
-            body = resp.read()
-    except HTTPError as e:
-        body = e.read() if hasattr(e, 'read') else b''
-        return compact({'error': f'API error {e.code}', 'detail': body.decode(errors='replace')[:500]})
-    except Exception as e:
-        return compact({'error': str(e)})
-    try:
-        root = ET.fromstring(body)
-        text = root.findtext('.//TEXT', '')
-        return compact({'reportId': report_id, 'message': text or 'Report deleted'})
-    except ET.ParseError:
-        return compact({'reportId': report_id, 'message': 'Report deleted'})
+    """DEPRECATED: Use reports(action='delete', report_id='...') instead."""
+    return {'error': "delete_report has been removed. Use reports(action='delete', report_id='...') instead.", 'replacement': 'reports'}
 
 
 def _warmup_vmdr_cache():
