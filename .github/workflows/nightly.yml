@@ -1,0 +1,107 @@
+name: Nightly — Full Eval & Baseline Update
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  push:
+    branches: [main]
+
+env:
+  QUALYS_USERNAME: ${{ secrets.QUALYS_USERNAME }}
+  QUALYS_PASSWORD: ${{ secrets.QUALYS_PASSWORD }}
+  QUALYS_BASE_URL: ${{ secrets.QUALYS_BASE_URL }}
+  QUALYS_GATEWAY_URL: ${{ secrets.QUALYS_GATEWAY_URL }}
+
+permissions:
+  contents: write
+
+jobs:
+  full-eval:
+    name: Full Eval Suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -e . 2>/dev/null || pip install mcp httpx
+
+      - name: Run full eval
+        run: python eval.py --limit 500 --json eval_results.json
+
+      - name: Post eval summary
+        if: always()
+        run: |
+          python3 << 'PYEOF'
+          import json, os
+
+          try:
+              with open("eval_results.json") as f:
+                  data = json.load(f)
+          except FileNotFoundError:
+              print("No eval results found")
+              exit(0)
+
+          icon = "✅" if data["score_pct"] >= data["threshold"] else "❌"
+
+          summary = f"""## {icon} Nightly Eval Results
+
+          | Metric | Value |
+          |--------|-------|
+          | Score | {data['score_pct']}% |
+          | Threshold | {data['threshold']}% |
+          | Passed | {data['passed']} |
+          | Failed | {data['failed']} |
+          | Errors | {data['errors']} |
+          | Skipped | {data['skipped']} |
+          | Total | {data['total']} |
+          """
+
+          with open(os.environ.get("GITHUB_STEP_SUMMARY", "/dev/null"), "a") as f:
+              f.write(summary)
+
+          print(summary)
+          PYEOF
+
+      - name: Upload eval results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-eval-results
+          path: eval_results.json
+
+  update-baseline:
+    name: Update Benchmark Baseline
+    runs-on: ubuntu-latest
+    needs: full-eval
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -e . 2>/dev/null || pip install mcp httpx
+
+      - name: Run benchmark and update baseline
+        run: python benchmark.py --quick --json benchmark_baseline.json
+
+      - name: Commit updated baseline
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add benchmark_baseline.json
+          if git diff --cached --quiet; then
+            echo "No changes to baseline"
+          else
+            git commit -m "chore: update benchmark baseline [skip ci]"
+            git push
+          fi
