@@ -12,8 +12,8 @@ env:
   EVAL_PASS_THRESHOLD: ${{ vars.EVAL_PASS_THRESHOLD || '80' }}
 
 jobs:
-  smoke-test:
-    name: Smoke Test
+  lint:
+    name: Lint & Import Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,13 +26,55 @@ jobs:
       - name: Install dependencies
         run: pip install -e . 2>/dev/null || pip install mcp httpx
 
+      - name: Syntax check
+        run: python -m py_compile qualys_mcp.py && echo "✅ Syntax OK"
+
+      - name: Import check
+        run: python -c "import qualys_mcp; print('✅ Import OK')"
+        env:
+          QUALYS_USERNAME: dummy
+          QUALYS_PASSWORD: dummy
+          QUALYS_BASE_URL: https://qualysapi.qualys.com
+          QUALYS_GATEWAY_URL: https://gateway.qg1.apps.qualys.com
+
+  smoke-test:
+    name: Smoke Test
+    runs-on: ubuntu-latest
+    needs: lint
+    # Skip if credentials not configured
+    if: |
+      secrets.QUALYS_USERNAME != ''
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check credentials
+        id: creds
+        run: |
+          if [ -z "$QUALYS_USERNAME" ]; then
+            echo "⚠️ Qualys secrets not configured — skipping live API tests"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up Python 3.11
+        if: steps.creds.outputs.skip != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        if: steps.creds.outputs.skip != 'true'
+        run: pip install -e . 2>/dev/null || pip install mcp httpx
+
       - name: Run smoke tests
+        if: steps.creds.outputs.skip != 'true'
         run: bash test_tools.sh fast
 
   benchmark:
     name: Benchmark Regression
     runs-on: ubuntu-latest
-    needs: smoke-test
+    needs: lint
     steps:
       - uses: actions/checkout@v4
 
@@ -114,7 +156,7 @@ jobs:
   eval:
     name: Eval Harness
     runs-on: ubuntu-latest
-    needs: smoke-test
+    needs: lint
     steps:
       - uses: actions/checkout@v4
 
@@ -139,7 +181,7 @@ jobs:
   conversation-tests:
     name: Conversation Tests
     runs-on: ubuntu-latest
-    needs: smoke-test
+    needs: lint
     steps:
       - uses: actions/checkout@v4
 
