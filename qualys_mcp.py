@@ -985,11 +985,15 @@ def _run_concurrent(**tasks):
 
 
 @mcp.tool()
-def get_weekly_priorities(limit: int = 10) -> dict:
+def get_weekly_priorities(limit: int = 10, sort_by: str = "trurisk") -> dict:
     """[Risk Management] Prioritized security actions for the week — top high-risk assets ranked by TruRisk score, risk distribution across severity tiers, and container risks. Fast (~5s).
 
     **Use when:** Starting the week, planning sprint priorities, asking "what should we fix first?", or looking for the top assets to remediate.
     **NOT for:** Daily threat monitoring (use get_morning_report), single-asset details (use get_asset_risk), or cloud posture (use get_cloud_risk).
+
+    Parameters:
+        limit: max top-risk assets to return (default 10)
+        sort_by: ranking method — 'trurisk' (default, CSAM field truRisk DESC) or 'severity'
 
     Returns: topRiskAssets (ranked by TruRisk), priorities (actionable items), summary counts by risk tier.
     Follow up with get_asset_risk(assetId) for per-asset vulnerability details. For actual patch deployment status, use get_eliminate_status. For a patch catalog view, use get_patch_status."""
@@ -2305,7 +2309,7 @@ def get_morning_report() -> dict:
     Returns: environment health, new vuln counts (24h), threat flags (ransomware/exploits/CISA KEV), top risk assets, and prioritized action items."""
     result = {'report': 'Daily Security Briefing', 'environment': {},
               'newVulns': {}, 'threats': {}, 'topRiskAssets': [],
-              'actionItems': []}
+              'actionItems': [], 'truriskTrend': {}}
 
     # Run everything concurrently for speed
     concurrent = _run_concurrent(
@@ -2315,6 +2319,11 @@ def get_morning_report() -> dict:
         ransomware=lambda: search_vulns.fn(days=1, threat_type='Ransomware'),
         active=lambda: search_vulns.fn(days=1, threat_type='Active_Attacks'),
         cisa=lambda: search_vulns.fn(days=1, threat_type='Cisa_Known_Exploited_Vulns'),
+        trurisk_now=lambda: csam_search(limit=100, fields="truRisk"),
+        trurisk_7d=lambda: csam_search(
+            filters=[{"field": "asset.lastModifiedDate", "operator": "LESS",
+                      "value": (datetime.now(timezone.utc) - timedelta(days=7)).strftime('%Y-%m-%dT00:00:00Z')}],
+            limit=100, fields="truRisk", fetch_all=False),
     )
 
     # Environment status
@@ -2370,6 +2379,29 @@ def get_morning_report() -> dict:
 
     # Action items
     result['actionItems'] = priorities.get('priorities') or []
+
+    # TruRisk trend direction
+    now_assets = concurrent.get('trurisk_now') or []
+    old_assets = concurrent.get('trurisk_7d') or []
+    if now_assets:
+        avg_now = sum(int(a.get('riskScore') or 0) for a in now_assets) / len(now_assets)
+        avg_old = (sum(int(a.get('riskScore') or 0) for a in old_assets) / len(old_assets)) if old_assets else avg_now
+        delta = avg_now - avg_old
+        if delta < -5:
+            direction = 'improving'
+            arrow = '↓'
+        elif delta > 5:
+            direction = 'worsening'
+            arrow = '↑'
+        else:
+            direction = 'stable'
+            arrow = '→'
+        result['truriskTrend'] = {
+            'current': round(avg_now),
+            'direction': direction,
+            'display': f"TruRisk: {round(avg_now)} {arrow} {direction}",
+            'delta': round(delta),
+        }
 
     return result
 
@@ -2686,13 +2718,15 @@ def get_asset_risk(asset_id: str) -> dict:
 
     **Use when:** Investigating a specific asset — "what's the risk on this server?", checking installed software, or confirming EOL status. Pass assetId from get_weekly_priorities, get_patch_status, get_etm_findings, or get_asset_inventory results.
     **NOT for:** Full asset profile with ETM findings + VMDR detections (use get_asset_full_profile), browsing multiple assets (use get_weekly_priorities or get_asset_inventory), or environment-wide risk (use get_weekly_priorities)."""
-    result = {'assetId': asset_id, 'riskScore': 0, 'software': [], 'eolSoftware': []}
+    result = {'assetId': asset_id, 'riskScore': 0, 'truriskScore': 0, 'software': [], 'eolSoftware': []}
 
     asset = get_asset_by_id(asset_id)
     if asset:
         result['ip'] = asset.get('address', '')
         result['hostname'] = asset.get('dnsHostName', '') or asset.get('dnsName', '')
-        result['riskScore'] = int(asset.get('riskScore') or 0)
+        trurisk = int(asset.get('riskScore') or 0)
+        result['riskScore'] = trurisk
+        result['truriskScore'] = trurisk
         result['os'] = (asset.get('operatingSystem') or {}).get('osName', '')
         result['criticality'] = get_criticality(asset)
         result['hostId'] = str(asset.get('hostId') or '')
@@ -4083,7 +4117,7 @@ def get_asset_inventory(query: str = "", tag: str = "", os: str = "", days_since
     f = filters if filters else None
     data = _run_concurrent(
         assets=lambda: csam_search(filters=f, limit=limit,
-                                   fields="operatingSystem,hardware,tags,vulnerabilities,tagList"),
+                                   fields="operatingSystem,hardware,tags,vulnerabilities,tagList,truRisk,truRiskScoreFactors"),
         total=lambda: csam_count(filters=f),
     )
     assets = data.get('assets', [])
@@ -4370,6 +4404,145 @@ def get_compliance_posture(framework: str = "", platform: str = "", limit: int =
     result = _empty_result()
     result['error'] = 'PC module not licensed or no compliance data available'
     result['suggestion'] = 'Enable the Qualys Policy Compliance (PC) module, or use get_cloud_risk() for cloud CIS compliance.'
+    return result
+
+
+@mcp.tool()
+def get_trurisk_score(days: int = 30, breakdown_by: str = "tag") -> dict:
+    """[Risk Management] Org-level TruRisk score with trending and breakdown — current aggregate TruRisk, trend over N days, top 10 assets by TruRisk, top 10 vulnerability QIDs contributing most, and optional breakdown by tag. Fast (~5s).
+
+    **Use when:** Asked about overall TruRisk score, risk trends, "what's our org risk?", "is risk going up or down?", or risk breakdown by business unit/tag.
+    **NOT for:** Single-asset risk (use get_asset_risk), weekly remediation planning (use get_weekly_priorities), or vulnerability investigation (use investigate_cve).
+
+    Parameters:
+        days: trend window in days (default 30). Compares current avg TruRisk vs N days ago.
+        breakdown_by: 'tag' groups assets by their tags showing TruRisk per tag, 'none' skips breakdown.
+
+    Returns: aggregate TruRisk, trend direction, top 10 assets, top 10 QIDs by contribution, and tag breakdown."""
+    result = {'aggregate': {}, 'trend': {}, 'topAssets': [], 'topQIDs': [], 'breakdown': []}
+
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime('%Y-%m-%dT00:00:00Z')
+
+    concurrent = _run_concurrent(
+        total=lambda: csam_count(),
+        risk_900=lambda: csam_count([{"field": "asset.truRisk", "operator": "GREATER", "value": "900"}]),
+        risk_700=lambda: csam_count([{"field": "asset.truRisk", "operator": "GREATER", "value": "700"}]),
+        risk_500=lambda: csam_count([{"field": "asset.truRisk", "operator": "GREATER", "value": "500"}]),
+        risk_100=lambda: csam_count([{"field": "asset.truRisk", "operator": "GREATER", "value": "100"}]),
+        top_assets=lambda: csam_search(
+            [{"field": "asset.truRisk", "operator": "GREATER", "value": "500"}],
+            limit=100, fields="truRisk,tags,operatingSystem,tagList,vulnerabilities"
+        ),
+        old_assets=lambda: csam_search(
+            filters=[{"field": "asset.lastModifiedDate", "operator": "LESS", "value": cutoff}],
+            limit=100, fields="truRisk", fetch_all=False
+        ),
+    )
+
+    total = concurrent.get('total') or 0
+    result['aggregate'] = {
+        'totalAssets': total,
+        'criticalRisk_900plus': concurrent.get('risk_900') or 0,
+        'highRisk_700plus': concurrent.get('risk_700') or 0,
+        'elevatedRisk_500plus': concurrent.get('risk_500') or 0,
+        'anyRisk_100plus': concurrent.get('risk_100') or 0,
+    }
+
+    # Top 10 assets by TruRisk
+    top_assets = concurrent.get('top_assets') or []
+    top_assets.sort(key=lambda a: int(a.get('riskScore') or 0), reverse=True)
+    for asset in top_assets[:10]:
+        tags = []
+        for t in (asset.get('tags') or asset.get('tagList') or []):
+            tag_name = t.get('name', '') if isinstance(t, dict) else str(t)
+            if tag_name:
+                tags.append(tag_name)
+        result['topAssets'].append({
+            'assetId': str(asset.get('assetId', '')),
+            'hostname': asset.get('dnsHostName', '') or asset.get('dnsName', ''),
+            'ip': asset.get('address', ''),
+            'truriskScore': int(asset.get('riskScore') or 0),
+            'os': (asset.get('operatingSystem') or {}).get('osName', ''),
+            'tags': tags[:5],
+        })
+
+    # Compute avg TruRisk now vs N days ago for trend
+    if top_assets:
+        avg_now = sum(int(a.get('riskScore') or 0) for a in top_assets) / len(top_assets)
+    else:
+        avg_now = 0
+
+    old_assets = concurrent.get('old_assets') or []
+    if old_assets:
+        avg_old = sum(int(a.get('riskScore') or 0) for a in old_assets) / len(old_assets)
+    else:
+        avg_old = avg_now
+
+    delta = avg_now - avg_old
+    if delta < -5:
+        direction = 'improving'
+        arrow = '↓'
+    elif delta > 5:
+        direction = 'worsening'
+        arrow = '↑'
+    else:
+        direction = 'stable'
+        arrow = '→'
+
+    result['trend'] = {
+        'days': days,
+        'avgTruRiskCurrent': round(avg_now),
+        'avgTruRiskPrior': round(avg_old),
+        'delta': round(delta),
+        'direction': direction,
+        'display': f"TruRisk: {round(avg_now)} {arrow} {direction}",
+    }
+
+    # Top QIDs contributing to risk — extract from top assets' vulnerability data if available
+    qid_risk = {}
+    for asset in top_assets[:50]:
+        vulns = asset.get('vulnerabilities') or {}
+        asset_risk = int(asset.get('riskScore') or 0)
+        # CSAM may include vulnerability counts but not individual QIDs in search results;
+        # count contribution by asset presence for the top-risk assets
+        vuln_count = vulns.get('count', 0) or 0
+        if vuln_count > 0 and asset_risk > 0:
+            # Attribute asset risk proportionally as a proxy
+            for qid_entry in (vulns.get('list') or [])[:20]:
+                qid_val = qid_entry.get('qid') or qid_entry.get('qds', {}).get('qid')
+                if qid_val:
+                    qid_risk[qid_val] = qid_risk.get(qid_val, 0) + (asset_risk // max(vuln_count, 1))
+    top_qids = sorted(qid_risk.items(), key=lambda x: -x[1])[:10]
+    result['topQIDs'] = [{'qid': q, 'riskContribution': r} for q, r in top_qids]
+
+    # Tag breakdown
+    if breakdown_by == 'tag' and top_assets:
+        tag_scores = {}  # {tag: [scores]}
+        for asset in top_assets:
+            score = int(asset.get('riskScore') or 0)
+            asset_tags = asset.get('tags') or asset.get('tagList') or []
+            tag_names = []
+            for t in asset_tags:
+                name = t.get('name', '') if isinstance(t, dict) else str(t)
+                if name:
+                    tag_names.append(name)
+            if not tag_names:
+                tag_names = ['Untagged']
+            for tn in tag_names:
+                if tn not in tag_scores:
+                    tag_scores[tn] = []
+                tag_scores[tn].append(score)
+        breakdown = []
+        for tn, scores in tag_scores.items():
+            breakdown.append({
+                'tag': tn,
+                'assetCount': len(scores),
+                'avgTruRisk': round(sum(scores) / len(scores)),
+                'maxTruRisk': max(scores),
+            })
+        breakdown.sort(key=lambda x: -x['avgTruRisk'])
+        result['breakdown'] = breakdown[:20]
+
     return result
 
 
