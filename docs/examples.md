@@ -597,6 +597,91 @@ Q: I need to brief the CISO on our security program.
 
 ---
 
+## Multi-turn Conversation Examples
+
+These examples show how context carries across multiple turns, allowing follow-up questions to refine results without repeating filters.
+
+### Filter Chaining
+
+```
+Turn 1: "Show me vulnerabilities for assets tagged env:prod"
+  → search_vulns() + get_asset_inventory(tag="env:prod")
+  Context: tag=env:prod
+
+Turn 2: "Now filter to critical severity only"
+  → search_vulns(threat_type=...) with tag=env:prod still applied
+  Context: tag=env:prod, severity=Critical
+
+Turn 3: "Which of those have patches available?"
+  → search_vulns() or get_patch_status() — tag + severity preserved
+  Context: tag=env:prod, severity=Critical, patch_available=true
+```
+
+### CVE Investigation Drilldown
+
+```
+Turn 1: "Are we affected by Log4Shell?"
+  → investigate_cve(cve="CVE-2021-44228")
+  Context: cve=CVE-2021-44228
+
+Turn 2: "How many assets are affected?"
+  → get_etm_findings(qql="...CVE-2021-44228") — CVE preserved
+  Context: cve=CVE-2021-44228, scope=affected_assets
+
+Turn 3: "Show me only the production ones"
+  → get_asset_inventory(tag="Production") — CVE + prod filter
+  Context: cve=CVE-2021-44228, tag=Production
+```
+
+### Asset Drilldown
+
+```
+Turn 1: "What are our riskiest assets?"
+  → get_weekly_priorities()
+
+Turn 2: "Tell me more about asset 233946644"
+  → get_asset_full_profile(asset_id="233946644")
+  Context: asset_id=233946644
+
+Turn 3: "What patches does it need?"
+  → get_patch_status() or get_etm_findings() — asset_id preserved
+  Context: asset_id=233946644, focus=patches
+```
+
+### Cross-Tool Context
+
+```
+Turn 1: "Give me the morning security briefing"
+  → get_morning_report()
+
+Turn 2: "What threat intel on the ransomware vulns mentioned?"
+  → search_vulns(threat_type="Ransomware")
+  Context: threat_type=Ransomware
+
+Turn 3: "Are any of those being actively exploited?"
+  → search_vulns(threat_type="Active_Attacks") — ransomware context preserved
+
+Turn 4: "What's our patch coverage for these?"
+  → get_patch_status() + get_eliminate_status() — threat context preserved
+```
+
+### Web App Vulnerability Drill
+
+```
+Turn 1: "What web app vulnerabilities were found this month?"
+  → get_webapp_vulns(days=30)
+  Context: days=30
+
+Turn 2: "Filter to SQL injection findings only"
+  → get_webapp_vulns(owasp_category="Injection", days=30)
+  Context: days=30, owasp_category=Injection
+
+Turn 3: "Which apps are affected?"
+  → get_webapp_vulns(...) — filters preserved, focus on per-app breakdown
+```
+
+---
+
 ## Tips for AI Assistants
 
 - **For "what happened" questions** → Start with `get_morning_report()` or `get_new_vulns()`

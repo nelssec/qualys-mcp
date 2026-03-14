@@ -1,0 +1,26 @@
+name: "Web App Vulnerabilities"
+description: "Tests web app vuln investigation from broad view to SQL injection to affected apps"
+turns:
+  - user: "what web application vulnerabilities were found this month?"
+    expected_tools: ["get_webapp_vulns"]
+    context_carries:
+      - key: "days"
+        value: "30"
+    context_assertions:
+      - "time window set to 30 days"
+
+  - user: "filter to SQL injection findings only"
+    expected_tools: ["get_webapp_vulns"]
+    context_carries:
+      - key: "owasp_category"
+        value: "Injection"
+    context_assertions:
+      - "30-day window preserved"
+      - "OWASP category filter set to Injection"
+
+  - user: "which apps are affected?"
+    expected_tools: ["get_webapp_vulns"]
+    context_assertions:
+      - "Injection filter preserved"
+      - "30-day window preserved"
+      - "focus on per-app breakdown of SQL injection findings"

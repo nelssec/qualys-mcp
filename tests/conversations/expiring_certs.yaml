@@ -1,0 +1,25 @@
+name: "Expiring Certificates"
+description: "Tests certificate investigation from broad expiry check to critical domain focus"
+turns:
+  - user: "which SSL certificates expire in the next 30 days?"
+    expected_tools: ["get_expiring_certs"]
+    context_carries:
+      - key: "days"
+        value: "30"
+    context_assertions:
+      - "expiry window set to 30 days"
+
+  - user: "which of those are critical — weak keys or self-signed?"
+    expected_tools: ["get_expiring_certs"]
+    context_carries:
+      - key: "weak_only"
+        value: "true"
+    context_assertions:
+      - "30-day window preserved"
+      - "weak_only filter added"
+
+  - user: "what domains are affected by the expiring ones?"
+    expected_tools: ["get_expiring_certs"]
+    context_assertions:
+      - "expiring cert context preserved"
+      - "focus on domain extraction from cert results"
