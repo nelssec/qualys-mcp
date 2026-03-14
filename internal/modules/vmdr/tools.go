@@ -108,6 +108,47 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 		),
 		m.listAssetGroups,
 	)
+
+	s.AddTool(
+		mcp.NewTool("vmdr_get_scan_schedules",
+			mcp.WithDescription("List all scheduled vulnerability scans with next run time and last launch info. Use to audit scan scheduling and identify gaps."),
+		),
+		m.listScanSchedules,
+	)
+
+	s.AddTool(
+		mcp.NewTool("vmdr_get_option_profiles",
+			mcp.WithDescription("List all VM scan option profiles. Option profiles define what is scanned (ports, authentication, QIDs). Use when launching scans or auditing scan configuration."),
+		),
+		m.listOptionProfiles,
+	)
+
+	s.AddTool(
+		mcp.NewTool("vmdr_get_ip_list",
+			mcp.WithDescription("List tracked IPs and IP ranges in the Qualys subscription. Shows all assets being monitored."),
+			mcp.WithString("network", mcp.Description("Optional: filter by network or IP range (e.g. 192.168.1.0/24)")),
+		),
+		m.listTrackedIPs,
+	)
+
+	s.AddTool(
+		mcp.NewTool("vmdr_launch_scan",
+			mcp.WithDescription("Launch an on-demand vulnerability scan. Returns the scan reference ID for tracking."),
+			mcp.WithString("title", mcp.Required(), mcp.Description("Title for the scan")),
+			mcp.WithString("option_profile", mcp.Required(), mcp.Description("Name of the option profile to use for scanning")),
+			mcp.WithString("targets", mcp.Description("Comma-separated IPs or CIDR ranges to scan (e.g. 192.168.1.0/24,10.0.0.1)")),
+			mcp.WithString("asset_groups", mcp.Description("Comma-separated asset group IDs to scan")),
+		),
+		m.launchScan,
+	)
+
+	s.AddTool(
+		mcp.NewTool("vmdr_get_scan_coverage",
+			mcp.WithDescription("Show scan coverage gaps — assets not scanned within the threshold days. Defaults to 7 days. Returns a report with never-scanned and stale assets."),
+			mcp.WithNumber("threshold_days", mcp.Description("Days since last scan to consider an asset stale (default: 7)")),
+		),
+		m.getScanCoverage,
+	)
 }
 
 func (m *Module) listHosts(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -323,5 +364,79 @@ func (m *Module) listAssetGroups(ctx context.Context, req mcp.CallToolRequest) (
 	}
 
 	data, _ := json.MarshalIndent(groups, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+func (m *Module) listScanSchedules(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	schedules, err := m.client.ListScanSchedules(ctx)
+	if err != nil {
+		return newToolResultError(fmt.Sprintf("Failed to list scan schedules: %v", err)), nil
+	}
+
+	data, _ := json.MarshalIndent(schedules, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+func (m *Module) listOptionProfiles(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	profiles, err := m.client.ListOptionProfiles(ctx)
+	if err != nil {
+		return newToolResultError(fmt.Sprintf("Failed to list option profiles: %v", err)), nil
+	}
+
+	data, _ := json.MarshalIndent(profiles, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+func (m *Module) listTrackedIPs(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	network, _ := req.Params.Arguments["network"].(string)
+
+	result, err := m.client.ListTrackedIPs(ctx, network)
+	if err != nil {
+		return newToolResultError(fmt.Sprintf("Failed to list tracked IPs: %v", err)), nil
+	}
+
+	data, _ := json.MarshalIndent(result, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+func (m *Module) launchScan(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	title, ok := req.Params.Arguments["title"].(string)
+	if !ok || title == "" {
+		return newToolResultError("title is required"), nil
+	}
+
+	optionProfile, ok := req.Params.Arguments["option_profile"].(string)
+	if !ok || optionProfile == "" {
+		return newToolResultError("option_profile is required"), nil
+	}
+
+	targets, _ := req.Params.Arguments["targets"].(string)
+	assetGroups, _ := req.Params.Arguments["asset_groups"].(string)
+
+	if targets == "" && assetGroups == "" {
+		return newToolResultError("at least one of targets or asset_groups is required"), nil
+	}
+
+	result, err := m.client.LaunchScan(ctx, title, optionProfile, targets, assetGroups)
+	if err != nil {
+		return newToolResultError(fmt.Sprintf("Failed to launch scan: %v", err)), nil
+	}
+
+	data, _ := json.MarshalIndent(result, "", "  ")
+	return mcp.NewToolResultText(string(data)), nil
+}
+
+func (m *Module) getScanCoverage(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	thresholdDays := 7
+	if t, ok := req.Params.Arguments["threshold_days"].(float64); ok && t > 0 {
+		thresholdDays = int(t)
+	}
+
+	report, err := m.client.GetScanCoverageGaps(ctx, thresholdDays)
+	if err != nil {
+		return newToolResultError(fmt.Sprintf("Failed to get scan coverage: %v", err)), nil
+	}
+
+	data, _ := json.MarshalIndent(report, "", "  ")
 	return mcp.NewToolResultText(string(data)), nil
 }
