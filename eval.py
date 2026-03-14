@@ -286,7 +286,9 @@ def main():
         questions = questions[: args.limit]
 
     print(f"Qualys MCP Eval — {len(questions)} questions, threshold {threshold}%")
-    print(f"Server: {os.environ.get('QUALYS_BASE_URL', '?')}")
+    base = os.environ.get("QUALYS_BASE_URL", "?")
+    host = base.split("/")[2] if "/" in base else base
+    print(f"Server: {host}")
     print()
 
     results = []
