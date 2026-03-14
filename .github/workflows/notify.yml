@@ -1,0 +1,31 @@
+name: Notify — CI/CD Alerts
+
+on:
+  workflow_run:
+    workflows:
+      - "CI — Benchmark & Eval"
+      - "Nightly — Full Eval & Baseline Update"
+    types:
+      - completed
+
+jobs:
+  notify-failure:
+    name: Telegram Alert
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    steps:
+      - name: Send Telegram notification
+        run: |
+          RUN_URL="${{ github.event.workflow_run.html_url }}"
+          WORKFLOW="${{ github.event.workflow_run.name }}"
+          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          COMMIT="${{ github.event.workflow_run.head_sha }}"
+          SHORT_SHA="${COMMIT:0:7}"
+
+          MESSAGE="❌ *CI Failure — qualys-mcp*%0A%0A*Workflow:* ${WORKFLOW}%0A*Branch:* \`${BRANCH}\`%0A*Commit:* \`${SHORT_SHA}\`%0A%0A[View run](${RUN_URL})"
+
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -d "text=${MESSAGE}" \
+            -d "parse_mode=Markdown" \
+            -d "disable_web_page_preview=true"
