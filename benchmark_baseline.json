@@ -1,0 +1,153 @@
+{
+  "timestamp": "2026-03-13T00:00:00",
+  "note": "Initial baseline — placeholder values. Updated nightly by CI.",
+  "results": [
+    {
+      "tool": "get_security_posture",
+      "description": "Security posture (CSAM concurrent)",
+      "cold_s": 3.0,
+      "warm_s": 0.5,
+      "runs": 2,
+      "result_size_bytes": 4096,
+      "errors": []
+    },
+    {
+      "tool": "get_weekly_priorities",
+      "description": "Weekly priorities (9x parallel CSAM)",
+      "cold_s": 4.0,
+      "warm_s": 0.8,
+      "runs": 2,
+      "result_size_bytes": 8192,
+      "errors": []
+    },
+    {
+      "tool": "get_patch_status",
+      "description": "Patch status",
+      "cold_s": 3.0,
+      "warm_s": 0.6,
+      "runs": 2,
+      "result_size_bytes": 4096,
+      "errors": []
+    },
+    {
+      "tool": "get_new_vulns",
+      "description": "New vulns (Qualys KB API)",
+      "cold_s": 3.0,
+      "warm_s": 0.6,
+      "runs": 2,
+      "result_size_bytes": 8192,
+      "errors": []
+    },
+    {
+      "tool": "get_tech_debt",
+      "description": "Tech debt (paginated CSAM)",
+      "cold_s": 3.0,
+      "warm_s": 0.5,
+      "runs": 2,
+      "result_size_bytes": 4096,
+      "errors": []
+    },
+    {
+      "tool": "get_morning_report",
+      "description": "Morning report (multi-concurrent)",
+      "cold_s": 8.0,
+      "warm_s": 2.0,
+      "runs": 2,
+      "result_size_bytes": 16384,
+      "errors": []
+    },
+    {
+      "tool": "get_scanner_health",
+      "description": "Scanner health (appliance XML)",
+      "cold_s": 5.0,
+      "warm_s": 1.0,
+      "runs": 2,
+      "result_size_bytes": 4096,
+      "errors": []
+    },
+    {
+      "tool": "get_eliminate_status",
+      "description": "Eliminate status (PM+MTG concurrent)",
+      "cold_s": 5.0,
+      "warm_s": 1.0,
+      "runs": 2,
+      "result_size_bytes": 4096,
+      "errors": []
+    },
+    {
+      "tool": "get_cdr_findings",
+      "description": "CDR findings (TotalCloud)",
+      "cold_s": 4.0,
+      "warm_s": 0.8,
+      "runs": 2,
+      "result_size_bytes": 4096,
+      "errors": []
+    },
+    {
+      "tool": "get_cloud_risk",
+      "description": "Cloud risk (sequential providers)",
+      "cold_s": 4.0,
+      "warm_s": 0.8,
+      "runs": 2,
+      "result_size_bytes": 4096,
+      "errors": []
+    },
+    {
+      "tool": "get_recommendations",
+      "description": "Recommendations (cloud+CSAM)",
+      "cold_s": 5.0,
+      "warm_s": 1.0,
+      "runs": 2,
+      "result_size_bytes": 8192,
+      "errors": []
+    },
+    {
+      "tool": "get_threat_intel",
+      "description": "Threat intel (VMDR detection API)",
+      "cold_s": 15.0,
+      "warm_s": 3.0,
+      "runs": 2,
+      "result_size_bytes": 16384,
+      "errors": []
+    },
+    {
+      "tool": "get_etm_findings",
+      "description": "ETM findings (report API)",
+      "cold_s": 10.0,
+      "warm_s": 2.0,
+      "runs": 2,
+      "result_size_bytes": 8192,
+      "errors": []
+    },
+    {
+      "tool": "investigate_cve",
+      "description": "CVE investigation (KB+CSAM+QDS)",
+      "cold_s": 6.0,
+      "warm_s": 1.2,
+      "runs": 2,
+      "result_size_bytes": 4096,
+      "errors": []
+    },
+    {
+      "tool": "get_cve_details",
+      "description": "CVE details bulk (2 CVEs)",
+      "cold_s": 5.0,
+      "warm_s": 1.0,
+      "runs": 2,
+      "result_size_bytes": 8192,
+      "errors": []
+    }
+  ],
+  "targets": {
+    "cold": {
+      "fast": 5.0,
+      "medium": 15.0,
+      "slow": 60.0
+    },
+    "warm": {
+      "fast": 1.0,
+      "medium": 3.0,
+      "slow": 5.0
+    }
+  }
+}
