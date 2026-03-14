@@ -111,7 +111,9 @@ if [ "$FILTER" = "all" ] || [ "$FILTER" = "medium" ]; then
   test_tool "get_asset_inventory" '{"eol_only": true, "limit": 10}'
   test_tool "get_asset_inventory" '{"days_since_seen": 90, "limit": 10}'
   test_tool "get_asset_inventory" '{"query": "prod", "tag": "Production"}'
-  test_tool "get_vuln_exceptions" '{"status": "active"}'
+  test_tool "get_vuln_exceptions" '{"status": "Active"}'
+  test_tool "get_vuln_exceptions" '{"vuln_type": "false_positive"}'
+  test_tool "get_vuln_exceptions" '{"days_to_expiry": 14}'
   test_tool "get_compliance_posture" '{}'
 fi
 
