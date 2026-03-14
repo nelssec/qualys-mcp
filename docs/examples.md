@@ -472,8 +472,8 @@ Q: How many scans completed today?
 ## Asset Inventory
 
 ```
-Q: Show me all Windows assets seen in the last 30 days
-→ get_asset_inventory(os="Windows", days_since_seen=30)
+Q: Show me all Windows assets
+→ get_asset_inventory(os="Windows")
 
 Q: Which assets are tagged as production?
 → get_asset_inventory(tag="production")
@@ -483,6 +483,12 @@ Q: Show me all EOL assets
 
 Q: Find assets matching "web-server"
 → get_asset_inventory(query="web-server")
+
+Q: Which assets haven't been seen in 90 days?
+→ get_asset_inventory(days_since_seen=90)
+
+Q: Show me stale Linux servers
+→ get_asset_inventory(os="Linux", days_since_seen=60)
 ```
 
 ---
