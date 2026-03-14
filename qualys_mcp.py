@@ -3751,63 +3751,131 @@ def get_scan_status(state: str = "Running,Paused,Queued,Error", days: int = 7, l
 
 
 @mcp.tool()
-def get_pm_status(platform: str = "Windows", days: int = 30, limit: int = 20) -> dict:
-    """[PM] Patch Management deployment status — jobs, patch counts by severity, asset coverage. Platform: Windows or Linux. Use get_eliminate_status() for TruRisk Eliminate/Mitigate."""
-    concurrent = _run_concurrent(
-        jobs=lambda: get_pm_jobs(platform, limit),
-        patches_total=lambda: get_pm_patches_count(platform),
-        patches_by_sev=lambda: get_pm_patches_count(platform, 'vendorSeverity'),
-        assets=lambda: get_pm_assets(platform, limit),
-    )
+def get_pm_status(platform: str = "Windows", days: int = 30, status: str = "", limit: int = 20) -> dict:
+    """[PM] Patch Management deployment status — jobs, patch severity breakdown, asset coverage %.
+    platform: Windows, Linux, macOS, or 'all' (loops all three).
+    days: only include jobs from the last N days.
+    status: filter by job status (e.g. 'Success', 'Failed', 'Running'). Empty = all.
+    Use get_eliminate_status() for TruRisk Eliminate/Mitigate overview."""
+    platforms = ['Windows', 'Linux', 'macOS'] if platform.lower() == 'all' else [platform]
 
-    jobs = concurrent.get('jobs') or []
-    patches_total = concurrent.get('patches_total') or {}
-    patches_by_sev = concurrent.get('patches_by_sev') or {}
-    assets = concurrent.get('assets') or []
+    def _pm_for_platform(plat):
+        try:
+            concurrent = _run_concurrent(
+                jobs=lambda p=plat: get_pm_jobs(p, limit),
+                patches_by_sev=lambda p=plat: get_pm_patches_count(p, 'vendorSeverity'),
+                assets=lambda p=plat: get_pm_assets(p, limit),
+            )
 
-    job_list = []
-    if isinstance(jobs, list):
-        for j in jobs[:limit]:
-            if isinstance(j, dict):
+            # --- Jobs ---
+            raw_jobs = concurrent.get('jobs') or []
+            if isinstance(raw_jobs, dict):
+                raw_jobs = raw_jobs.get('jobs', raw_jobs.get('data', []))
+            if not isinstance(raw_jobs, list):
+                raw_jobs = []
+
+            cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+            job_list = []
+            active_count = 0
+            failed_count = 0
+            for j in raw_jobs:
+                if not isinstance(j, dict):
+                    continue
+                # Date filter
+                created = j.get('createdDate', '') or j.get('created', '')
+                if created:
+                    try:
+                        job_dt = datetime.fromisoformat(created.replace('Z', '+00:00'))
+                        if job_dt < cutoff:
+                            continue
+                    except (ValueError, TypeError):
+                        pass
+                # Status filter
+                job_status = j.get('status', '')
+                if status and job_status.lower() != status.lower():
+                    continue
+                if job_status in ('Running', 'Queued', 'Scheduled', 'InProgress'):
+                    active_count += 1
+                if job_status in ('Failed', 'Error'):
+                    failed_count += 1
                 job_list.append({
-                    'id': j.get('id', ''), 'name': j.get('name', ''),
-                    'status': j.get('status', ''), 'platform': platform,
-                    'createdDate': j.get('createdDate', ''),
+                    'id': j.get('id', ''),
+                    'name': j.get('name', ''),
+                    'status': job_status,
+                    'platform': plat,
+                    'createdDate': created,
+                    'completion': j.get('completionPercent'),
+                    'assets': j.get('applicableAssetCount') or j.get('assetCount') or 0,
                 })
-    elif isinstance(jobs, dict):
-        for j in jobs.get('jobs', jobs.get('data', []))[:limit]:
-            if isinstance(j, dict):
-                job_list.append({
-                    'id': j.get('id', ''), 'name': j.get('name', ''),
-                    'status': j.get('status', ''), 'platform': platform,
-                })
+                if len(job_list) >= limit:
+                    break
 
-    asset_list = []
-    if isinstance(assets, list):
-        for a in assets[:limit]:
-            if isinstance(a, dict):
-                asset_list.append({
-                    'id': a.get('id', ''), 'name': a.get('name', '') or a.get('hostname', ''),
-                    'os': a.get('os', '') or a.get('operatingSystem', ''),
-                })
-    elif isinstance(assets, dict):
-        for a in assets.get('assets', assets.get('data', []))[:limit]:
-            if isinstance(a, dict):
-                asset_list.append({
-                    'id': a.get('id', ''), 'name': a.get('name', ''),
-                })
+            # --- Patch severity ---
+            patches_by_sev = concurrent.get('patches_by_sev') or {}
+            sev_data = patches_by_sev.get('vendorSeverity', patches_by_sev) if isinstance(patches_by_sev, dict) else {}
+            critical = 0
+            if isinstance(sev_data, dict):
+                critical = sev_data.get('Critical', 0) + sev_data.get('critical', 0)
 
-    return {
-        'platform': platform,
-        'stats': {
-            'totalPatches': patches_total.get('count', patches_total) if isinstance(patches_total, dict) else patches_total,
-            'patchesBySeverity': patches_by_sev,
-            'totalJobs': len(job_list),
-            'totalAssets': len(asset_list),
-        },
-        'jobs': job_list,
-        'assets': asset_list,
-    }
+            # --- Assets & coverage ---
+            raw_assets = concurrent.get('assets') or []
+            if isinstance(raw_assets, dict):
+                raw_assets = raw_assets.get('assets', raw_assets.get('data', []))
+            if not isinstance(raw_assets, list):
+                raw_assets = []
+
+            total_assets = len(raw_assets)
+            patched_assets = sum(1 for a in raw_assets if isinstance(a, dict) and a.get('patchStatus', '') in ('Patched', 'UpToDate', 'patched'))
+            coverage_pct = round(patched_assets / total_assets * 100, 1) if total_assets > 0 else 0.0
+
+            top_assets = []
+            for a in raw_assets[:limit]:
+                if isinstance(a, dict):
+                    top_assets.append({
+                        'id': a.get('id', ''),
+                        'name': a.get('name', '') or a.get('hostname', ''),
+                        'os': a.get('os', '') or a.get('operatingSystem', ''),
+                        'patchStatus': a.get('patchStatus', ''),
+                    })
+
+            return {
+                'summary': {
+                    'platform': plat,
+                    'totalJobs': len(job_list),
+                    'activeJobs': active_count,
+                    'failedJobs': failed_count,
+                    'patchCoverage': f"{coverage_pct}%",
+                    'criticalPatches': critical,
+                },
+                'jobs': job_list,
+                'patchSeverity': sev_data,
+                'topAssets': top_assets,
+            }
+        except Exception as e:
+            _log(f"PM status error for {plat}: {e}")
+            return {
+                'summary': {'platform': plat, 'error': str(e)},
+                'jobs': [], 'patchSeverity': {}, 'topAssets': [],
+            }
+
+    if len(platforms) == 1:
+        return _pm_for_platform(platforms[0])
+
+    # Multi-platform: run in parallel
+    tasks = {p: lambda p=p: _pm_for_platform(p) for p in platforms}
+    concurrent = _run_concurrent(**tasks)
+    results = {}
+    for p in platforms:
+        results[p.lower()] = concurrent.get(p) or {
+            'summary': {'platform': p, 'error': 'No data'},
+            'jobs': [], 'patchSeverity': {}, 'topAssets': [],
+        }
+    # Aggregate summary
+    total_jobs = sum(r['summary'].get('totalJobs', 0) for r in results.values())
+    active_jobs = sum(r['summary'].get('activeJobs', 0) for r in results.values())
+    failed_jobs = sum(r['summary'].get('failedJobs', 0) for r in results.values())
+    results['summary'] = f"All platforms: {total_jobs} jobs ({active_jobs} active, {failed_jobs} failed)"
+    return results
 
 
 @mcp.tool()

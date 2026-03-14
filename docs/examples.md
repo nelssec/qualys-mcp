@@ -427,6 +427,15 @@ Q: What Windows patches are outstanding?
 
 Q: What's our patch coverage for Linux?
 → get_pm_status(platform="Linux")
+
+Q: Show me failed patch jobs from the last week
+→ get_pm_status(status="Failed", days=7)
+
+Q: Give me patch status across all platforms
+→ get_pm_status(platform="all")
+
+Q: What's running right now for macOS patching?
+→ get_pm_status(platform="macOS", status="Running")
 ```
 
 ---
