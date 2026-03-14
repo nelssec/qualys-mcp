@@ -25,7 +25,7 @@ func New(http *common.HTTPClient, gatewayURL string) *Module {
 func (m *Module) RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcp.NewTool("fim_list_events",
-			mcp.WithDescription("List file integrity monitoring events. Shows file changes, creations, deletions, and modifications."),
+			mcp.WithDescription("[FIM EVENTS] List file integrity monitoring events — file changes, creations, deletions, and modifications.\n\nUSE WHEN: user asks 'file changes', 'FIM events', 'what files changed', 'integrity monitoring events'\nDO NOT USE WHEN: user wants FIM events for a specific asset (use fim_get_asset_events), user wants FIM incidents (use fim_list_incidents)\nPREFER INSTEAD: fim_get_asset_events when user asks about one asset; fim_list_incidents for security-relevant grouped events\n\nParameters:\n  action: filter by action type — Create, Modify, Delete, Rename\n  limit: max events to return (default: 100)\n\nReturns: FIM events with file path, action type, timestamp, asset, user, old/new hash\n\nPerformance: ~2s cold / ~0.1s warm (cached)"),
 			mcp.WithString("action", mcp.Description("Filter by action type (e.g., 'Create', 'Modify', 'Delete', 'Rename')")),
 			mcp.WithNumber("limit", mcp.Description("Maximum number of events to return (default 100)")),
 		),
@@ -34,7 +34,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("fim_list_profiles",
-			mcp.WithDescription("List FIM monitoring profiles. Shows configured file monitoring rules and policies."),
+			mcp.WithDescription("[FIM CONFIG] List FIM monitoring profiles — configured file monitoring rules and policies.\n\nUSE WHEN: user asks 'FIM profiles', 'monitoring rules', 'what files are monitored', 'FIM configuration'\nDO NOT USE WHEN: user wants FIM events (use fim_list_events), user wants FIM assets (use fim_list_assets)\n\nParameters:\n  limit: max profiles to return (default: 100)\n\nReturns: profiles with IDs, names, monitored paths, rules, assigned assets\n\nPerformance: ~1s cold / ~0.1s warm (cached)"),
 			mcp.WithNumber("limit", mcp.Description("Maximum number of profiles to return (default 100)")),
 		),
 		m.listProfiles,
@@ -42,7 +42,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("fim_list_assets",
-			mcp.WithDescription("List assets monitored by FIM with their event counts."),
+			mcp.WithDescription("[FIM ASSETS] List assets monitored by FIM with their event counts.\n\nUSE WHEN: user asks 'FIM-monitored assets', 'which assets have FIM', 'FIM coverage'\nDO NOT USE WHEN: user wants GAV asset inventory (use gav_list_assets), user wants FIM events for one asset (use fim_get_asset_events)\n\nParameters:\n  filter: filter expression for assets\n  limit: max assets to return (default: 100)\n\nReturns: FIM assets with IDs, hostnames, event counts, last event time\n\nPerformance: ~2s cold / ~0.1s warm (cached)"),
 			mcp.WithString("filter", mcp.Description("Filter expression for assets")),
 			mcp.WithNumber("limit", mcp.Description("Maximum number of assets to return (default 100)")),
 		),
@@ -51,7 +51,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("fim_list_incidents",
-			mcp.WithDescription("List FIM security incidents. Shows grouped file change events that may indicate security issues."),
+			mcp.WithDescription("[FIM INCIDENTS] List FIM security incidents — grouped file change events that may indicate security issues.\n\nUSE WHEN: user asks 'FIM incidents', 'file integrity incidents', 'suspicious file changes', 'FIM alerts'\nDO NOT USE WHEN: user wants raw FIM events (use fim_list_events), user wants EDR incidents (use edr_list_indicators)\n\nParameters:\n  status: filter by incident status — Open, Closed, InProgress\n  limit: max incidents to return (default: 100)\n\nReturns: incidents with IDs, status, severity, affected files, asset, timeline\n\nPerformance: ~2s cold / ~0.1s warm (cached)"),
 			mcp.WithString("status", mcp.Description("Filter by incident status (e.g., 'Open', 'Closed', 'InProgress')")),
 			mcp.WithNumber("limit", mcp.Description("Maximum number of incidents to return (default 100)")),
 		),
@@ -60,7 +60,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("fim_get_asset_events",
-			mcp.WithDescription("Get FIM events for a specific asset."),
+			mcp.WithDescription("[FIM ASSET EVENTS] Get FIM events for a specific asset.\n\nUSE WHEN: user asks 'file changes on asset X', 'FIM events for this host', drilling into one asset's file changes\nDO NOT USE WHEN: user wants events across all assets (use fim_list_events)\n\nParameters:\n  asset_id: (required) the asset ID to get events for\n  limit: max events to return (default: 100)\n\nReturns: FIM events for the asset with file path, action, timestamp, user, hash changes\n\nPerformance: ~2s cold / ~0.1s warm (cached)"),
 			mcp.WithString("asset_id", mcp.Required(), mcp.Description("The asset ID to get events for")),
 			mcp.WithNumber("limit", mcp.Description("Maximum number of events to return (default 100)")),
 		),
