@@ -1,0 +1,25 @@
+name: "Compliance Drill"
+description: "Tests drilling from overall posture to failed controls and remediation"
+turns:
+  - user: "what's our compliance posture?"
+    expected_tools: ["get_compliance_posture"]
+    context_carries:
+      - key: "scope"
+        value: "all_frameworks"
+    context_assertions:
+      - "compliance posture queried across all frameworks"
+
+  - user: "show me the failing PCI-DSS controls"
+    expected_tools: ["get_compliance_posture"]
+    context_carries:
+      - key: "framework"
+        value: "PCI-DSS"
+    context_assertions:
+      - "framework narrowed to PCI-DSS"
+      - "focus on failing controls"
+
+  - user: "what do we need to fix to pass?"
+    expected_tools: ["get_recommendations", "get_patch_status"]
+    context_assertions:
+      - "PCI-DSS framework preserved"
+      - "remediation context established"

@@ -1,0 +1,25 @@
+name: "CVE Investigation"
+description: "Tests a multi-step CVE investigation from initial lookup to production impact"
+turns:
+  - user: "are we affected by Log4Shell?"
+    expected_tools: ["investigate_cve"]
+    context_carries:
+      - key: "cve"
+        value: "CVE-2021-44228"
+    context_assertions:
+      - "CVE-2021-44228 should be investigated"
+
+  - user: "how many assets are affected?"
+    expected_tools: ["get_etm_findings", "search_vulns"]
+    context_assertions:
+      - "CVE-2021-44228 context preserved"
+      - "query scoped to affected asset count"
+
+  - user: "show me only the production ones"
+    expected_tools: ["get_asset_inventory", "search_vulns"]
+    context_carries:
+      - key: "tag"
+        value: "Production"
+    context_assertions:
+      - "CVE-2021-44228 still in scope"
+      - "Production tag filter applied"
