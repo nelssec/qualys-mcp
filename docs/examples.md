@@ -128,10 +128,10 @@ Q: Show me all Chrome and Edge vulnerabilities
 
 ```
 Q: Why is asset 233946644 showing up as high risk?
-→ get_asset_risk(asset_id="233946644")
+→ get_asset(asset_id="233946644")
 
 Q: Walk me through the risk profile for server prod-web-01
-→ get_asset_risk(asset_id="<id for prod-web-01>")
+→ get_asset(asset_id="<id for prod-web-01>")
 
 Q: How many EOL systems do we have? What are they?
 → get_tech_debt()
@@ -148,16 +148,16 @@ Q: Which Windows 2012 servers are still in our environment?
 
 ```
 Q: Give me everything on asset 233946644 — risk, vulns, detections, the works
-→ get_asset_full_profile(asset_id="233946644")
+→ get_asset(asset_id="233946644", detail="full")
 
 Q: I need to build a remediation ticket for prod-db-01. What's the full picture?
-→ get_asset_full_profile(asset_id="<id for prod-db-01>")
+→ get_asset(asset_id="<id for prod-db-01>", detail="full")
 
 Q: What ETM findings and VMDR detections does this asset have?
-→ get_asset_full_profile(asset_id="<assetId>")
+→ get_asset(asset_id="<assetId>", detail="full")
 ```
 
-Combines CSAM metadata (OS, IP, software, EOL), ETM confirmed findings (QDS, CVSS, patch status), and VMDR host detections in a single parallel call (~5-8s cold, ~2s warm). Use assetId from `get_weekly_priorities`, `get_asset_risk`, or `get_etm_findings`.
+Combines CSAM metadata (OS, IP, software, EOL), ETM confirmed findings (QDS, CVSS, patch status), and VMDR host detections in a single parallel call (~5-8s cold, ~2s warm). Use assetId from `get_weekly_priorities`, `get_asset`, or `get_etm_findings`.
 
 ### Risk by Tag
 
@@ -181,13 +181,13 @@ Returns asset count, risk tier distribution (TruRisk > 900/700/500), top risky a
 
 ```
 Q: What does our environment look like?
-→ get_environment_summary()
+→ get_morning_report(quick=True)
 
 Q: Quick health check — how many assets, what OS mix, cloud vs on-prem?
-→ get_environment_summary()
+→ get_morning_report(quick=True)
 
 Q: I'm new here. Give me the lay of the land.
-→ get_environment_summary()
+→ get_morning_report(quick=True)
 ```
 
 Fast all-CSAM snapshot (<3s): total assets, OS family breakdown, cloud provider split, EOL counts, criticality distribution. Use this first for orientation, then drill into `get_weekly_priorities` or `get_risk_by_tag` for details.
@@ -255,16 +255,16 @@ Q: How many CIS controls are failing in AWS?
 → get_cloud_risk()
 
 Q: What cloud threats were detected this week?
-→ get_cdr_findings(days=7)
+→ get_cloud_risk(include_threats=True, days=7)
 
 Q: Show me critical CDR findings in AWS
-→ get_cdr_findings(severity="CRITICAL", cloud_provider="AWS")
+→ get_cloud_risk(include_threats=True, severity="CRITICAL", cloud_provider="AWS")
 
 Q: Are there any crypto-miners detected in our cloud?
-→ get_cdr_findings(days=30)
+→ get_cloud_risk(include_threats=True, days=30)
 
 Q: Show me Azure threat detections from last month
-→ get_cdr_findings(days=30, cloud_provider="AZURE")
+→ get_cloud_risk(include_threats=True, days=30, cloud_provider="AZURE")
 ```
 
 ---
@@ -502,22 +502,22 @@ Q: Which systems are failing the most compliance checks?
 
 ```
 Q: Show me active patch deployment jobs
-→ get_pm_status()
+→ get_eliminate_status()
 
 Q: What Windows patches are outstanding?
-→ get_pm_status(platform="Windows")
+→ get_eliminate_status(platform="Windows")
 
 Q: What's our patch coverage for Linux?
-→ get_pm_status(platform="Linux")
+→ get_eliminate_status(platform="Linux")
 
 Q: Show me failed patch jobs from the last week
-→ get_pm_status(status="Failed", days=7)
+→ get_eliminate_status(status="Failed", days=7)
 
 Q: Give me patch status across all platforms
-→ get_pm_status(platform="all")
+→ get_eliminate_status(platform="all")
 
 Q: What's running right now for macOS patching?
-→ get_pm_status(platform="macOS", status="Running")
+→ get_eliminate_status(platform="macOS", status="Running")
 ```
 
 ---
@@ -614,7 +614,7 @@ Q: We're about to go through a PCI-DSS audit. Where do we stand?
 
 Q: Is our cloud environment secure?
 → 1. get_cloud_risk()                         — Misconfig / CIS benchmark failures
-→ 2. get_cdr_findings(days=30)                — Active cloud threats
+→ 2. get_cloud_risk(include_threats=True, days=30) — Active cloud threats
 → 3. get_security_posture()                   — Cloud stats in overall posture
 
 Q: I need to brief the CISO on our security program.
@@ -670,7 +670,7 @@ Turn 1: "What are our riskiest assets?"
   → get_weekly_priorities()
 
 Turn 2: "Tell me more about asset 233946644"
-  → get_asset_full_profile(asset_id="233946644")
+  → get_asset(asset_id="233946644", detail="full")
   Context: asset_id=233946644
 
 Turn 3: "What patches does it need?"
@@ -717,11 +717,11 @@ Turn 3: "Which apps are affected?"
 - **For "what happened" questions** → Start with `get_morning_report()` or `get_new_vulns()`
 - **For specific CVE questions** → `investigate_cve()` gives full context; `get_cve_details()` for bulk
 - **For "what should we fix" questions** → `get_weekly_priorities()` ranks by TruRisk
-- **For full asset investigation** → `get_asset_full_profile(asset_id=...)` combines CSAM + ETM + VMDR in one call
-- **For asset-specific questions** → `get_asset_risk(asset_id=...)` with the asset's numeric ID
+- **For full asset investigation** → `get_asset(asset_id=..., detail="full")` combines CSAM + ETM + VMDR in one call
+- **For asset-specific questions** → `get_asset(asset_id=...)` with the asset's numeric ID
 - **For tag-based risk** → `get_risk_by_tag(tag="...")` — risk tiers and top assets for a business unit or environment
-- **For environment orientation** → `get_environment_summary()` — fast snapshot before deeper analysis
-- **For cloud questions** → `get_cloud_risk()` for posture, `get_cdr_findings()` for active threats
+- **For environment orientation** → `get_morning_report(quick=True)` — fast snapshot before deeper analysis
+- **For cloud questions** → `get_cloud_risk()` for posture, `get_cloud_risk(include_threats=True)` for active threats
 - **For software vulnerability searches** → `get_vulns_by_software(software="<product name>")`
 - **For threat hunting** → `get_threat_intel(threat_type="<category>")` — see all available RTI tags
 - **For program health** → `get_security_posture()` → `get_recommendations()` → `get_scanner_health()`
