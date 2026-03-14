@@ -52,9 +52,9 @@ _cache_locks = {}
 _cache_locks_lock = Lock()
 
 # Pagination safety: max pages any helper will fetch to prevent runaway loops.
-# At 100 items/page, 20 pages = 2,000 items — enough for detail views.
+# Set QUALYS_MAX_PAGES env var to override. 0 = unlimited (default).
 # Tools needing just a count use count_only=True (1 API call).
-MAX_PAGES = 20
+MAX_PAGES = int(os.environ.get('QUALYS_MAX_PAGES', '0'))
 
 # SSL context for environments with self-signed certificates
 SSL_CTX = None
@@ -144,63 +144,103 @@ def api_get(url, gateway=False, timeout=30):
         return None
 
 
-def get_detections(severity=5, limit=200, use_cache=True, days=30, qds_min=0):
+def _parse_detections_xml(data):
+    """Parse VMDR detection XML into a list of dicts. Returns (dets, is_truncated, max_host_id).
+    Detects WARNING CODE 1980 (truncation) for id_min pagination."""
+    dets = []
+    is_truncated = False
+    max_host_id = 0
+    try:
+        root = ET.fromstring(data)
+        # Check for truncation warning (CODE 1980)
+        for warning in root.findall('.//WARNING'):
+            code = warning.findtext('CODE', '')
+            if code == '1980':
+                is_truncated = True
+                _log("VMDR detection API: truncation warning (CODE 1980) — more records exist")
+        for host in root.findall('.//HOST'):
+            hid = host.findtext('ID', '')
+            ip = host.findtext('IP', '')
+            hostname = host.findtext('DNS', '')
+            try:
+                host_id_int = int(hid) if hid else 0
+                if host_id_int > max_host_id:
+                    max_host_id = host_id_int
+            except ValueError:
+                pass
+            for d in host.findall('.//DETECTION'):
+                qds_el = d.find('QDS')
+                qds = 0
+                if qds_el is not None and qds_el.text:
+                    try:
+                        qds = int(qds_el.text)
+                    except ValueError:
+                        pass
+                dets.append({
+                    'host_id': hid, 'ip': ip, 'hostname': hostname,
+                    'qid': int(d.findtext('QID', '0')),
+                    'severity': int(d.findtext('SEVERITY', '0')),
+                    'status': d.findtext('STATUS', ''),
+                    'qds': qds,
+                    'first_found': d.findtext('FIRST_FOUND_DATETIME', ''),
+                })
+    except ET.ParseError as e:
+        _log(f"XML parse error in detections: {e}")
+    return dets, is_truncated, max_host_id
+
+
+def get_detections(severity=5, limit=0, use_cache=True, days=30, qds_min=0, fetch_all=True):
     """Get VMDR detections with hostname and QDS. Uses 5-minute cache (TTL 300s).
     Thread-safe via _get_or_fetch — concurrent calls for the same params are deduplicated.
     Best practices: filter_superseded_qids, vm_processed_after, qds_min.
     Note: VMDR classic API is slow (~2min) for large environments.
-    Cache key excludes limit — always fetches max 500 and slices at return."""
-    # Cache key excludes limit so a call with limit=10 can reuse a limit=200 result
+    When fetch_all=True (default), paginates using id_min until no truncation warning.
+    Set limit>0 to cap returned results (0=all)."""
     cache_key = f"detections_{severity}_{days}_{qds_min}"
 
     def _fetch():
         after_date = (datetime.now(timezone.utc) - timedelta(days=days)).strftime('%Y-%m-%d')
-        url = (
+        base_url = (
             f"{BASE_URL}/api/2.0/fo/asset/host/vm/detection/?action=list"
-            f"&severities={severity}&truncation_limit=500&status=Active"
+            f"&severities={severity}&status=Active"
             f"&show_qds=1&filter_superseded_qids=1"
             f"&vm_processed_after={after_date}"
         )
         if qds_min > 0:
-            url += f"&qds_min={qds_min}"
-        data = api_get(url, timeout=180)
-        if not data:
-            return []
-        dets = []
-        try:
-            root = ET.fromstring(data)
-            for host in root.findall('.//HOST'):
-                hid = host.findtext('ID', '')
-                ip = host.findtext('IP', '')
-                hostname = host.findtext('DNS', '')
-                for d in host.findall('.//DETECTION'):
-                    qds_el = d.find('QDS')
-                    qds = 0
-                    if qds_el is not None and qds_el.text:
-                        try:
-                            qds = int(qds_el.text)
-                        except ValueError:
-                            pass
-                    dets.append({
-                        'host_id': hid, 'ip': ip, 'hostname': hostname,
-                        'qid': int(d.findtext('QID', '0')),
-                        'severity': int(d.findtext('SEVERITY', '0')),
-                        'status': d.findtext('STATUS', ''),
-                        'qds': qds,
-                        'first_found': d.findtext('FIRST_FOUND_DATETIME', ''),
-                    })
-        except ET.ParseError as e:
-            _log(f"XML parse error in detections: {e}")
-        return dets
+            base_url += f"&qds_min={qds_min}"
+
+        all_dets = []
+        id_min = 0
+        max_page_cap = MAX_PAGES if MAX_PAGES > 0 else 0  # 0 = unlimited
+        pages = 0
+        while True:
+            if max_page_cap > 0 and pages >= max_page_cap:
+                _log(f"VMDR detections: hit MAX_PAGES cap ({max_page_cap})")
+                break
+            url = base_url
+            if id_min > 0:
+                url += f"&id_min={id_min}"
+            data = api_get(url, timeout=180)
+            if not data:
+                break
+            dets, is_truncated, max_host_id = _parse_detections_xml(data)
+            all_dets.extend(dets)
+            pages += 1
+            if not is_truncated or max_host_id == 0:
+                break
+            id_min = max_host_id + 1
+        if pages > 1:
+            _log(f"VMDR detections: fetched {len(all_dets)} records across {pages} pages")
+        return all_dets
 
     if not use_cache:
         result = _fetch()
         DETECTION_CACHE[cache_key] = result
         DETECTION_CACHE_TIME[cache_key] = datetime.now(timezone.utc)
-        return result[:limit]
+        return result[:limit] if limit > 0 else result
 
     dets = _get_or_fetch(DETECTION_CACHE, DETECTION_CACHE_TIME, cache_key, _fetch, 300)
-    return dets[:limit]
+    return dets[:limit] if limit > 0 else dets
 
 
 def get_host_detections(host_id, severity=4, days=30):
@@ -265,7 +305,7 @@ def get_qds_for_qids(qids):
             data = api_get(
                 f"{BASE_URL}/api/2.0/fo/asset/host/vm/detection/?action=list"
                 f"&qids={qid_str}&show_qds=1&status=Active"
-                f"&truncation_limit=500&filter_superseded_qids=1",
+                f"&filter_superseded_qids=1",
                 timeout=60
             )
             if not data:
@@ -424,27 +464,54 @@ def csam_count(filters=None):
         return 0
 
 
-def csam_search(filters=None, limit=100, fields=None):
+def csam_search(filters=None, limit=100, fields=None, fetch_all=True):
     """Search assets with optional structured filters. Returns list of assets.
     filters: list of {"field": "...", "operator": "...", "value": "..."} dicts
     fields: comma-separated includeFields (e.g. "operatingSystem,hardware")
+    When fetch_all=True (default), paginates using lastSeenAssetId cursor until all pages exhausted.
     """
     token = get_bearer_token()
-    url = f"{GATEWAY_URL}/rest/2.0/search/am/asset?pageSize={limit}"
-    if fields:
-        url += f"&includeFields={fields}"
+    page_size = min(limit, 100) if not fetch_all else 100
     body = json.dumps({"filters": filters}) if filters else "{}"
-    req = Request(url, data=body.encode(), method='POST')
-    req.add_header('Authorization', f'Bearer {token}' if token else f'Basic {BASIC_AUTH}')
-    req.add_header('Content-Type', 'application/json')
-    req.add_header('Accept', 'application/json')
-    req.add_header('X-Requested-With', 'qualys-mcp')
-    try:
-        with _open(req, timeout=30) as resp:
-            return json.loads(resp.read()).get('assetListData', {}).get('asset', [])
-    except Exception as e:
-        _log(f"csam_search error: {e}")
-        return []
+    all_assets = []
+    last_id = None
+    max_page_cap = MAX_PAGES if MAX_PAGES > 0 else 0  # 0 = unlimited
+    pages = 0
+    while True:
+        if max_page_cap > 0 and pages >= max_page_cap:
+            _log(f"CSAM search: hit MAX_PAGES cap ({max_page_cap})")
+            break
+        if not fetch_all and len(all_assets) >= limit:
+            break
+        url = f"{GATEWAY_URL}/rest/2.0/search/am/asset?pageSize={page_size}"
+        if fields:
+            url += f"&includeFields={fields}"
+        if last_id:
+            url += f"&lastSeenAssetId={last_id}"
+        req = Request(url, data=body.encode(), method='POST')
+        req.add_header('Authorization', f'Bearer {token}' if token else f'Basic {BASIC_AUTH}')
+        req.add_header('Content-Type', 'application/json')
+        req.add_header('Accept', 'application/json')
+        req.add_header('X-Requested-With', 'qualys-mcp')
+        try:
+            with _open(req, timeout=30) as resp:
+                data = json.loads(resp.read())
+                assets = data.get('assetListData', {}).get('asset', [])
+                if not assets:
+                    break
+                all_assets.extend(assets)
+                pages += 1
+                if not data.get('hasMore'):
+                    break
+                last_id = assets[-1].get('assetId')
+        except Exception as e:
+            _log(f"csam_search error: {e}")
+            break
+    if pages > 1:
+        _log(f"CSAM search: fetched {len(all_assets)} assets across {pages} pages")
+    if not fetch_all:
+        return all_assets[:limit]
+    return all_assets
 
 
 def get_asset_by_id(asset_id):
@@ -476,16 +543,27 @@ def is_eol_stage(stage):
 
 def _paginate_json(base_url, limit, data_key='data', count_key='count',
                     page_param='pageNumber', size_param='pageSize',
-                    count_only=False, gateway=True):
+                    count_only=False, gateway=True, fetch_all=True):
     """Generic paginated fetch for JSON APIs. Returns list or int (count_only).
-    Caps at MAX_PAGES to prevent runaway loops on huge datasets."""
+    When fetch_all=True (default), fetches all pages up to MAX_PAGES (0=unlimited).
+    When fetch_all=False, respects the limit parameter strictly."""
     page_size = min(limit, 100)
     results = []
     page = 1
-    cap = min(MAX_PAGES, max(1, (limit // page_size) + 1))
+    # Determine page cap: fetch_all ignores limit-based cap; MAX_PAGES=0 means unlimited
+    if fetch_all:
+        cap = MAX_PAGES if MAX_PAGES > 0 else 0  # 0 = unlimited
+    else:
+        cap = max(1, (limit // page_size) + 1)
+        if MAX_PAGES > 0:
+            cap = min(cap, MAX_PAGES)
     sep = '&' if '?' in base_url else '?'
-    for _ in range(cap):
-        if len(results) >= limit:
+    pages_fetched = 0
+    while True:
+        if cap > 0 and pages_fetched >= cap:
+            _log(f"Pagination: hit MAX_PAGES cap ({cap}) for {base_url.split('?')[0]}")
+            break
+        if not fetch_all and len(results) >= limit:
             break
         url = f"{base_url}{sep}{size_param}={page_size}&{page_param}={page}"
         data = api_get(url, gateway=gateway)
@@ -499,12 +577,17 @@ def _paginate_json(base_url, limit, data_key='data', count_key='count',
         if not batch:
             break
         results.extend(batch)
+        pages_fetched += 1
         if len(batch) < page_size:
             break
         page += 1
     if count_only:
         return len(results)
-    return results[:limit]
+    if not fetch_all:
+        return results[:limit]
+    if len(results) > limit:
+        _log(f"Pagination: fetched {len(results)} records (requested limit={limit}) from {base_url.split('?')[0]}")
+    return results
 
 
 def get_images(limit=100, severity=None, count_only=False):
@@ -802,8 +885,9 @@ def get_criticality(asset):
     return crit or 0
 
 
-def fetch_all_eol(eol_type, limit=1000, max_pages=50):
-    """Fetch EOL assets with pagination. eol_type is 'os' or 'hardware'."""
+def fetch_all_eol(eol_type, limit=0, max_pages=0):
+    """Fetch EOL assets with pagination. eol_type is 'os' or 'hardware'.
+    limit=0 means fetch all. max_pages=0 means use global MAX_PAGES (0=unlimited)."""
     token = get_bearer_token()
     if eol_type == 'os':
         filters = [{"field": "operatingSystem.lifecycle.stage", "operator": "CONTAINS", "value": "EOL"}]
@@ -813,9 +897,14 @@ def fetch_all_eol(eol_type, limit=1000, max_pages=50):
     results = []
     seen = set()
     last_id = None
+    page_cap = max_pages if max_pages > 0 else (MAX_PAGES if MAX_PAGES > 0 else 0)
+    pages = 0
 
-    for _ in range(max_pages):
-        if len(results) >= limit:
+    while True:
+        if page_cap > 0 and pages >= page_cap:
+            _log(f"fetch_all_eol({eol_type}): hit page cap ({page_cap})")
+            break
+        if limit > 0 and len(results) >= limit:
             break
 
         url = f"{GATEWAY_URL}/rest/2.0/search/am/asset?pageSize=100"
@@ -865,13 +954,16 @@ def fetch_all_eol(eol_type, limit=1000, max_pages=50):
                             'riskScore': a.get('riskScore') or 0
                         })
 
+                pages += 1
                 if not data.get('hasMore'):
                     break
                 last_id = assets[-1].get('assetId')
         except Exception:
             break
 
-    return results[:limit]
+    if pages > 1:
+        _log(f"fetch_all_eol({eol_type}): fetched {len(results)} EOL assets across {pages} pages")
+    return results[:limit] if limit > 0 else results
 
 
 # --- Concurrent helper ---
@@ -2643,12 +2735,10 @@ def get_tech_debt(limit: int = 100) -> dict:
     CSAM filter examples used internally: operatingSystem.lifecycle.stage CONTAINS 'EOL', hardware.lifecycle.stage CONTAINS 'EOL'. Results are sorted by criticality then risk score.
 
     Note: limit=500 takes ~2 minutes due to paginated CSAM API calls."""
-    max_pages = max(5, (limit // 10) + 2)
-
-    # Run OS and hardware EOL fetches concurrently
+    # Run OS and hardware EOL fetches concurrently (fetch all, no artificial page cap)
     concurrent = _run_concurrent(
-        os_eol=lambda: fetch_all_eol('os', limit, max_pages),
-        hw_eol=lambda: fetch_all_eol('hardware', limit, max_pages),
+        os_eol=lambda: fetch_all_eol('os', limit),
+        hw_eol=lambda: fetch_all_eol('hardware', limit),
     )
 
     result = {
