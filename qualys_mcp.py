@@ -3879,8 +3879,17 @@ def get_pm_status(platform: str = "Windows", days: int = 30, status: str = "", l
 
 
 @mcp.tool()
-def get_asset_inventory(query: str = "", tag: str = "", os: str = "", days_since_seen: int = 30, eol_only: bool = False, limit: int = 50) -> dict:
-    """[CSAM] Asset inventory — search by OS, tag, or keyword. EOL/EOS filtering, last seen filtering, platform breakdown. Use get_asset_risk() for a specific asset's vulnerability details."""
+def get_asset_inventory(query: str = "", tag: str = "", os: str = "", days_since_seen: int = 0, eol_only: bool = False, limit: int = 50) -> dict:
+    """[CSAM] Asset inventory — search by OS, tag, or keyword. EOL/EOS filtering, stale-asset filtering, OS and tag breakdowns. Use get_asset_risk() for a specific asset's vulnerability details.
+
+    Parameters:
+        query: free-text search on hostname/name
+        tag: filter by asset tag name
+        os: filter by OS (e.g. "Windows", "Linux")
+        days_since_seen: only assets NOT seen in last N days (stale assets); 0 = no filter
+        eol_only: only return end-of-life assets
+        limit: max results (default 50)
+    """
     filters = []
     if os:
         filters.append({"field": "operatingSystem.osName", "operator": "CONTAINS", "value": os})
@@ -3888,45 +3897,59 @@ def get_asset_inventory(query: str = "", tag: str = "", os: str = "", days_since
         filters.append({"field": "tags.name", "operator": "CONTAINS", "value": tag})
     if query:
         filters.append({"field": "asset.name", "operator": "CONTAINS", "value": query})
-    if days_since_seen:
-        since = (datetime.now(timezone.utc) - timedelta(days=days_since_seen)).strftime('%Y-%m-%dT00:00:00Z')
-        filters.append({"field": "asset.lastSeen", "operator": "GREATER", "value": since})
+    if days_since_seen > 0:
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days_since_seen)).strftime('%Y-%m-%dT00:00:00Z')
+        filters.append({"field": "asset.lastSeen", "operator": "LESS", "value": cutoff})
     if eol_only:
         filters.append({"field": "operatingSystem.lifecycle.stage", "operator": "CONTAINS", "value": "EOL"})
 
-    assets = csam_search(filters=filters if filters else None, limit=limit,
-                         fields="operatingSystem,hardware,tags")
+    f = filters if filters else None
+    data = _run_concurrent(
+        assets=lambda: csam_search(filters=f, limit=limit,
+                                   fields="operatingSystem,hardware,tags,vulnerabilities,tagList"),
+        total=lambda: csam_count(filters=f),
+    )
+    assets = data.get('assets', [])
+    total_count = data.get('total', len(assets))
 
-    result = {
-        'stats': {'total': len(assets), 'byOS': {}, 'byPlatform': {}, 'eolCount': 0},
-        'assets': []
-    }
+    summary = {'total': total_count, 'returned': len(assets), 'byOS': {}, 'byTag': {}, 'eolCount': 0}
+    result_assets = []
 
     for a in assets:
         os_info = a.get('operatingSystem', {}) or {}
-        hw_info = a.get('hardware', {}) or {}
         os_name = os_info.get('osName', '') or 'Unknown'
-        platform = hw_info.get('manufacturer', '') or os_info.get('category', '') or 'Unknown'
         lifecycle = (os_info.get('lifecycle', {}) or {}).get('stage', '')
         is_eol = is_eol_stage(lifecycle)
 
         if is_eol:
-            result['stats']['eolCount'] += 1
+            summary['eolCount'] += 1
 
-        result['stats']['byOS'][os_name] = result['stats']['byOS'].get(os_name, 0) + 1
-        result['stats']['byPlatform'][platform] = result['stats']['byPlatform'].get(platform, 0) + 1
+        summary['byOS'][os_name] = summary['byOS'].get(os_name, 0) + 1
 
-        result['assets'].append({
-            'assetId': a.get('assetId', ''),
+        asset_tags = []
+        for t in a.get('tags', []) or a.get('tagList', []) or []:
+            tag_name = t.get('name', '') if isinstance(t, dict) else str(t)
+            if tag_name:
+                asset_tags.append(tag_name)
+                summary['byTag'][tag_name] = summary['byTag'].get(tag_name, 0) + 1
+
+        vulns = a.get('vulnerabilities', {}) or {}
+        open_vulns = vulns.get('count', 0) or 0
+
+        result_assets.append({
+            'id': a.get('assetId', ''),
             'name': a.get('name', '') or a.get('dnsName', ''),
+            'ip': a.get('address', '') or a.get('ipAddress', ''),
             'os': os_name,
             'lastSeen': a.get('lastSeen', ''),
-            'riskScore': a.get('riskScore', 0) or 0,
-            'isEOL': is_eol,
+            'tags': asset_tags,
+            'truRiskScore': a.get('riskScore', 0) or a.get('truRiskScore', 0) or 0,
+            'openVulns': open_vulns,
+            'eolStatus': lifecycle if lifecycle else 'Active',
         })
 
-    result['assets'].sort(key=lambda x: -x['riskScore'])
-    return result
+    result_assets.sort(key=lambda x: -x['truRiskScore'])
+    return {'summary': summary, 'assets': result_assets}
 
 
 @mcp.tool()

@@ -106,7 +106,11 @@ if [ "$FILTER" = "all" ] || [ "$FILTER" = "medium" ]; then
   test_tool "get_pm_status" '{"platform": "Linux", "days": 7}'
   test_tool "get_pm_status" '{"platform": "all", "limit": 5}'
   test_tool "get_pm_status" '{"platform": "Windows", "status": "Failed"}'
-  test_tool "get_asset_inventory" '{"days_since_seen": 30, "limit": 20}'
+  test_tool "get_asset_inventory" '{"limit": 20}'
+  test_tool "get_asset_inventory" '{"os": "Windows", "limit": 10}'
+  test_tool "get_asset_inventory" '{"eol_only": true, "limit": 10}'
+  test_tool "get_asset_inventory" '{"days_since_seen": 90, "limit": 10}'
+  test_tool "get_asset_inventory" '{"query": "prod", "tag": "Production"}'
   test_tool "get_vuln_exceptions" '{"status": "active"}'
   test_tool "get_compliance_posture" '{}'
 fi
