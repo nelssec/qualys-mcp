@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/url"
 	"sort"
+	"strings"
+	"time"
 
 	"github.com/nelssec/qualys-mcp/internal/common"
 )
@@ -130,6 +132,98 @@ type AssetGroupListResponse struct {
 	Response struct {
 		AssetGroupList []AssetGroup `xml:"ASSET_GROUP_LIST>ASSET_GROUP"`
 	} `xml:"RESPONSE"`
+}
+
+// ScanSchedule represents a scheduled scan entry.
+type ScanSchedule struct {
+	ID             string `xml:"ID" json:"id"`
+	Active         string `xml:"ACTIVE" json:"active"`
+	Title          string `xml:"TITLE" json:"title"`
+	ScannerName    string `xml:"ISCANNER_NAME" json:"scannerName,omitempty"`
+	OptionTitle    string `xml:"OPTION_TITLE" json:"optionTitle,omitempty"`
+	StartDateUTC   string `xml:"START_DATE_UTC" json:"startDateUTC,omitempty"`
+	StartHour      int    `xml:"START_HOUR" json:"startHour,omitempty"`
+	StartMinute    int    `xml:"START_MINUTE" json:"startMinute,omitempty"`
+	TimeZone       string `xml:"TIME_ZONE_CODE" json:"timeZone,omitempty"`
+	NextLaunchUTC  string `xml:"NEXT_LAUNCH_UTC" json:"nextLaunchUTC,omitempty"`
+	LastLaunchUTC  string `xml:"LAST_LAUNCH_UTC" json:"lastLaunchUTC,omitempty"`
+	DaysUntilNext  *int   `json:"daysUntilNext,omitempty"`
+}
+
+type ScanScheduleListResponse struct {
+	XMLName  xml.Name `xml:"SCHEDULE_SCAN_LIST_OUTPUT"`
+	Response struct {
+		ScheduleList []ScanSchedule `xml:"SCHEDULE_SCAN_LIST>SCHEDULE_SCAN"`
+	} `xml:"RESPONSE"`
+}
+
+// OptionProfile represents a VM scan option profile.
+type OptionProfile struct {
+	ID                  string `xml:"BASIC_INFO>ID" json:"id"`
+	Title               string `xml:"BASIC_INFO>GROUP_NAME" json:"title"`
+	UserLogin           string `xml:"BASIC_INFO>USER_LOGIN" json:"userLogin,omitempty"`
+	IsDefault           string `xml:"BASIC_INFO>IS_DEFAULT" json:"isDefault,omitempty"`
+	SubscriptionDefault string `xml:"BASIC_INFO>SUBSCRIPTION_DEFAULT" json:"subscriptionDefault,omitempty"`
+}
+
+type OptionProfileListResponse struct {
+	XMLName  xml.Name        `xml:"OPTION_PROFILES"`
+	Profiles []OptionProfile `xml:"OPTION_PROFILE"`
+}
+
+// IPAsset represents a tracked IP or IP range.
+type IPAsset struct {
+	IP      string `xml:"IP" json:"ip,omitempty"`
+	IPRange string `xml:"IP_RANGE" json:"ipRange,omitempty"`
+}
+
+type IPSetResponse struct {
+	XMLName  xml.Name `xml:"IP_LIST_OUTPUT"`
+	Response struct {
+		IPs      []string `xml:"IP_SET>IP"`
+		IPRanges []string `xml:"IP_SET>IP_RANGE"`
+	} `xml:"RESPONSE"`
+}
+
+type TrackedIPList struct {
+	IPs      []string `json:"ips"`
+	IPRanges []string `json:"ipRanges"`
+	Total    int      `json:"total"`
+}
+
+// LaunchScanResult is the result of launching a scan.
+type LaunchScanResult struct {
+	ID        string `json:"id"`
+	Reference string `json:"reference"`
+}
+
+type SimpleReturn struct {
+	XMLName  xml.Name `xml:"SIMPLE_RETURN"`
+	Response struct {
+		Items []struct {
+			Key   string `xml:"KEY"`
+			Value string `xml:"VALUE"`
+		} `xml:"ITEM_LIST>ITEM"`
+	} `xml:"RESPONSE"`
+}
+
+// CoverageGap represents an asset with stale or missing scan coverage.
+type CoverageGap struct {
+	HostID    string `json:"hostId"`
+	IP        string `json:"ip"`
+	Hostname  string `json:"hostname,omitempty"`
+	LastScan  string `json:"lastScan,omitempty"`
+	DaysSince int    `json:"daysSince"`
+}
+
+// ScanCoverageReport summarises scan coverage across the asset estate.
+type ScanCoverageReport struct {
+	TotalAssets     int           `json:"totalAssets"`
+	NeverScanned    int           `json:"neverScanned"`
+	StaleAssets     int           `json:"staleAssets"`
+	RecentlyScanned int           `json:"recentlyScanned"`
+	ThresholdDays   int           `json:"thresholdDays"`
+	CoverageGaps    []CoverageGap `json:"coverageGaps"`
 }
 
 func (c *Client) ListHosts(ctx context.Context, filter string, limit int) ([]Host, error) {
@@ -512,4 +606,205 @@ func (c *Client) GetDetectionSummary(ctx context.Context, qids string, severity 
 	}
 
 	return summary, nil
+}
+
+func (c *Client) ListScanSchedules(ctx context.Context) ([]ScanSchedule, error) {
+	endpoint := fmt.Sprintf("%s/api/2.0/fo/schedule/scan/", c.baseURL)
+
+	params := url.Values{}
+	params.Set("action", "list")
+
+	data, err := c.http.Get(ctx, endpoint+"?"+params.Encode())
+	if err != nil {
+		return nil, err
+	}
+
+	var resp ScanScheduleListResponse
+	if err := xml.Unmarshal(data, &resp); err != nil {
+		return nil, fmt.Errorf("parse response: %w", err)
+	}
+
+	now := time.Now().UTC()
+	for i, s := range resp.Response.ScheduleList {
+		if s.NextLaunchUTC != "" {
+			t, err := time.Parse("2006-01-02T15:04:05Z", s.NextLaunchUTC)
+			if err == nil {
+				days := int(t.Sub(now).Hours() / 24)
+				resp.Response.ScheduleList[i].DaysUntilNext = &days
+			}
+		}
+	}
+
+	return resp.Response.ScheduleList, nil
+}
+
+func (c *Client) ListOptionProfiles(ctx context.Context) ([]OptionProfile, error) {
+	endpoint := fmt.Sprintf("%s/api/2.0/fo/subscription/option_profile/vm/", c.baseURL)
+
+	params := url.Values{}
+	params.Set("action", "list")
+
+	data, err := c.http.Get(ctx, endpoint+"?"+params.Encode())
+	if err != nil {
+		return nil, err
+	}
+
+	var resp OptionProfileListResponse
+	if err := xml.Unmarshal(data, &resp); err != nil {
+		return nil, fmt.Errorf("parse response: %w", err)
+	}
+
+	return resp.Profiles, nil
+}
+
+func (c *Client) ListTrackedIPs(ctx context.Context, network string) (*TrackedIPList, error) {
+	endpoint := fmt.Sprintf("%s/api/2.0/fo/asset/ip/", c.baseURL)
+
+	params := url.Values{}
+	params.Set("action", "list")
+	if network != "" {
+		params.Set("ips", network)
+	}
+
+	data, err := c.http.Get(ctx, endpoint+"?"+params.Encode())
+	if err != nil {
+		return nil, err
+	}
+
+	var resp IPSetResponse
+	if err := xml.Unmarshal(data, &resp); err != nil {
+		return nil, fmt.Errorf("parse response: %w", err)
+	}
+
+	result := &TrackedIPList{
+		IPs:      resp.Response.IPs,
+		IPRanges: resp.Response.IPRanges,
+	}
+	if result.IPs == nil {
+		result.IPs = []string{}
+	}
+	if result.IPRanges == nil {
+		result.IPRanges = []string{}
+	}
+	result.Total = len(result.IPs) + len(result.IPRanges)
+	return result, nil
+}
+
+func (c *Client) LaunchScan(ctx context.Context, title, optionTitle, targets, assetGroups string) (*LaunchScanResult, error) {
+	endpoint := fmt.Sprintf("%s/api/2.0/fo/scan/", c.baseURL)
+
+	params := url.Values{}
+	params.Set("action", "launch")
+	params.Set("scan_title", title)
+	if optionTitle != "" {
+		params.Set("option_title", optionTitle)
+	}
+	if targets != "" {
+		params.Set("ip", targets)
+	}
+	if assetGroups != "" {
+		params.Set("asset_group_ids", assetGroups)
+	}
+
+	body := strings.NewReader(params.Encode())
+	data, err := c.http.Post(ctx, endpoint, body, "application/x-www-form-urlencoded")
+	if err != nil {
+		return nil, err
+	}
+
+	var sr SimpleReturn
+	if err := xml.Unmarshal(data, &sr); err != nil {
+		return nil, fmt.Errorf("parse response: %w", err)
+	}
+
+	result := &LaunchScanResult{}
+	for _, item := range sr.Response.Items {
+		switch item.Key {
+		case "ID":
+			result.ID = item.Value
+		case "REFERENCE":
+			result.Reference = item.Value
+		}
+	}
+	return result, nil
+}
+
+func (c *Client) GetScanCoverageGaps(ctx context.Context, thresholdDays int) (*ScanCoverageReport, error) {
+	if thresholdDays <= 0 {
+		thresholdDays = 7
+	}
+
+	hosts, err := c.ListHosts(ctx, "", 500)
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now().UTC()
+	threshold := now.Add(-time.Duration(thresholdDays) * 24 * time.Hour)
+
+	report := &ScanCoverageReport{
+		TotalAssets:   len(hosts),
+		ThresholdDays: thresholdDays,
+		CoverageGaps:  []CoverageGap{},
+	}
+
+	for _, h := range hosts {
+		if h.LastScan == "" {
+			report.NeverScanned++
+			report.CoverageGaps = append(report.CoverageGaps, CoverageGap{
+				HostID:    h.ID,
+				IP:        h.IP,
+				Hostname:  h.Hostname,
+				LastScan:  "",
+				DaysSince: -1,
+			})
+			continue
+		}
+
+		// Qualys uses format: 2024-01-15T10:00:00Z
+		t, err := time.Parse("2006-01-02T15:04:05Z", h.LastScan)
+		if err != nil {
+			// Try alternative format
+			t, err = time.Parse("2006-01-02T15:04:05+0000", h.LastScan)
+		}
+		if err != nil {
+			// Can't parse date — treat as stale
+			report.StaleAssets++
+			report.CoverageGaps = append(report.CoverageGaps, CoverageGap{
+				HostID:    h.ID,
+				IP:        h.IP,
+				Hostname:  h.Hostname,
+				LastScan:  h.LastScan,
+				DaysSince: -1,
+			})
+			continue
+		}
+
+		if t.Before(threshold) {
+			days := int(now.Sub(t).Hours() / 24)
+			report.StaleAssets++
+			report.CoverageGaps = append(report.CoverageGaps, CoverageGap{
+				HostID:    h.ID,
+				IP:        h.IP,
+				Hostname:  h.Hostname,
+				LastScan:  h.LastScan,
+				DaysSince: days,
+			})
+		} else {
+			report.RecentlyScanned++
+		}
+	}
+
+	// Sort gaps: never scanned first, then by days since (desc)
+	sort.Slice(report.CoverageGaps, func(i, j int) bool {
+		if report.CoverageGaps[i].DaysSince == -1 && report.CoverageGaps[j].DaysSince != -1 {
+			return true
+		}
+		if report.CoverageGaps[i].DaysSince != -1 && report.CoverageGaps[j].DaysSince == -1 {
+			return false
+		}
+		return report.CoverageGaps[i].DaysSince > report.CoverageGaps[j].DaysSince
+	})
+
+	return report, nil
 }
