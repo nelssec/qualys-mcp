@@ -31,7 +31,7 @@ func NewWithClient(client *Client) *Module {
 func (m *Module) RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcp.NewTool("pm_list_patches",
-			mcp.WithDescription("List available patches from Qualys Patch Management. Shows patches with severity and CVE information."),
+			mcp.WithDescription("[PATCH MANAGEMENT] List available patches from Qualys Patch Management with severity and CVE info.\n\nUSE WHEN: user asks 'available patches', 'what patches exist', 'browse patches', specifically asks about Patch Management module\nDO NOT USE WHEN: user wants patching coverage summary (use get_patch_status), user wants patches for a specific asset (use pm_get_asset_patches)\nPREFER INSTEAD: get_patch_status for overall patching coverage analysis; pm_get_asset_patches when user asks about one asset's missing patches\n\nParameters:\n  filter: filter expression for patches\n  severity: filter by severity — Critical, Important, Moderate, Low\n  limit: max patches to return (default: 100)\n\nReturns: patch list with IDs, titles, severity, CVEs, release date, applicable OS\n\nPerformance: ~2s cold / ~0.1s warm (cached)"),
 			mcp.WithString("filter", mcp.Description("Filter expression for patches")),
 			mcp.WithString("severity", mcp.Description("Filter by severity: Critical, Important, Moderate, Low")),
 			mcp.WithNumber("limit", mcp.Description("Maximum number of patches to return (default 100)")),
@@ -41,7 +41,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("pm_list_assets",
-			mcp.WithDescription("List assets with patch status from Qualys Patch Management."),
+			mcp.WithDescription("[PATCH MANAGEMENT] List assets with patch status from Qualys Patch Management.\n\nUSE WHEN: user asks 'which assets need patches', 'patch status by asset', browsing PM asset inventory\nDO NOT USE WHEN: user wants overall patch coverage (use get_patch_status), user wants GAV asset inventory (use gav_list_assets)\nPREFER INSTEAD: get_patch_status for coverage summary; pm_get_asset_patches when user wants patches for one specific asset\n\nParameters:\n  filter: filter expression for assets\n  limit: max assets to return (default: 100)\n\nReturns: assets with patch status, missing patch counts, last patch date\n\nPerformance: ~2s cold / ~0.1s warm (cached)"),
 			mcp.WithString("filter", mcp.Description("Filter expression for assets")),
 			mcp.WithNumber("limit", mcp.Description("Maximum number of assets to return (default 100)")),
 		),
@@ -50,7 +50,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("pm_list_jobs",
-			mcp.WithDescription("List patch deployment jobs. Shows job status, progress, and results."),
+			mcp.WithDescription("[PATCH MANAGEMENT] List patch deployment jobs with status and progress.\n\nUSE WHEN: user asks 'what patches are deploying right now', 'patch job status', 'deployment progress', 'running patch jobs'\nDO NOT USE WHEN: user wants patching coverage analysis (use get_patch_status), user wants to browse available patches (use pm_list_patches)\nPREFER INSTEAD: get_patch_status for coverage/gaps analysis; pm_get_job_details when user wants details on a specific job\n\nParameters:\n  status: filter by job status — Running, Completed, Failed\n  limit: max jobs to return (default: 100)\n\nReturns: jobs with IDs, status, progress percentage, success/failure counts, start/end times\n\nPerformance: ~2s cold / ~0.1s warm (cached)"),
 			mcp.WithString("status", mcp.Description("Filter by job status (e.g., 'Running', 'Completed', 'Failed')")),
 			mcp.WithNumber("limit", mcp.Description("Maximum number of jobs to return (default 100)")),
 		),
@@ -59,7 +59,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("pm_get_job_details",
-			mcp.WithDescription("Get detailed information about a specific patch deployment job."),
+			mcp.WithDescription("[PATCH MANAGEMENT] Get detailed information about a specific patch deployment job.\n\nUSE WHEN: user asks 'details on patch job X', 'what happened in job X', has a specific job ID\nDO NOT USE WHEN: user wants to list all jobs (use pm_list_jobs), user wants overall patch status (use get_patch_status)\n\nParameters:\n  job_id: (required) the job ID to get details for\n\nReturns: job details with status, targeted assets, patches applied, success/failure per asset, timing\n\nPerformance: ~2s cold / ~0.1s warm (cached)"),
 			mcp.WithString("job_id", mcp.Required(), mcp.Description("The job ID to get details for")),
 		),
 		m.getJobDetails,
@@ -67,7 +67,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("pm_get_asset_patches",
-			mcp.WithDescription("Get missing patches for a specific asset."),
+			mcp.WithDescription("[PATCH MANAGEMENT] Get missing patches for a specific asset.\n\nUSE WHEN: user asks 'what patches does asset X need', 'missing patches for this host', drilling into one asset's patch status\nDO NOT USE WHEN: user wants environment-wide patch coverage (use get_patch_status), user wants to browse all patches (use pm_list_patches)\nPREFER INSTEAD: get_patch_status for environment-wide patching analysis; get_asset_risk_summary when user wants full risk view including patches\n\nParameters:\n  asset_id: (required) the asset ID to get patches for\n  limit: max patches to return (default: 100)\n\nReturns: missing patches for the asset with patch IDs, titles, severity, CVEs\n\nPerformance: ~2s cold / ~0.1s warm (cached)"),
 			mcp.WithString("asset_id", mcp.Required(), mcp.Description("The asset ID to get patches for")),
 			mcp.WithNumber("limit", mcp.Description("Maximum number of patches to return (default 100)")),
 		),
