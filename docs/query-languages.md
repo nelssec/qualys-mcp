@@ -13,7 +13,7 @@ Qualys has **six distinct query syntaxes** across its APIs. Each module uses a d
 | VMDR Classic | URL query parameters | `get_detections()`, `get_new_vulns()` |
 | WAS/QPS | XML `<Criteria>` body | `get_was_findings()`, `get_webapp_vulns()` |
 | Container Security | URL filter string | `get_images()`, `get_containers()` |
-| TotalCloud/CDR | URL query params | `get_cdr_findings()`, `get_connectors()` |
+| TotalCloud/CDR | URL query params | `get_cloud_risk(include_threats=True)`, `get_connectors()` |
 
 ---
 
