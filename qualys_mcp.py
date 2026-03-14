@@ -3924,80 +3924,167 @@ def get_vuln_exceptions(status: str = "active", vuln_type: str = "", days_to_exp
 
 
 @mcp.tool()
-def get_compliance_posture(framework: str = "", platform: str = "", limit: int = 50) -> dict:
-    """[PC] Policy Compliance posture — pass/fail rates by framework (PCI-DSS, CIS, NIST, HIPAA), top failing controls, compliance trend. Single compliance tool covering all providers. For cloud-specific posture, use get_cloud_risk."""
-    result = {
-        'available': False,
-        'stats': {'passRate': 0, 'failRate': 0, 'totalControls': 0},
-        'byFramework': {}, 'topFailing': []
-    }
+def get_compliance_posture(framework: str = "", platform: str = "", limit: int = 20) -> dict:
+    """[PC] Qualys Policy Compliance (PC) module posture — surfaces pass/fail rates, top failing controls, and per-framework breakdown for CIS Benchmark, PCI-DSS, HIPAA, NIST, SOC2, and ISO27001 compliance frameworks. Filter by framework or platform (Linux, Windows, etc.). Use get_cloud_risk() for cloud-specific CIS compliance."""
 
-    # Try posture info endpoint
+    def _empty_result():
+        return {
+            'summary': {
+                'totalControls': 0, 'passing': 0, 'failing': 0,
+                'passRate': 0.0, 'affectedAssets': 0, 'frameworks': [],
+            },
+            'topFailingControls': [],
+            'byFramework': {},
+        }
+
+    def _parse_controls(root):
+        """Parse controls from XML response and build result dict."""
+        controls = (root.findall('.//CONTROL') or root.findall('.//POSTURE')
+                    or root.findall('.//COMPLIANCE_CONTROL'))
+        if not controls:
+            return None
+
+        passed = 0
+        failed = 0
+        failing = []
+        frameworks_seen = set()
+        affected_hosts = set()
+        by_fw = {}
+
+        for c in controls:
+            status = (c.findtext('STATUS', '') or c.findtext('RESULT', '')).upper()
+            ctrl_fw = (c.findtext('FRAMEWORK', '') or c.findtext('TECHNOLOGY', '')
+                       or c.findtext('POLICY', ''))
+            ctrl_id = c.findtext('CONTROL_ID', '') or c.findtext('CID', '') or c.findtext('ID', '')
+            ctrl_name = c.findtext('CONTROL_NAME', '') or c.findtext('TITLE', '') or c.findtext('STATEMENT', '')
+            ctrl_sev = (c.findtext('SEVERITY', '') or c.findtext('CRITICALITY', '')).upper()
+            ctrl_platform = c.findtext('PLATFORM', '') or c.findtext('TECHNOLOGY', '') or ''
+            host_count_text = c.findtext('HOST_COUNT', '') or c.findtext('ASSET_COUNT', '')
+
+            # Apply filters
+            if framework and framework.lower() not in ctrl_fw.lower():
+                continue
+            if platform and platform.lower() not in ctrl_platform.lower():
+                continue
+
+            if 'PASS' in status:
+                passed += 1
+            elif 'FAIL' in status or 'ERROR' in status:
+                failed += 1
+                host_count = 0
+                if host_count_text:
+                    try:
+                        host_count = int(host_count_text)
+                    except ValueError:
+                        pass
+                failing.append({
+                    'controlId': ctrl_id,
+                    'title': ctrl_name,
+                    'framework': ctrl_fw,
+                    'failingAssets': host_count,
+                    'severity': ctrl_sev or 'MEDIUM',
+                })
+                if host_count:
+                    affected_hosts.add(host_count)
+
+            if ctrl_fw:
+                frameworks_seen.add(ctrl_fw.split()[0].upper().rstrip(','))
+                if ctrl_fw not in by_fw:
+                    by_fw[ctrl_fw] = {'pass': 0, 'fail': 0}
+                if 'PASS' in status:
+                    by_fw[ctrl_fw]['pass'] += 1
+                elif 'FAIL' in status or 'ERROR' in status:
+                    by_fw[ctrl_fw]['fail'] += 1
+
+        total = passed + failed
+        if total == 0:
+            return None
+
+        # Sort failing by asset count desc, then severity
+        sev_order = {'CRITICAL': 0, 'HIGH': 1, 'URGENT': 1, 'MEDIUM': 2, 'LOW': 3}
+        failing.sort(key=lambda x: (-x['failingAssets'], sev_order.get(x['severity'], 9)))
+
+        result = _empty_result()
+        result['summary']['totalControls'] = total
+        result['summary']['passing'] = passed
+        result['summary']['failing'] = failed
+        result['summary']['passRate'] = round(passed / total * 100, 1)
+        result['summary']['affectedAssets'] = max(affected_hosts) if affected_hosts else 0
+        result['summary']['frameworks'] = sorted(frameworks_seen)
+        result['topFailingControls'] = failing[:limit]
+
+        for fw_name, counts in by_fw.items():
+            fw_total = counts['pass'] + counts['fail']
+            result['byFramework'][fw_name] = {
+                'passRate': round(counts['pass'] / fw_total * 100, 1) if fw_total else 0,
+                'failing': counts['fail'],
+            }
+
+        return result
+
+    # --- Strategy 1: PC posture info endpoint ---
+    _log("Compliance posture: trying posture/info endpoint...")
     data = api_get(f"{BASE_URL}/api/2.0/fo/compliance/posture/info/?action=list", timeout=30)
     if data:
         try:
-            root = ET.fromstring(data)
-            result['available'] = True
-            controls = root.findall('.//CONTROL') or root.findall('.//POSTURE')
-            passed = 0
-            failed = 0
-            failing = []
-
-            for c in controls[:limit * 2]:
-                status = (c.findtext('STATUS', '') or c.findtext('RESULT', '')).upper()
-                ctrl_framework = c.findtext('FRAMEWORK', '') or c.findtext('TECHNOLOGY', '')
-                ctrl_name = c.findtext('CONTROL_NAME', '') or c.findtext('TITLE', '')
-
-                if framework and framework.lower() not in ctrl_framework.lower():
-                    continue
-                if platform and platform.lower() not in (c.findtext('PLATFORM', '') or '').lower():
-                    continue
-
-                if 'PASS' in status:
-                    passed += 1
-                elif 'FAIL' in status:
-                    failed += 1
-                    failing.append({'control': ctrl_name, 'framework': ctrl_framework, 'status': status})
-
-                if ctrl_framework:
-                    if ctrl_framework not in result['byFramework']:
-                        result['byFramework'][ctrl_framework] = {'pass': 0, 'fail': 0}
-                    if 'PASS' in status:
-                        result['byFramework'][ctrl_framework]['pass'] += 1
-                    elif 'FAIL' in status:
-                        result['byFramework'][ctrl_framework]['fail'] += 1
-
-            total = passed + failed
-            result['stats']['totalControls'] = total
-            result['stats']['passRate'] = round(passed / total * 100, 1) if total else 0
-            result['stats']['failRate'] = round(failed / total * 100, 1) if total else 0
-            result['topFailing'] = failing[:limit]
-            return result
+            root = ET.fromstring(data if isinstance(data, (str, bytes)) else data)
+            parsed = _parse_controls(root)
+            if parsed:
+                parsed['source'] = 'pc_posture'
+                return parsed
         except ET.ParseError:
-            pass
+            _log("Compliance posture: posture/info returned non-XML")
 
-    # Fallback: try compliance report list
-    data2 = api_get(f"{BASE_URL}/api/2.0/fo/report/?action=list&report_type=Compliance", timeout=30)
+    # --- Strategy 2: PC control list endpoint ---
+    _log("Compliance posture: trying control list endpoint...")
+    data2 = api_get(f"{BASE_URL}/api/2.0/fo/compliance/control/?action=list", timeout=30)
     if data2:
         try:
-            root = ET.fromstring(data2)
-            reports = root.findall('.//REPORT')
-            if reports:
-                result['available'] = True
-                result['reports'] = []
-                for r in reports[:limit]:
-                    result['reports'].append({
-                        'id': r.findtext('ID', ''),
-                        'title': r.findtext('TITLE', ''),
-                        'date': r.findtext('LAUNCH_DATETIME', ''),
-                        'status': r.findtext('STATUS/STATE', ''),
-                    })
-                result['note'] = 'Detailed posture data requires Policy Compliance module. Compliance reports listed.'
-                return result
+            root2 = ET.fromstring(data2 if isinstance(data2, (str, bytes)) else data2)
+            parsed2 = _parse_controls(root2)
+            if parsed2:
+                parsed2['source'] = 'pc_control_list'
+                return parsed2
         except ET.ParseError:
-            pass
+            _log("Compliance posture: control list returned non-XML")
 
-    result['note'] = 'Policy Compliance module not licensed or no data available'
+    # --- Strategy 3: fall back to cloud compliance (get_compliance_gaps) ---
+    _log("Compliance posture: falling back to cloud compliance gaps...")
+    try:
+        gaps = get_compliance_gaps(limit=limit)
+        if gaps and (gaps.get('failingControls', 0) > 0 or gaps.get('passRate', 0) > 0):
+            total_failing = gaps.get('failingControls', 0)
+            pass_rate = gaps.get('passRate', 0)
+            # Estimate total from pass rate
+            total = int(total_failing / (1 - pass_rate / 100)) if pass_rate < 100 and total_failing else total_failing
+            passing = total - total_failing
+
+            result = _empty_result()
+            result['summary']['totalControls'] = total
+            result['summary']['passing'] = passing
+            result['summary']['failing'] = total_failing
+            result['summary']['passRate'] = pass_rate
+            result['summary']['frameworks'] = ['Cloud-CIS']
+            result['topFailingControls'] = [
+                {
+                    'controlId': f.get('controlId', ''),
+                    'title': '',
+                    'framework': 'Cloud-CIS',
+                    'failingAssets': f.get('failCount', 0),
+                    'severity': 'HIGH',
+                }
+                for f in gaps.get('topFailing', [])[:limit]
+            ]
+            result['source'] = 'cloud_compliance_fallback'
+            result['note'] = 'Data from cloud compliance evaluations (TotalCloud). Enable Policy Compliance module for on-prem/endpoint posture.'
+            return result
+    except Exception as e:
+        _log(f"Compliance posture: cloud fallback failed: {e}")
+
+    # --- No data available ---
+    result = _empty_result()
+    result['error'] = 'PC module not licensed or no compliance data available'
+    result['suggestion'] = 'Enable the Qualys Policy Compliance (PC) module, or use get_cloud_risk() for cloud CIS compliance.'
     return result
 
 
