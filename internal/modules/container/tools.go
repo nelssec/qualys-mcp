@@ -31,7 +31,7 @@ func NewWithClient(client *Client) *Module {
 func (m *Module) RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcp.NewTool("cs_list_images",
-			mcp.WithDescription("List container images from Qualys Container Security. Shows image metadata and vulnerability counts."),
+			mcp.WithDescription("[CONTAINER IMAGES] List container images from Qualys Container Security with metadata and vuln counts.\n\nUSE WHEN: user asks 'container images', 'list images', 'image inventory'\nDO NOT USE WHEN: user wants vulnerable containers specifically (use cs_list_vulnerable_containers), user wants image vulns (use cs_get_image_vulnerabilities)\nPREFER INSTEAD: cs_list_vulnerable_containers for risk-focused container queries; cs_search_images when user has a QQL query\n\nParameters:\n  filter: QQL filter expression (e.g., 'repo:nginx')\n  limit: max images to return (default: 100)\n\nReturns: images with SHA256 IDs, repo, tag, size, vuln counts by severity, created date\n\nPerformance: ~2s cold / ~0.1s warm (cached)"),
 			mcp.WithString("filter", mcp.Description("QQL filter expression (e.g., 'repo:nginx')")),
 			mcp.WithNumber("limit", mcp.Description("Maximum number of images to return (default 100)")),
 		),
@@ -40,7 +40,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("cs_get_image_vulnerabilities",
-			mcp.WithDescription("Get vulnerabilities for a specific container image. Use output_mode to control response size: 'summary' for stats + top vulns (~1k tokens), 'full' for all data."),
+			mcp.WithDescription("[CONTAINER VULNS] Get vulnerabilities for a specific container image.\n\nUSE WHEN: user asks 'vulns in image X', 'image vulnerabilities', drilling into one image's security findings\nDO NOT USE WHEN: user wants to find vulnerable containers across the environment (use cs_list_vulnerable_containers)\nPREFER INSTEAD: cs_list_vulnerable_containers when user wants to find the most vulnerable containers environment-wide\n\nParameters:\n  image_id: (required) the SHA256 image ID\n  output_mode: 'summary' (stats + top 15 vulns ~1k tokens), 'full' (all data, default)\n\nReturns: vulnerabilities with QID, CVE, severity, CVSS, package name, fixed version\n\nPerformance: ~2s cold / ~0.1s warm (cached)"),
 			mcp.WithString("image_id", mcp.Required(), mcp.Description("The SHA256 image ID")),
 			mcp.WithString("output_mode", mcp.Description("Output mode: 'summary' (stats + top 15 vulns), 'full' (all data, default)")),
 		),
@@ -49,7 +49,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("cs_list_containers",
-			mcp.WithDescription("List running containers from Qualys Container Security."),
+			mcp.WithDescription("[CONTAINER INVENTORY] List running containers from Qualys Container Security.\n\nUSE WHEN: user asks 'running containers', 'container inventory', 'list containers'\nDO NOT USE WHEN: user wants vulnerable containers (use cs_list_vulnerable_containers), user wants image details (use cs_list_images)\nPREFER INSTEAD: cs_list_vulnerable_containers for security-focused container list\n\nParameters:\n  filter: QQL filter expression (e.g., 'state:RUNNING')\n  limit: max containers to return (default: 100)\n\nReturns: containers with IDs, names, image, state, host, created date\n\nPerformance: ~2s cold / ~0.1s warm (cached)"),
 			mcp.WithString("filter", mcp.Description("QQL filter expression (e.g., 'state:RUNNING')")),
 			mcp.WithNumber("limit", mcp.Description("Maximum number of containers to return (default 100)")),
 		),
@@ -58,7 +58,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("cs_search_images",
-			mcp.WithDescription("Search container images using Qualys Query Language (QQL). Supports complex queries."),
+			mcp.WithDescription("[CONTAINER SEARCH] Search container images using QQL. Supports complex queries.\n\nUSE WHEN: user has a specific QQL query for images like 'critical vulns in nginx images'\nDO NOT USE WHEN: user wants a simple image list (use cs_list_images), user wants vulnerable containers (use cs_list_vulnerable_containers)\n\nParameters:\n  query: (required) QQL query (e.g., 'vulnerabilities.severity:5 and repo:nginx')\n  limit: max results (default: 100)\n\nReturns: matching images with SHA256 IDs, repo, tag, vuln counts\n\nPerformance: ~2s cold / ~0.1s warm (cached)"),
 			mcp.WithString("query", mcp.Required(), mcp.Description("QQL query (e.g., 'vulnerabilities.severity:5 and repo:nginx')")),
 			mcp.WithNumber("limit", mcp.Description("Maximum number of results (default 100)")),
 		),
@@ -67,7 +67,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("cs_get_image_details",
-			mcp.WithDescription("Get detailed information about a specific container image including layers and metadata."),
+			mcp.WithDescription("[CONTAINER IMAGE DETAIL] Get detailed information about a specific container image including layers and metadata.\n\nUSE WHEN: user asks 'image details', 'layers of image X', 'image metadata'\nDO NOT USE WHEN: user wants vulnerabilities (use cs_get_image_vulnerabilities), user wants to list images (use cs_list_images)\n\nParameters:\n  image_id: (required) the SHA256 image ID\n\nReturns: image details with layers, labels, entrypoint, environment vars, size, created date\n\nPerformance: ~2s cold / ~0.1s warm (cached)"),
 			mcp.WithString("image_id", mcp.Required(), mcp.Description("The SHA256 image ID")),
 		),
 		m.getImageDetails,
@@ -75,7 +75,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("cs_list_vulnerable_containers",
-			mcp.WithDescription("RECOMMENDED for container risk. List running containers with vulnerabilities. Default severity:5 (critical). Returns focused list."),
+			mcp.WithDescription("[CONTAINER RISK] List running containers with vulnerabilities — risk-focused view. Default: severity 5 (critical only).\n\nUSE WHEN: user asks 'vulnerable containers', 'container risks', 'which containers have critical vulns', 'container security posture'\nDO NOT USE WHEN: user wants general container inventory (use cs_list_containers), user wants image-level vulns (use cs_get_image_vulnerabilities)\nPREFER INSTEAD: cs_list_containers for general inventory; cs_get_image_vulnerabilities for one image's vulns\n\nParameters:\n  severity: severity filter 1-5 (default: 5 = critical only)\n  qds: minimum QDS 1-100 (recommended: 90+)\n  qds_severity: QDS level — CRITICAL, HIGH, MEDIUM, LOW\n  trurisk: minimum TruRisk 1-1000 (recommended: 700+)\n  cve: specific CVE ID (e.g., 'CVE-2024-1234')\n  filter: custom QQL filter\n  limit: max containers (default: 25)\n\nReturns: vulnerable containers with image, vulns, severity, QDS, TruRisk, host\n\nPerformance: ~3s cold / ~0.3s warm (cached)"),
 			mcp.WithNumber("severity", mcp.Description("Severity (1-5). Default: 5 (critical only)")),
 			mcp.WithNumber("qds", mcp.Description("Minimum QDS (1-100). Recommended: 90+")),
 			mcp.WithString("qds_severity", mcp.Description("QDS level: CRITICAL, HIGH, MEDIUM, LOW")),

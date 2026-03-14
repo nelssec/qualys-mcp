@@ -53,7 +53,7 @@ func NewComplete(gavClient *gav.Client, vmdrClient *vmdr.Client, kbClient *knowl
 func (m *Module) RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcp.NewTool("get_asset_risk_summary",
-			mcp.WithDescription("Get a comprehensive risk summary for an asset. Combines data from multiple sources: TruRisk score from Global AssetView, top vulnerabilities from VMDR, available patches from Patch Management, and remediation steps from the KnowledgeBase. Use this to understand why an asset is risky and how to fix it."),
+			mcp.WithDescription("[ASSET RISK] Get a comprehensive risk summary for a single asset combining TruRisk, top vulns, patches, and remediation steps.\n\nUSE WHEN: user asks 'why is this asset risky', 'what's wrong with asset X', drilling into one specific asset's risk profile\nDO NOT USE WHEN: user wants aggregate risk for a group/tag (use gav_get_assets_by_tag or gav_get_high_risk_assets), user wants full asset profile with all metadata (use gav_get_asset_details)\nPREFER INSTEAD: gav_get_asset_details when user wants hardware/software/network info without risk focus; gav_get_high_risk_assets when user wants to find the riskiest assets across the environment\n\nParameters:\n  asset_id: (required) the asset ID to analyze\n\nReturns: TruRisk score, top vulnerabilities with severity, available patches, remediation steps from KB\n\nPerformance: ~5s cold / ~0.5s warm (multi-source aggregation)"),
 			mcp.WithString("asset_id", mcp.Required(), mcp.Description("The asset ID to get the risk summary for")),
 		),
 		m.getAssetRiskSummary,
@@ -61,7 +61,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("get_remediation_plan",
-			mcp.WithDescription("Get a remediation plan for a specific vulnerability. Given a CVE or QID, returns: all affected assets, vulnerability details, manual remediation steps, available patches, and remediation scripts. Use this to understand the blast radius of a vulnerability and plan remediation."),
+			mcp.WithDescription("[REMEDIATION] Get a remediation plan for a specific vulnerability across your environment.\n\nUSE WHEN: user asks 'how do I fix CVE-X', 'what's the blast radius of this vuln', 'remediation plan for QID 12345'\nDO NOT USE WHEN: user just wants CVE metadata (use kb_search_vulns or kb_get_cve_mapping), user wants to know if they are affected without a fix plan (use investigate_cve)\nPREFER INSTEAD: investigate_cve when user asks 'are we affected by CVE-X' without needing a fix plan; kb_get_qid when user just wants vuln details for a single QID\n\nParameters:\n  identifier: (required) CVE ID (e.g., 'CVE-2024-1234') or QID number (e.g., '12345')\n\nReturns: affected assets, vulnerability details, manual remediation steps, available patches, remediation scripts\n\nPerformance: ~8s cold / ~0.5s warm (multi-source aggregation)"),
 			mcp.WithString("identifier", mcp.Required(), mcp.Description("CVE ID (e.g., 'CVE-2024-1234') or QID number (e.g., '12345')")),
 		),
 		m.getRemediationPlan,
@@ -69,7 +69,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("prioritize_external_risk",
-			mcp.WithDescription("Get a prioritized remediation list for internet-facing assets. Returns a token-optimized summary (~2-3k tokens) combining: external asset inventory from a tag, critical/high web application vulnerabilities with URLs, critical/high infrastructure vulnerabilities with KB enrichment, and top risk assets. Use this to quickly understand what to fix first on your attack surface."),
+			mcp.WithDescription("[EXTERNAL RISK] Get a prioritized remediation list for internet-facing assets (~2-3k tokens).\n\nUSE WHEN: user asks 'what's exposed externally', 'attack surface priorities', 'internet-facing risks', 'what should we fix on our perimeter'\nDO NOT USE WHEN: user asks about internal assets only (use get_weekly_priorities), user wants cloud-specific posture (use get_cloud_risk_summary)\nPREFER INSTEAD: get_weekly_priorities when user wants general weekly action items not limited to external assets\n\nParameters:\n  tag_name: tag identifying external assets (default: 'Internet Facing Assets')\n  min_severity: minimum severity 1-5, where 4=High, 5=Critical (default: 4)\n  limit: max findings per category (default: 20)\n  include_web_apps: include WAS findings (default: true)\n\nReturns: external asset inventory, critical/high web app vulns with URLs, infrastructure vulns with KB enrichment, top risk assets\n\nPerformance: ~10s cold / ~0.5s warm (multi-source aggregation)"),
 			mcp.WithString("tag_name", mcp.Description("Tag name identifying external assets (default: 'Internet Facing Assets')")),
 			mcp.WithNumber("min_severity", mcp.Description("Minimum severity to include: 4=High, 5=Critical (default: 4)")),
 			mcp.WithNumber("limit", mcp.Description("Maximum findings per category (default: 20)")),
@@ -80,7 +80,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("get_tech_debt_summary",
-			mcp.WithDescription("RECOMMENDED for tech debt reduction. Analyze End-of-Life (EOL) and End-of-Support (EOS) software across your environment. Returns: stats on affected assets, EOL/EOS software by type with asset counts, EOL container images, top affected assets, and a prioritized reduction plan. Ask 'reduce tech debt by 30%' to get an actionable plan."),
+			mcp.WithDescription("[TECH DEBT] Analyze End-of-Life/End-of-Support software across your environment with a reduction plan.\n\nUSE WHEN: user asks 'reduce tech debt', 'EOL software', 'end of life', 'unsupported software', 'tech debt by 30%'\nDO NOT USE WHEN: user asks about active vulnerabilities (use get_weekly_priorities or vmdr_get_detection_summary), user asks about compliance (use get_compliance_gaps)\nPREFER INSTEAD: get_weekly_priorities when user wants actionable vulnerability fixes, not software lifecycle issues\n\nParameters:\n  reduction_target: target reduction percentage (default: 30) — returns plan showing which software to upgrade first\n  limit: max assets to analyze (default: 100)\n\nReturns: EOL/EOS stats, affected software by type with asset counts, EOL container images, top affected assets, prioritized reduction plan\n\nPerformance: ~8s cold / ~0.5s warm (multi-source aggregation)"),
 			mcp.WithNumber("reduction_target", mcp.Description("Target reduction percentage (default: 30). Returns a plan showing which software to upgrade first to hit this target.")),
 			mcp.WithNumber("limit", mcp.Description("Maximum assets to analyze (default: 100)")),
 		),
@@ -89,7 +89,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("get_weekly_priorities",
-			mcp.WithDescription("RECOMMENDED: Get prioritized security actions for the week. Combines VMDR vulnerabilities, container security, and patch data to provide: top critical items ranked by severity and asset impact, infrastructure vs container breakdown, effort classification (patch available vs config change vs upgrade needed). Ask 'what should my team fix this week?' to get actionable priorities."),
+			mcp.WithDescription("[PRIORITIZATION] Get risk-ranked security action list for the week combining vulns, containers, and patches.\n\nUSE WHEN: user asks 'what should I work on this week', 'top priorities', 'weekly report', 'what should my team fix'\nDO NOT USE WHEN: user asks about last 24 hours / overnight changes (use get_notable_changes), user wants external-only priorities (use prioritize_external_risk)\nPREFER INSTEAD: get_notable_changes when user asks 'what happened overnight' or 'morning report'; prioritize_external_risk when focus is internet-facing assets only\n\nParameters:\n  limit: max priority items to return (default: 10)\n\nReturns: critical items ranked by severity and asset impact, infra vs container breakdown, effort classification (patch/config/upgrade)\n\nPerformance: ~8s cold / ~0.5s warm (multi-source aggregation)"),
 			mcp.WithNumber("limit", mcp.Description("Maximum priority items to return (default: 10)")),
 		),
 		m.getWeeklyPriorities,
@@ -97,7 +97,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("investigate_cve",
-			mcp.WithDescription("Investigate a specific CVE across your environment. Returns: CVE details from KnowledgeBase, QIDs that detect this CVE, all affected hosts from VMDR, affected container images, available patches, remediation scripts, and manual fix steps. Use this when you need to know 'are we affected by CVE-XXXX?'"),
+			mcp.WithDescription("[CVE INVESTIGATION] Investigate a specific CVE across your entire environment — single CVE, full asset search, slow.\n\nUSE WHEN: user asks 'are we affected by CVE-X', 'investigate CVE-X', 'find CVE-X in our environment'\nDO NOT USE WHEN: user wants CVE metadata without asset search (use kb_get_cve_mapping or kb_search_vulns), user wants to fix a CVE (use get_remediation_plan), user wants bulk CVE lookup for 2+ CVEs (use kb_search_vulns)\nPREFER INSTEAD: kb_get_cve_mapping when user just wants QID mapping for a CVE; kb_search_vulns when user wants CVE metadata for multiple CVEs without asset search; get_remediation_plan when user needs a fix plan\n\nParameters:\n  cve: (required) CVE ID (e.g., 'CVE-2024-1234')\n\nReturns: CVE details from KB, detecting QIDs, all affected hosts from VMDR, affected container images, available patches, remediation scripts, manual fix steps\n\nPerformance: ~12s cold / ~0.5s warm (full environment scan)"),
 			mcp.WithString("cve", mcp.Required(), mcp.Description("The CVE ID to investigate (e.g., 'CVE-2024-1234')")),
 		),
 		m.investigateCVE,
@@ -105,14 +105,14 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("get_security_posture",
-			mcp.WithDescription("Get an executive overview of your security posture. Returns: overall health score (0-100), asset inventory stats, vulnerability counts by severity, container security stats, cloud posture (failed controls by provider), and compliance status. Use this to answer 'how secure are we overall?'"),
+			mcp.WithDescription("[EXECUTIVE OVERVIEW] Get an executive overview of overall security posture with health score.\n\nUSE WHEN: user asks 'how secure are we', 'security overview', 'executive summary', 'overall posture', 'dashboard'\nDO NOT USE WHEN: user asks about specific vulns (use vmdr_get_detection_summary), specific assets (use get_asset_risk_summary), or specific modules\nPREFER INSTEAD: get_weekly_priorities when user wants actionable items; get_cloud_risk_summary when user wants cloud-specific posture\n\nParameters: none\n\nReturns: health score (0-100), asset inventory stats, vuln counts by severity, container security stats, cloud posture (failed controls by provider), compliance status\n\nPerformance: ~10s cold / ~0.5s warm (aggregates all modules)"),
 		),
 		m.getSecurityPosture,
 	)
 
 	s.AddTool(
 		mcp.NewTool("get_patch_status",
-			mcp.WithDescription("Get patching coverage analysis. Returns: patch coverage percentage, missing critical patches (count and list), assets missing patches sorted by criticality, recent patch job status, and patchable vs non-patchable vulnerability breakdown. Use this to answer 'what's our patching coverage?'"),
+			mcp.WithDescription("[PATCHING] Get patching coverage/gaps analysis across your environment.\n\nUSE WHEN: user asks 'how is our patching going', 'patch coverage', 'missing patches', 'what needs patching'\nDO NOT USE WHEN: user asks about active patch deployment jobs (use pm_list_jobs), user wants patches for one specific asset (use pm_get_asset_patches), user asks about Patch Management module directly (use pm_list_patches)\nPREFER INSTEAD: pm_list_jobs when user asks 'what patches are deploying right now'; pm_get_asset_patches when user asks about patches for a specific asset; pm_list_patches when user wants to browse available patches\n\nParameters:\n  limit: max items per category (default: 20)\n\nReturns: patch coverage percentage, missing critical patches (count + list), assets missing patches by criticality, recent job status, patchable vs non-patchable breakdown\n\nPerformance: ~5s cold / ~0.3s warm (multi-source aggregation)"),
 			mcp.WithNumber("limit", mcp.Description("Maximum items to return per category (default: 20)")),
 		),
 		m.getPatchStatus,
@@ -120,7 +120,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("get_compliance_gaps",
-			mcp.WithDescription("Identify compliance gaps that may fail audits. Returns: policy compliance summary with pass/fail rates, top failing controls, assets with most compliance issues, and critical gaps with remediation guidance. Use this to answer 'what will fail our audit?'"),
+			mcp.WithDescription("[COMPLIANCE] Identify compliance gaps that may fail audits.\n\nUSE WHEN: user asks 'what will fail our audit', 'compliance gaps', 'policy violations', 'audit readiness'\nDO NOT USE WHEN: user wants raw policy list (use pc_list_policies), user wants compliance scan status (use pc_list_scans), user wants cloud compliance (use get_cloud_risk_summary)\nPREFER INSTEAD: pc_list_policies when user wants to browse policies; pc_get_policy_details when user wants details on one policy; get_cloud_risk_summary when compliance question is cloud-specific\n\nParameters:\n  limit: max items per category (default: 20)\n\nReturns: policy compliance summary with pass/fail rates, top failing controls, assets with most compliance issues, critical gaps with remediation guidance\n\nPerformance: ~5s cold / ~0.3s warm (multi-source aggregation)"),
 			mcp.WithNumber("limit", mcp.Description("Maximum items to return per category (default: 20)")),
 		),
 		m.getComplianceGaps,
@@ -128,7 +128,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("get_cloud_risk_summary",
-			mcp.WithDescription("Get cloud security posture across AWS, Azure, and GCP. Returns: cloud accounts overview, failed controls by severity, misconfigurations by resource type, container risks in cloud (EKS/GKE/AKS), recent CDR threat findings, and top risky cloud resources. Use this to answer 'what's our cloud security posture?'"),
+			mcp.WithDescription("[CLOUD SECURITY] Get cloud security posture across AWS, Azure, and GCP.\n\nUSE WHEN: user asks 'cloud security posture', 'cloud risks', 'AWS/Azure/GCP security', 'cloud misconfigurations'\nDO NOT USE WHEN: user wants specific cloud resource details (use tc_list_resources), specific control evaluations (use tc_get_control_evaluations), CDR threat findings only (use tc_list_cdr_findings)\nPREFER INSTEAD: tc_list_resources when user asks about specific cloud resource types; tc_list_cdr_findings when user asks about cloud threats/detections specifically\n\nParameters:\n  limit: max items per category (default: 20)\n\nReturns: cloud accounts overview, failed controls by severity, misconfigs by resource type, container risks in cloud (EKS/GKE/AKS), recent CDR findings, top risky cloud resources\n\nPerformance: ~8s cold / ~0.5s warm (multi-source aggregation)"),
 			mcp.WithNumber("limit", mcp.Description("Maximum items to return per category (default: 20)")),
 		),
 		m.getCloudRiskSummary,
