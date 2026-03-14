@@ -22,3 +22,6 @@ go.work.sum
 # OS files
 .DS_Store
 __pycache__/
+
+# Eval results
+eval_results/
