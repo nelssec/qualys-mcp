@@ -4752,6 +4752,206 @@ def get_assets_by_tag(tag_name: str, limit: int = 50) -> dict:
     }
 
 
+# ---------------------------------------------------------------------------
+# Report Center tools
+# ---------------------------------------------------------------------------
+
+@mcp.tool()
+def list_reports(limit: int = 50) -> dict:
+    """[Reporting] List all available Qualys reports with status, type, and output format.
+    Use when: user asks 'show my reports', 'list reports', 'what reports are available'.
+
+    Parameters:
+        limit: max reports to return (default 50)"""
+    data = api_get(f"{BASE_URL}/api/2.0/fo/report/?action=list", timeout=30)
+    if not data:
+        return {'error': 'Failed to fetch report list', 'reports': []}
+    reports = []
+    try:
+        root = ET.fromstring(data)
+        for r in root.findall('.//REPORT')[:limit]:
+            reports.append({
+                'id': r.findtext('ID', ''),
+                'title': r.findtext('TITLE', ''),
+                'type': r.findtext('TYPE', ''),
+                'status': r.findtext('STATUS/STATE', ''),
+                'percentComplete': r.findtext('STATUS/PERCENT', ''),
+                'launchDatetime': r.findtext('LAUNCH_DATETIME', ''),
+                'outputFormat': r.findtext('OUTPUT_FORMAT', ''),
+                'size': r.findtext('SIZE', ''),
+            })
+    except ET.ParseError:
+        return {'error': 'Failed to parse report list XML', 'reports': []}
+    return {'total': len(reports), 'reports': reports}
+
+
+@mcp.tool()
+def generate_report(template_id: str, report_title: str = "", output_format: str = "pdf",
+                    asset_group_ids: str = "", ips: str = "", tags: str = "") -> dict:
+    """[Reporting] Launch a new Qualys report generation job.
+    Use when: user asks 'generate a report', 'create a vulnerability report', 'run a report'.
+
+    Parameters:
+        template_id: Qualys report template ID (from list_report_templates)
+        report_title: optional title for the report
+        output_format: pdf, html, mht, xml, csv, or docx (default pdf)
+        asset_group_ids: comma-separated asset group IDs to scope the report
+        ips: comma-separated IPs or IP ranges to scope the report
+        tags: comma-separated tag IDs to scope the report"""
+    params = {'action': 'launch', 'template_id': template_id, 'output_format': output_format}
+    if report_title:
+        params['report_title'] = report_title
+    if asset_group_ids:
+        params['asset_group_ids'] = asset_group_ids
+    if ips:
+        params['ips'] = ips
+    if tags:
+        params['use_tags'] = '1'
+        params['tag_set_by'] = 'id'
+        params['tag_set_include'] = tags
+    post_data = urlencode(params).encode()
+    req = Request(f"{BASE_URL}/api/2.0/fo/report/", data=post_data, method='POST')
+    req.add_header('Authorization', f'Basic {BASIC_AUTH}')
+    req.add_header('X-Requested-With', 'qualys-mcp')
+    try:
+        with _open(req, timeout=60) as resp:
+            body = resp.read()
+    except HTTPError as e:
+        body = e.read() if hasattr(e, 'read') else b''
+        _log(f"Report launch error {e.code}")
+        return {'error': f'API error {e.code}', 'detail': body.decode(errors='replace')[:500]}
+    except Exception as e:
+        return {'error': str(e)}
+    try:
+        root = ET.fromstring(body)
+        text = root.findtext('.//TEXT', '')
+        report_id = ''
+        for item in root.findall('.//ITEM'):
+            if item.findtext('KEY', '') == 'ID':
+                report_id = item.findtext('VALUE', '')
+                break
+        if report_id:
+            return {'reportId': report_id, 'message': text}
+        return {'error': text or 'Unknown error launching report'}
+    except ET.ParseError:
+        return {'error': 'Failed to parse launch response', 'raw': body.decode(errors='replace')[:500]}
+
+
+@mcp.tool()
+def get_report_status(report_id: str) -> dict:
+    """[Reporting] Check the status of a Qualys report.
+    Use when: user asks 'is my report done', 'check report status', 'report progress'.
+
+    Parameters:
+        report_id: the report ID to check"""
+    data = api_get(f"{BASE_URL}/api/2.0/fo/report/?action=list&id={report_id}", timeout=30)
+    if not data:
+        return {'error': 'Failed to fetch report status'}
+    try:
+        root = ET.fromstring(data)
+        r = root.find('.//REPORT')
+        if r is None:
+            return {'error': f'Report {report_id} not found'}
+        return {
+            'id': r.findtext('ID', ''),
+            'title': r.findtext('TITLE', ''),
+            'status': r.findtext('STATUS/STATE', ''),
+            'percentComplete': r.findtext('STATUS/PERCENT', ''),
+            'outputFormat': r.findtext('OUTPUT_FORMAT', ''),
+            'size': r.findtext('SIZE', ''),
+            'launchDatetime': r.findtext('LAUNCH_DATETIME', ''),
+        }
+    except ET.ParseError:
+        return {'error': 'Failed to parse report status XML'}
+
+
+@mcp.tool()
+def download_report(report_id: str) -> dict:
+    """[Reporting] Download a finished Qualys report. Binary formats (PDF, DOCX, MHT) are returned as base64-encoded strings; text formats (XML, CSV, HTML) are returned as plain text.
+    Use when: user asks 'download report', 'get report content', 'fetch the report'.
+
+    Parameters:
+        report_id: the report ID to download"""
+    url = f"{BASE_URL}/api/2.0/fo/report/?action=fetch&id={report_id}"
+    req = Request(url)
+    req.add_header('Authorization', f'Basic {BASIC_AUTH}')
+    req.add_header('X-Requested-With', 'qualys-mcp')
+    try:
+        with _open(req, timeout=120) as resp:
+            content_type = resp.headers.get('Content-Type', 'application/octet-stream')
+            body = resp.read()
+    except HTTPError as e:
+        return {'error': f'API error {e.code}'}
+    except Exception as e:
+        return {'error': str(e)}
+    text_types = ('text/', 'application/xml', 'application/csv')
+    if any(content_type.startswith(t) for t in text_types):
+        return {
+            'reportId': report_id,
+            'contentType': content_type,
+            'encoding': 'text',
+            'data': body.decode(errors='replace'),
+        }
+    return {
+        'reportId': report_id,
+        'contentType': content_type,
+        'encoding': 'base64',
+        'data': base64.b64encode(body).decode(),
+    }
+
+
+@mcp.tool()
+def list_report_templates(limit: int = 100) -> dict:
+    """[Reporting] List available Qualys report templates.
+    Use when: user asks 'what report templates are available', 'show report templates', 'which templates can I use'.
+
+    Parameters:
+        limit: max templates to return (default 100)"""
+    data = api_get(f"{BASE_URL}/api/2.0/fo/report/template/?action=list", timeout=30)
+    if not data:
+        return {'error': 'Failed to fetch report templates', 'templates': []}
+    templates = []
+    try:
+        root = ET.fromstring(data)
+        for t in root.findall('.//REPORT_TEMPLATE')[:limit]:
+            templates.append({
+                'id': t.findtext('ID', ''),
+                'title': t.findtext('TITLE', ''),
+                'type': t.findtext('TYPE', ''),
+                'isGlobal': t.findtext('GLOBAL', '') == '1',
+            })
+    except ET.ParseError:
+        return {'error': 'Failed to parse template list XML', 'templates': []}
+    return {'total': len(templates), 'templates': templates}
+
+
+@mcp.tool()
+def delete_report(report_id: str) -> dict:
+    """[Reporting] Delete a Qualys report.
+    Use when: user asks 'delete report', 'remove report', 'clean up old reports'.
+
+    Parameters:
+        report_id: the report ID to delete"""
+    post_data = urlencode({'action': 'delete', 'id': report_id}).encode()
+    req = Request(f"{BASE_URL}/api/2.0/fo/report/", data=post_data, method='POST')
+    req.add_header('Authorization', f'Basic {BASIC_AUTH}')
+    req.add_header('X-Requested-With', 'qualys-mcp')
+    try:
+        with _open(req, timeout=30) as resp:
+            body = resp.read()
+    except HTTPError as e:
+        body = e.read() if hasattr(e, 'read') else b''
+        return {'error': f'API error {e.code}', 'detail': body.decode(errors='replace')[:500]}
+    except Exception as e:
+        return {'error': str(e)}
+    try:
+        root = ET.fromstring(body)
+        text = root.findtext('.//TEXT', '')
+        return {'reportId': report_id, 'message': text or 'Report deleted'}
+    except ET.ParseError:
+        return {'reportId': report_id, 'message': 'Report deleted'}
+
+
 def main():
     mcp.run()
 
