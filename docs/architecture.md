@@ -40,7 +40,7 @@ FastMCP (qualys_mcp.py)
 | ETM reports not cached | Every `get_etm_findings()` call re-polls or re-creates the report | get_etm_findings |
 | WAS results not cached | Each call to get_webapp_vulns re-fetches WAS findings | get_webapp_vulns |
 | Scanner list not cached | get_scanner_health fetches fresh on every call | get_scanner_health |
-| PM jobs not cached | Each get_pm_status fetches fresh | get_pm_status |
+| PM jobs not cached | Each get_eliminate_status fetches fresh | get_eliminate_status |
 
 ### 2.2 Concurrency Gaps
 
@@ -48,7 +48,7 @@ FastMCP (qualys_mcp.py)
 |------|-------|
 | `get_cloud_risk` | Sequential loop over AWS/Azure/GCP connectors (could be parallel) |
 | `get_cloud_risk` | Sequential loop over evaluations for each account |
-| `get_asset_risk` | Sequential: CSAM lookup → host detections → software parsing |
+| `get_asset` | Sequential: CSAM lookup → host detections → software parsing |
 | `get_tech_debt` | ✅ Already concurrent (os + hardware parallel) |
 | `get_recommendations` | Sequential connector loops |
 | `get_security_posture` | Sequential cloud connector loops |
@@ -59,7 +59,7 @@ FastMCP (qualys_mcp.py)
 
 ### 2.3 No Tool Router
 
-The LLM picks tools based on docstrings. For ambiguous questions like "show me what happened this week" the LLM must guess between `get_morning_report`, `get_new_vulns`, `get_weekly_priorities`. No meta-tool exists to route or aggregate multi-source answers.
+The LLM picks tools based on docstrings. For ambiguous questions like "show me what happened this week" the LLM must guess between `get_morning_report`, `get_new_vulns`, `get_weekly_priorities`. No meta-tool exists to route or aggregate multi-source answers. Consolidated tools with parameter-based routing (e.g., `get_asset` with `detail` param) reduce tool count and improve selection accuracy.
 
 ---
 
@@ -292,7 +292,7 @@ eval_results = _run_concurrent(**eval_tasks) if eval_tasks else {}
 
 **Estimated speedup:** 15s → 5s (3x)
 
-### 4.2 `get_asset_risk` — Sequential Calls
+### 4.2 `get_asset` — Sequential Calls
 
 **Current:**
 ```python
@@ -301,7 +301,7 @@ asset = get_asset_by_id(asset_id)       # ~1s CSAM
 dets = get_host_detections(host_id)     # ~2s VMDR (only called if we need detections)
 ```
 
-**The tool is actually fast for its current scope** — it doesn't call `get_host_detections` (checking the code). But a future `get_asset_full_profile()` tool should parallelize:
+**The tool is actually fast for its current scope** — it doesn't call `get_host_detections` (checking the code). But `get_asset(detail="full")` should parallelize:
 ```python
 concurrent = _run_concurrent(
     asset=lambda: get_asset_by_id(asset_id),
@@ -352,8 +352,8 @@ NOT for: single CVE lookups (use investigate_cve), morning updates (use get_morn
 
 Some questions genuinely need data from multiple tools. Three aggregator tools are worth implementing:
 
-#### `get_asset_full_profile(asset_id)`
-Combines CSAM + VMDR + ETM for a single asset:
+#### `get_asset(asset_id, detail="full")`
+Combines CSAM + VMDR + ETM for a single asset (when detail="full"):
 ```python
 concurrent = _run_concurrent(
     csam=lambda: get_asset_by_id(asset_id),
@@ -362,9 +362,9 @@ concurrent = _run_concurrent(
 )
 ```
 
-Returns: asset metadata + vulnerability list + risk score + software inventory + patch status
+Returns: asset metadata + vulnerability list + risk score + software inventory + patch status. With detail="summary" (default), returns only CSAM risk data.
 
-#### `get_environment_summary()`
+#### `get_morning_report(quick=True)`
 Fast cross-module summary (~3s, all CSAM + cached):
 ```python
 concurrent = _run_concurrent(
@@ -469,6 +469,6 @@ def get_detections_smart(severity=4, limit=200):
 | 🟡 P2 | Parallelize get_recommendations | 2x speedup | 1h |
 | 🟡 P2 | Add _get_or_fetch() deduplication helper | Prevent duplicate parallel requests | 2h |
 | 🟢 P3 | Enhanced docstrings with routing hints | Better LLM tool selection | 2h |
-| 🟢 P3 | get_asset_full_profile() aggregator tool | Better single-asset UX | 4h |
+| 🟢 P3 | get_asset(detail="full") aggregator mode | Better single-asset UX | 4h |
 | 🟢 P3 | Background pre-fetch on startup | <2s first query | 2h |
 | 🟢 P3 | benchmark.py script | Measure improvements | 2h |
