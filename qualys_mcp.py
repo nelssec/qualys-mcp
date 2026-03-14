@@ -358,16 +358,43 @@ def parse_vuln_xml(v):
             text = (t.text or '').strip()
             if text:
                 threat_intel.append(text)
+    # CVSS v3 — base score, temporal score, and vector string
+    cvss_v3 = v.find('CVSS_V3')
+    cvss_v3_base = None
+    cvss_v3_temporal = None
+    cvss_v3_vector = ''
+    if cvss_v3 is not None:
+        try:
+            base_text = cvss_v3.findtext('BASE', '')
+            if base_text:
+                cvss_v3_base = float(base_text)
+        except (ValueError, TypeError):
+            pass
+        try:
+            temp_text = cvss_v3.findtext('TEMPORAL', '')
+            if temp_text:
+                cvss_v3_temporal = float(temp_text)
+        except (ValueError, TypeError):
+            pass
+        cvss_v3_vector = cvss_v3.findtext('VECTOR_STRING', '') or ''
+
+    # Exploit availability — check EXPLOIT_LIST for any exploit entries
+    has_exploit = v.find('.//EXPLOIT_LIST/EXPLOIT') is not None
+
     return {
         'qid': qid,
         'title': v.findtext('TITLE', ''),
         'severity': int(v.findtext('SEVERITY_LEVEL', '0')),
         'qds': qds,
         'qds_factors': qds_factors,
+        'cvss_v3': cvss_v3_base,
+        'cvss_v3_temporal': cvss_v3_temporal,
+        'cvss_v3_vector': cvss_v3_vector,
         'cves': [c.findtext('ID', '') for c in v.findall('.//CVE_LIST/CVE')],
         'solution': v.findtext('SOLUTION', ''),
         'diagnosis': v.findtext('DIAGNOSIS', ''),
         'patch_available': v.findtext('PATCHABLE', '0') == '1',
+        'has_exploit': has_exploit,
         'threat_intel': threat_intel,
         'ransomware': 'Ransomware' in threat_intel,
     }
@@ -1179,6 +1206,9 @@ def investigate_cve(cve: str) -> dict:
                     result['qds'] = real_qds or kb.get('qds', 0)
                     result['qds_factors'] = kb.get('qds_factors', '')
                     result['patchAvailable'] = kb.get('patch_available', False)
+                    result['has_exploit'] = kb.get('has_exploit', False)
+                    result['cvss_v3'] = kb.get('cvss_v3')
+                    result['cvss_v3_vector'] = kb.get('cvss_v3_vector', '')
                     result['solution'] = kb.get('solution', '')[:500]
                     result['diagnosis'] = kb.get('diagnosis', '')[:300]
                     result['summary']['patchAvailable'] = kb.get('patch_available', False)
@@ -1191,8 +1221,11 @@ def investigate_cve(cve: str) -> dict:
                     'title': kb.get('title', ''),
                     'severity': kb.get('severity', 0),
                     'qds': real_qds or kb.get('qds', 0),
+                    'cvss_v3': kb.get('cvss_v3'),
+                    'cvss_v3_vector': kb.get('cvss_v3_vector', ''),
                     'patchAvailable': kb.get('patch_available', False),
-                    'cves': kb.get('cves', [])[:5],
+                    'has_exploit': kb.get('has_exploit', False),
+                    'cves': kb.get('cves', []),
                     'threatIntel': ti,
                     'ransomware': kb.get('ransomware', False),
                 })
@@ -1533,8 +1566,11 @@ def search_vulns(days: int = 7, threat_type: str = "", software: str = "", limit
             'title': v['title'],
             'severity': v['severity'],
             'qds': real_qds or v.get('qds', 0),
-            'cves': v.get('cves', [])[:5],
+            'cvss_v3': v.get('cvss_v3'),
+            'cvss_v3_vector': v.get('cvss_v3_vector', ''),
+            'cves': v.get('cves', []),
             'patchAvailable': v.get('patch_available', False),
+            'has_exploit': v.get('has_exploit', False),
             'threatIntel': v.get('threat_intel', []),
             'ransomware': v.get('ransomware', False),
         })
@@ -2357,8 +2393,12 @@ def get_morning_report() -> dict:
             critical_new.append({
                 'qid': v['qid'],
                 'title': v['title'],
-                'cves': v.get('cves', [])[:3],
+                'qds': v.get('qds', 0),
+                'cvss_v3': v.get('cvss_v3'),
+                'cvss_v3_vector': v.get('cvss_v3_vector', ''),
+                'cves': v.get('cves', []),
                 'patchAvailable': v.get('patchAvailable', False),
+                'has_exploit': v.get('has_exploit', False),
                 'threatIntel': v.get('threatIntel', []),
                 'ransomware': v.get('ransomware', False),
             })
@@ -2412,7 +2452,10 @@ def get_cve_details(cves: str) -> dict:
                     'title': kb.get('title', ''),
                     'severity': kb.get('severity', 0),
                     'qds': real_qds or kb.get('qds', 0),
+                    'cvss_v3': kb.get('cvss_v3'),
+                    'cvss_v3_vector': kb.get('cvss_v3_vector', ''),
                     'patchAvailable': kb.get('patch_available', False),
+                    'has_exploit': kb.get('has_exploit', False),
                 })
         best_qds = qds_scores.get(best_qid, 0) if best_qid else 0
         entry = {
@@ -2420,8 +2463,12 @@ def get_cve_details(cves: str) -> dict:
             'severity': max_sev,
             'qds': best_qds or (best.get('qds', 0) if best else 0),
             'qds_factors': best.get('qds_factors', '') if best else '',
+            'cvss_v3': best.get('cvss_v3') if best else None,
+            'cvss_v3_temporal': best.get('cvss_v3_temporal') if best else None,
+            'cvss_v3_vector': (best.get('cvss_v3_vector', '') if best else ''),
             'title': best.get('title', '') if best else '',
             'patchAvailable': best.get('patch_available', False) if best else False,
+            'has_exploit': best.get('has_exploit', False) if best else False,
             'solution': (best.get('solution', '') if best else '')[:500],
             'diagnosis': (best.get('diagnosis', '') if best else '')[:300],
             'threatIntel': sorted(all_threat_intel),
@@ -2480,8 +2527,12 @@ def get_qid_details(qids: str) -> dict:
                 'severity': kb.get('severity', 0),
                 'qds': real_qds or kb.get('qds', 0),
                 'qds_factors': kb.get('qds_factors', ''),
-                'cves': kb.get('cves', [])[:10],
+                'cvss_v3': kb.get('cvss_v3'),
+                'cvss_v3_temporal': kb.get('cvss_v3_temporal'),
+                'cvss_v3_vector': kb.get('cvss_v3_vector', ''),
+                'cves': kb.get('cves', []),
                 'patchAvailable': kb.get('patch_available', False),
+                'has_exploit': kb.get('has_exploit', False),
                 'solution': kb.get('solution', '')[:500],
                 'diagnosis': kb.get('diagnosis', '')[:300],
                 'threatIntel': kb.get('threat_intel', []),
@@ -2721,6 +2772,32 @@ def get_asset_risk(asset_id: str) -> dict:
         os_lifecycle = (os_info.get('lifecycle') or {})
         if os_lifecycle.get('stage'):
             result['osLifecycle'] = os_lifecycle['stage']
+
+        # Fetch VMDR detections for this host and enrich with KB data
+        host_id = result.get('hostId', '')
+        if host_id:
+            dets = get_host_detections(host_id, severity=3, days=90)
+            if dets:
+                det_qids = list({d['qid'] for d in dets if d.get('qid')})
+                kb_data = get_kb_batch(det_qids[:50]) if det_qids else {}
+                vulns = []
+                for d in sorted(dets, key=lambda x: (-x.get('severity', 0), -x.get('qds', 0))):
+                    kb = kb_data.get(d['qid']) or {}
+                    vulns.append({
+                        'qid': d['qid'],
+                        'title': kb.get('title', ''),
+                        'severity': d.get('severity', 0),
+                        'qds': d.get('qds', 0) or kb.get('qds', 0),
+                        'cvss_v3': kb.get('cvss_v3'),
+                        'cvss_v3_vector': kb.get('cvss_v3_vector', ''),
+                        'cves': kb.get('cves', []),
+                        'patchAvailable': kb.get('patch_available', False),
+                        'has_exploit': kb.get('has_exploit', False),
+                        'ransomware': kb.get('ransomware', False),
+                        'first_found': d.get('first_found', ''),
+                    })
+                result['vulns'] = vulns[:50]
+                result['vulnCount'] = len(dets)
 
     return result
 
@@ -3317,13 +3394,23 @@ def get_asset_full_profile(asset_id: str) -> dict:
     etm_findings.sort(key=lambda x: (-x['severity'], -(x['truRiskScore'] or 0)))
     result['etmFindings'] = etm_findings[:30]
 
-    # Format VMDR detections
+    # Format VMDR detections — enrich with KB data
+    vmdr_qids = list({d.get('qid', 0) for d in vmdr_raw if d.get('qid')})
+    vmdr_kb = get_kb_batch(vmdr_qids[:50]) if vmdr_qids else {}
     vmdr_dets = []
     for d in vmdr_raw:
+        kb = vmdr_kb.get(d.get('qid', 0)) or {}
         vmdr_dets.append({
             'qid': d.get('qid', 0),
+            'title': kb.get('title', ''),
             'severity': d.get('severity', 0),
-            'qds': d.get('qds', 0),
+            'qds': d.get('qds', 0) or kb.get('qds', 0),
+            'cvss_v3': kb.get('cvss_v3'),
+            'cvss_v3_vector': kb.get('cvss_v3_vector', ''),
+            'cves': kb.get('cves', []),
+            'patchAvailable': kb.get('patch_available', False),
+            'has_exploit': kb.get('has_exploit', False),
+            'ransomware': kb.get('ransomware', False),
             'status': d.get('status', ''),
             'firstFound': d.get('first_found', ''),
         })
