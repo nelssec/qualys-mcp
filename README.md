@@ -290,6 +290,47 @@ Each response is scored by Claude-as-judge:
 
 Results are saved to `eval_results/YYYY-MM-DD.json` with per-question detail and automatic regression detection against previous runs.
 
+## CI/CD
+
+### What runs on every PR
+
+| Check | Description |
+|-------|-------------|
+| Smoke Test | `test_tools.sh fast` — all fast tools return without errors |
+| Conversation Tests | `tests/run_conversations.py` — multi-turn context validation (no credentials needed) |
+| Benchmark Regression | `benchmark.py --quick` — fails if any tool is >2x baseline latency |
+| Eval Harness | `eval.py --quick --limit 50` — fails if score <80% (skipped if eval.py not present) |
+
+A summary comment with benchmark latencies and eval score is posted on the PR automatically.
+
+### Nightly Full Eval
+
+Runs every night at 2am UTC on `main`:
+- Full benchmark (all tools)
+- Full eval suite (if `eval.py` exists)
+- Conversation tests
+- Results uploaded as artifacts (retained 90 days)
+
+### Required GitHub Secrets
+
+| Secret | Description |
+|--------|-------------|
+| `QUALYS_USERNAME` | Qualys API username |
+| `QUALYS_PASSWORD` | Qualys API password |
+| `QUALYS_BASE_URL` | Qualys API base URL (e.g. `qualysapi.qualys.com`) |
+| `QUALYS_GATEWAY_URL` | Qualys Gateway URL (e.g. `gateway.qg1.apps.qualys.com`) |
+
+### Updating the Benchmark Baseline
+
+```bash
+python benchmark.py --quick --json benchmark_baseline.json
+git add benchmark_baseline.json && git commit -m "chore: update benchmark baseline"
+```
+
+### Eval Threshold
+
+Default pass threshold is **80%**. Override by setting the `EVAL_THRESHOLD` repository variable in GitHub Settings → Variables.
+
 ## Qualys PODs
 
 | POD | BASE_URL | GATEWAY_URL |
