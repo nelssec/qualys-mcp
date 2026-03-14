@@ -1714,7 +1714,7 @@ def get_recommendations() -> dict:
     DO NOT USE WHEN: Responding to immediate threats, looking at asset-level vuln details, or checking patching status.
     PREFER INSTEAD: get_morning_report for immediate threat response; get_asset_risk for asset-level details; get_eliminate_status for patching status.
 
-    Returns: recommendations (prioritized list with priority, area, finding, recommendation, qualysModule, riskAction=eliminate|mitigate), coverage (map of active vs missing capabilities), riskActions (eliminate/mitigate counts), summary.
+    Returns: recommendations (prioritized list with priority, area, finding, qualysModule, riskAction=eliminate|mitigate), coverage (map of active vs missing capabilities), riskActions (eliminate/mitigate counts), summary.
 
     Performance: ~10s cold / ~5s warm (probes all data sources in parallel)."""
     result = {'recommendations': [], 'coverage': {}, 'summary': ''}
@@ -1775,7 +1775,6 @@ def get_recommendations() -> dict:
             'rank': rank, 'priority': 'CRITICAL',
             'area': 'Risk Elimination',
             'finding': f'{risk_900} assets have TruRisk scores above 900 (maximum risk)',
-            'recommendation': f'Eliminate risk on {risk_900} critical assets with Qualys Patch Management. Auto-deploy patches for vulnerabilities with active exploits and ransomware linkage — each patch eliminates the associated TruRisk. For vulnerabilities without patches, use Qualys VMDR mitigations (compensating controls, network segmentation) to reduce risk until a fix is available.',
             'qualysModule': 'Patch Management + VMDR',
             'riskAction': 'eliminate',
         })
@@ -1788,7 +1787,6 @@ def get_recommendations() -> dict:
             'rank': rank, 'priority': 'HIGH',
             'area': 'Asset Lifecycle',
             'finding': f'{eol_count} systems ({pct}% of environment) are running EOL/EOS operating systems that no longer receive security patches',
-            'recommendation': f'Eliminate risk by migrating {eol_count} EOL/EOS systems to supported versions. Use CSAM lifecycle tracking to plan upgrades. For systems that cannot be migrated immediately, mitigate risk with Policy Compliance compensating controls and network segmentation until migration is complete.',
             'qualysModule': 'CSAM + Patch Management',
             'riskAction': 'eliminate',
         })
@@ -1800,7 +1798,6 @@ def get_recommendations() -> dict:
             'rank': rank, 'priority': 'HIGH',
             'area': 'Container & Cloud Security',
             'finding': 'No container images detected — container workloads may be running unscanned',
-            'recommendation': 'Deploy Qualys TotalCloud to scan container images in registries and running containers. Integrate with CI/CD pipelines to catch and eliminate vulnerabilities before deployment.',
             'qualysModule': 'TotalCloud',
             'riskAction': 'eliminate',
         })
@@ -1813,7 +1810,6 @@ def get_recommendations() -> dict:
                 'rank': rank, 'priority': 'HIGH',
                 'area': 'Container & Cloud Security',
                 'finding': f'{len(at_risk)} running containers are based on images with critical vulnerabilities',
-                'recommendation': f'Eliminate container risk by rebuilding {len(at_risk)} affected images with patched base images. Set up Qualys TotalCloud runtime policies to block deployment of vulnerable images and prevent future risk.',
                 'qualysModule': 'TotalCloud',
                 'riskAction': 'eliminate',
             })
@@ -1827,7 +1823,6 @@ def get_recommendations() -> dict:
             'rank': rank, 'priority': 'MEDIUM',
             'area': 'Cloud Security Posture',
             'finding': 'No cloud connectors configured — cloud assets may have unmonitored misconfigurations',
-            'recommendation': 'Connect AWS, Azure, and/or GCP accounts using Qualys TotalCloud. Eliminate cloud misconfigurations with continuous posture monitoring, auto-remediation, and Cloud Detection & Response (CDR).',
             'qualysModule': 'TotalCloud',
             'riskAction': 'mitigate',
         })
@@ -1839,7 +1834,6 @@ def get_recommendations() -> dict:
                 'rank': rank, 'priority': 'MEDIUM',
                 'area': 'Cloud Security Posture',
                 'finding': f'{len(fails)} cloud security control failures detected across {cloud_total} connected accounts',
-                'recommendation': f'Eliminate {len(fails)} failing cloud controls by remediating CIS Benchmark violations. Use TotalCloud auto-remediation to fix common misconfigurations automatically. Mitigate remaining gaps with Policy Compliance continuous monitoring.',
                 'qualysModule': 'TotalCloud + Policy Compliance',
                 'riskAction': 'eliminate',
             })
@@ -1851,7 +1845,6 @@ def get_recommendations() -> dict:
             'rank': rank, 'priority': 'MEDIUM',
             'area': 'Application Security',
             'finding': 'No application scan findings detected — web apps and APIs may not be scanned for vulnerabilities like SQLi, XSS, and OWASP Top 10',
-            'recommendation': 'Deploy Qualys TotalAppSec (TAS) to discover and scan web applications and APIs. Eliminate application-layer risk by identifying and fixing OWASP Top 10 vulnerabilities. Integrate with CI/CD to prevent vulnerable code from reaching production.',
             'qualysModule': 'TotalAppSec (TAS)',
             'riskAction': 'eliminate',
         })
@@ -1863,7 +1856,6 @@ def get_recommendations() -> dict:
             'rank': rank, 'priority': 'MEDIUM',
             'area': 'File Integrity Monitoring',
             'finding': 'No file integrity monitoring events detected — unauthorized changes to critical files may go undetected',
-            'recommendation': 'Mitigate risk of undetected tampering by deploying Qualys FIM on critical servers. Monitor changes to system files, configurations, and registries in real time. Required for PCI DSS Requirement 11.5 and many compliance frameworks.',
             'qualysModule': 'File Integrity Monitoring (FIM)',
             'riskAction': 'mitigate',
         })
@@ -1875,7 +1867,6 @@ def get_recommendations() -> dict:
             'rank': rank, 'priority': 'MEDIUM',
             'area': 'Endpoint Detection & Response',
             'finding': 'No endpoint detection events — active threats and malicious behaviors may not be detected in real time',
-            'recommendation': 'Mitigate active threat risk by enabling Qualys Multi-Vector EDR. Detect and respond to endpoint threats in real time. Combines vulnerability context with behavioral detection — when a patch cannot eliminate a vulnerability, EDR provides the mitigation layer.',
             'qualysModule': 'Multi-Vector EDR',
             'riskAction': 'mitigate',
         })
@@ -1887,7 +1878,6 @@ def get_recommendations() -> dict:
             'rank': rank, 'priority': 'LOW',
             'area': 'Certificate Management',
             'finding': 'No certificate data available — expired or weak SSL/TLS certificates may cause outages or security gaps',
-            'recommendation': 'Mitigate certificate-related risk by deploying Qualys CertView to discover and monitor all SSL/TLS certificates. Eliminate expired and weak certificates before they cause outages or man-in-the-middle exposure.',
             'qualysModule': 'CertView',
             'riskAction': 'mitigate',
         })
@@ -1900,7 +1890,6 @@ def get_recommendations() -> dict:
             'rank': rank, 'priority': 'HIGH',
             'area': 'Ransomware Defense',
             'finding': f'{ransomware_count} vulnerabilities with ransomware linkage published in last 30 days',
-            'recommendation': f'Eliminate ransomware risk by patching {ransomware_count} ransomware-linked vulnerabilities with Qualys Patch Management. Patches directly eliminate the TruRisk associated with each CVE. For zero-days without patches, mitigate risk using VMDR virtual patching and network-level controls. Deploy EDR for real-time behavioral detection as a last line of defense.',
             'qualysModule': 'Patch Management + VMDR + EDR',
             'riskAction': 'eliminate',
         })
@@ -1914,7 +1903,6 @@ def get_recommendations() -> dict:
                 'rank': rank, 'priority': 'HIGH',
                 'area': 'Patch Coverage',
                 'finding': f'{risk_500} assets ({risk_pct}%) have elevated risk (TruRisk > 500) indicating significant unpatched vulnerabilities',
-                'recommendation': f'Eliminate risk across {risk_500} elevated-risk assets with Qualys Patch Management. Each successfully deployed patch eliminates TruRisk for those CVEs. Target highest-TruRisk assets first for maximum risk reduction. Where patches cannot be applied immediately, mitigate with VMDR compensating controls to reduce exposure while scheduling maintenance windows.',
                 'qualysModule': 'Patch Management + VMDR',
                 'riskAction': 'eliminate',
             })
