@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/nelssec/qualys-mcp/internal/common"
+	"github.com/nelssec/qualys-mcp/internal/modules/activitylog"
 	"github.com/nelssec/qualys-mcp/internal/modules/car"
 	"github.com/nelssec/qualys-mcp/internal/modules/compliance"
 	"github.com/nelssec/qualys-mcp/internal/modules/container"
@@ -43,9 +44,9 @@ func NewFull(gavClient *gav.Client, vmdrClient *vmdr.Client, kbClient *knowledge
 	}
 }
 
-func NewComplete(gavClient *gav.Client, vmdrClient *vmdr.Client, kbClient *knowledgebase.Client, pmClient *patch.Client, carClient *car.Client, wasClient *was.Client, containerClient *container.Client, tcClient *totalcloud.Client, pcClient *compliance.Client) *Module {
+func NewComplete(gavClient *gav.Client, vmdrClient *vmdr.Client, kbClient *knowledgebase.Client, pmClient *patch.Client, carClient *car.Client, wasClient *was.Client, containerClient *container.Client, tcClient *totalcloud.Client, pcClient *compliance.Client, alClient *activitylog.Client) *Module {
 	return &Module{
-		client: NewClientComplete(gavClient, vmdrClient, kbClient, pmClient, carClient, wasClient, containerClient, tcClient, pcClient),
+		client: NewClientComplete(gavClient, vmdrClient, kbClient, pmClient, carClient, wasClient, containerClient, tcClient, pcClient, alClient),
 	}
 }
 
