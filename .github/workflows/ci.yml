@@ -1,0 +1,244 @@
+name: CI — Benchmark & Eval
+
+on:
+  pull_request:
+    branches: [main]
+
+env:
+  QUALYS_USERNAME: ${{ secrets.QUALYS_USERNAME }}
+  QUALYS_PASSWORD: ${{ secrets.QUALYS_PASSWORD }}
+  QUALYS_BASE_URL: ${{ secrets.QUALYS_BASE_URL }}
+  QUALYS_GATEWAY_URL: ${{ secrets.QUALYS_GATEWAY_URL }}
+  EVAL_PASS_THRESHOLD: ${{ vars.EVAL_PASS_THRESHOLD || '80' }}
+
+jobs:
+  smoke-test:
+    name: Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -e . 2>/dev/null || pip install mcp httpx
+
+      - name: Run smoke tests
+        run: bash test_tools.sh fast
+
+  benchmark:
+    name: Benchmark Regression
+    runs-on: ubuntu-latest
+    needs: smoke-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -e . 2>/dev/null || pip install mcp httpx
+
+      - name: Run benchmark
+        run: python benchmark.py --quick --json benchmark_results.json
+
+      - name: Check for regressions
+        id: regression
+        run: |
+          python3 << 'PYEOF'
+          import json, sys
+
+          with open("benchmark_results.json") as f:
+              actual = json.load(f)
+          with open("benchmark_baseline.json") as f:
+              baseline = json.load(f)
+
+          # Build baseline lookup
+          base_by_tool = {r["tool"]: r for r in baseline["results"]}
+
+          rows = []
+          regressions = []
+
+          for r in actual["results"]:
+              tool = r["tool"]
+              if "error" in r:
+                  rows.append(f"| {tool} | — | — | — | ⚠️ error |")
+                  continue
+
+              cold = r["cold_s"]
+              base = base_by_tool.get(tool)
+              if not base:
+                  rows.append(f"| {tool} | — | {cold:.2f}s | — | 🆕 new |")
+                  continue
+
+              base_cold = base["cold_s"]
+              ratio = cold / base_cold if base_cold > 0 else 0
+              status = "✅" if ratio <= 2.0 else "❌ REGRESSION"
+              rows.append(f"| {tool} | {base_cold:.2f}s | {cold:.2f}s | {ratio:.1f}x | {status} |")
+
+              if ratio > 2.0:
+                  regressions.append(f"{tool}: {cold:.2f}s vs baseline {base_cold:.2f}s ({ratio:.1f}x)")
+
+          # Write summary
+          header = "| Tool | Baseline | Actual | Ratio | Status |\n|------|----------|--------|-------|--------|\n"
+          table = header + "\n".join(rows)
+
+          with open("benchmark_summary.md", "w") as f:
+              f.write(table)
+
+          print(table)
+
+          if regressions:
+              print(f"\n❌ {len(regressions)} regression(s) detected:")
+              for reg in regressions:
+                  print(f"  - {reg}")
+              sys.exit(1)
+          else:
+              print("\n✅ No regressions detected")
+          PYEOF
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: |
+            benchmark_results.json
+            benchmark_summary.md
+
+  eval:
+    name: Eval Harness
+    runs-on: ubuntu-latest
+    needs: smoke-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -e . 2>/dev/null || pip install mcp httpx
+
+      - name: Run eval harness
+        run: python eval.py --quick --limit 50 --json eval_results.json
+
+      - name: Upload eval results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-results
+          path: eval_results.json
+
+  conversation-tests:
+    name: Conversation Tests
+    runs-on: ubuntu-latest
+    needs: smoke-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -e . 2>/dev/null || pip install mcp httpx
+          pip install pytest
+
+      - name: Run conversation tests
+        run: pytest tests/conversations/ -v
+
+  pr-comment:
+    name: PR Summary Comment
+    runs-on: ubuntu-latest
+    needs: [benchmark, eval, conversation-tests]
+    if: always() && github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download benchmark results
+        uses: actions/download-artifact@v4
+        with:
+          name: benchmark-results
+          path: artifacts/
+        continue-on-error: true
+
+      - name: Download eval results
+        uses: actions/download-artifact@v4
+        with:
+          name: eval-results
+          path: artifacts/
+        continue-on-error: true
+
+      - name: Post PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            let benchmarkTable = '⚠️ Benchmark results not available';
+            try {
+              benchmarkTable = fs.readFileSync('artifacts/benchmark_summary.md', 'utf8');
+            } catch (e) {}
+
+            let evalSummary = '⚠️ Eval results not available';
+            try {
+              const evalData = JSON.parse(fs.readFileSync('artifacts/eval_results.json', 'utf8'));
+              const icon = evalData.score_pct >= evalData.threshold ? '✅' : '❌';
+              evalSummary = `${icon} **Score: ${evalData.score_pct}%** (threshold: ${evalData.threshold}%)\n\n` +
+                `| Metric | Count |\n|--------|-------|\n` +
+                `| Passed | ${evalData.passed} |\n` +
+                `| Failed | ${evalData.failed} |\n` +
+                `| Errors | ${evalData.errors} |\n` +
+                `| Skipped | ${evalData.skipped} |\n` +
+                `| Total | ${evalData.total} |`;
+            } catch (e) {}
+
+            const benchmarkStatus = '${{ needs.benchmark.result }}' === 'success' ? '✅' : '❌';
+            const evalStatus = '${{ needs.eval.result }}' === 'success' ? '✅' : '❌';
+            const convStatus = '${{ needs.conversation-tests.result }}' === 'success' ? '✅' : '❌';
+
+            const body = `## 🔬 CI Results\n\n` +
+              `| Job | Status |\n|-----|--------|\n` +
+              `| Smoke Test | ✅ |\n` +
+              `| Benchmark | ${benchmarkStatus} |\n` +
+              `| Eval Harness | ${evalStatus} |\n` +
+              `| Conversation Tests | ${convStatus} |\n\n` +
+              `### Benchmark Regression Check\n\n${benchmarkTable}\n\n` +
+              `### Eval Harness\n\n${evalSummary}\n\n` +
+              `---\n🤖 *Generated by CI pipeline*`;
+
+            // Find and update existing comment or create new one
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(c => c.body.includes('🔬 CI Results'));
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body,
+              });
+            }
