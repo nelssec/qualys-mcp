@@ -282,6 +282,50 @@ Results are saved to `eval_results/YYYY-MM-DD.json` with per-question detail and
 | EU1 | qualysapi.qualys.eu | gateway.qg1.apps.qualys.eu |
 | EU2 | qualysapi.qg2.apps.qualys.eu | gateway.qg2.apps.qualys.eu |
 
+## CI / Testing
+
+Every pull request runs a CI pipeline with four stages:
+
+| Step | What it does | Fails PR if |
+|------|-------------|-------------|
+| **Smoke Test** | `bash test_tools.sh fast` — verifies tools return without errors | Any tool errors |
+| **Benchmark** | `python benchmark.py --quick --json benchmark_results.json` — measures latency | Any tool >2x baseline |
+| **Eval Harness** | `python eval.py --quick --limit 50` — scores responses against expected keywords | Score < 80% (configurable) |
+| **Conversation Tests** | `pytest tests/conversations/ -v` — multi-turn conversation flow tests | Any test fails |
+
+A nightly workflow runs the full eval suite (`--limit 500`) and updates `benchmark_baseline.json` on main.
+
+### Required GitHub Secrets
+
+| Secret | Description |
+|--------|-------------|
+| `QUALYS_USERNAME` | Qualys API username |
+| `QUALYS_PASSWORD` | Qualys API password |
+| `QUALYS_BASE_URL` | Qualys API base URL (e.g., `qualysapi.qualys.com`) |
+| `QUALYS_GATEWAY_URL` | Qualys Gateway URL (e.g., `gateway.qg1.apps.qualys.com`) |
+
+Optional: Set `EVAL_PASS_THRESHOLD` as a repository variable to override the default 80% pass threshold.
+
+### Running Tests Locally
+
+```bash
+# Smoke test
+bash test_tools.sh fast
+
+# Benchmark (quick mode)
+python benchmark.py --quick --json benchmark_results.json
+
+# Eval harness
+python eval.py --quick
+
+# Conversation tests
+pip install pytest
+pytest tests/conversations/ -v
+
+# Update benchmark baseline
+python benchmark.py --quick --json benchmark_baseline.json
+```
+
 ## License
 
 MIT - Copyright (c) 2026 Andrew Nelson
