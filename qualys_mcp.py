@@ -17,6 +17,32 @@ from fastmcp import FastMCP
 
 mcp = FastMCP("qualys-mcp")
 
+
+def compact(d):
+    """Recursively remove None values and empty lists/dicts."""
+    if isinstance(d, dict):
+        return {k: compact(v) for k, v in d.items()
+                if v is not None and v != [] and v != {}}
+    if isinstance(d, list):
+        return [compact(i) for i in d]
+    return d
+
+
+def short_date(dt_str):
+    """Strip time from ISO datetime if time is midnight."""
+    if dt_str and "T" in str(dt_str):
+        date_part, time_part = str(dt_str).split("T", 1)
+        if time_part in ("00:00:00Z", "00:00:00", "00:00:00+00:00"):
+            return date_part
+    return dt_str
+
+
+def short_host(hostname):
+    """Truncate FQDN to first label."""
+    if hostname and "." in hostname:
+        return hostname.split(".")[0]
+    return hostname
+
 USERNAME = os.environ.get('QUALYS_USERNAME', '')
 PASSWORD = os.environ.get('QUALYS_PASSWORD', '')
 
@@ -390,13 +416,13 @@ def parse_vuln_xml(v):
         try:
             base_text = cvss_v3.findtext('BASE', '')
             if base_text:
-                cvss_v3_base = float(base_text)
+                cvss_v3_base = round(float(base_text), 1)
         except (ValueError, TypeError):
             pass
         try:
             temp_text = cvss_v3.findtext('TEMPORAL', '')
             if temp_text:
-                cvss_v3_temporal = float(temp_text)
+                cvss_v3_temporal = round(float(temp_text), 1)
         except (ValueError, TypeError):
             pass
         cvss_v3_vector = cvss_v3.findtext('VECTOR_STRING', '') or ''
@@ -1013,7 +1039,7 @@ def fetch_all_eol(eol_type, limit=0, max_pages=0):
                         results.append({
                             'assetId': aid,
                             'address': a.get('address', ''),
-                            'hostname': a.get('dnsHostName', '') or a.get('dnsName', ''),
+                            'hostname': short_host(a.get('dnsHostName', '') or a.get('dnsName', '')),
                             name_field: name_val,
                             'stage': stage,
                             'criticality': get_criticality(a),
@@ -1118,7 +1144,7 @@ def get_weekly_priorities(limit: int = 10, sort_by: str = "trurisk", tag: str = 
             'rank': i + 1,
             'assetId': str(asset.get('assetId', '')),
             'hostId': str(asset.get('hostId') or ''),
-            'hostname': asset.get('dnsHostName', '') or asset.get('dnsName', ''),
+            'hostname': short_host(asset.get('dnsHostName', '') or asset.get('dnsName', '')),
             'ip': asset.get('address', ''),
             'riskScore': int(asset.get('riskScore') or 0),
             'os': (asset.get('operatingSystem') or {}).get('osName', ''),
@@ -1164,7 +1190,7 @@ def get_weekly_priorities(limit: int = 10, sort_by: str = "trurisk", tag: str = 
         })
         result['summary']['containersAtRisk'] = len(at_risk)
 
-    return result
+    return compact(result)
 
 
 def _extract_software_keywords(title):
@@ -1227,7 +1253,7 @@ def investigate_cve(cve: str) -> dict:
               'qds_factors': '',
               'title': '', 'patchAvailable': False, 'solution': '',
               'allKbDetails': [], 'threatIntel': [],
-              'ransomware': False, 'affectedAssets': {},
+              'ransomware': False,
               'summary': {'qidCount': 0, 'patchAvailable': False,
                           'assetsWithSoftware': 0}}
 
@@ -1271,7 +1297,7 @@ def investigate_cve(cve: str) -> dict:
                     result['ransomware'] = True
                 result['allKbDetails'].append({
                     'qid': qid,
-                    'title': kb.get('title', ''),
+                    'title': kb.get('title', '')[:80],
                     'severity': kb.get('severity', 0),
                     'qds': real_qds or kb.get('qds', 0),
                     'cvss_v3': kb.get('cvss_v3'),
@@ -1324,7 +1350,7 @@ def investigate_cve(cve: str) -> dict:
             if best_count == 0 and os_filter:
                 os_count = csam_count([os_filter])
                 os_assets = csam_search([os_filter], limit=5)
-                result['affectedAssets'] = {
+                result['assets'] = {
                     'searchedSoftware': ', '.join(list(software_keywords)[:2]),
                     'assetCount': 0,
                     'osExposure': {
@@ -1342,7 +1368,7 @@ def investigate_cve(cve: str) -> dict:
                 result['summary']['assetsWithSoftware'] = 0
                 result['summary']['osExposedAssets'] = os_count
             else:
-                result['affectedAssets'] = {
+                result['assets'] = {
                     'searchedSoftware': best_keyword,
                     'assetCount': best_count,
                     'sampleAssets': [{
@@ -1355,7 +1381,7 @@ def investigate_cve(cve: str) -> dict:
                 }
                 result['summary']['assetsWithSoftware'] = best_count
 
-    return result
+    return compact(result)
 
 
 def get_security_posture(tag: str = "", asset_group: str = "") -> dict:
@@ -1504,7 +1530,7 @@ def get_patch_status(limit: int = 20, tag: str = "", asset_group: str = "") -> d
         result['highRiskAssets'].append({
             'assetId': str(asset.get('assetId', '')),
             'hostId': str(asset.get('hostId') or ''),
-            'hostname': asset.get('dnsHostName', '') or asset.get('dnsName', ''),
+            'hostname': short_host(asset.get('dnsHostName', '') or asset.get('dnsName', '')),
             'ip': asset.get('address', ''),
             'riskScore': int(asset.get('riskScore') or 0),
             'os': (asset.get('operatingSystem') or {}).get('osName', ''),
@@ -1514,7 +1540,7 @@ def get_patch_status(limit: int = 20, tag: str = "", asset_group: str = "") -> d
     if total > 0:
         result['coverage'] = round((total - risk_100) / total * 100, 1)
 
-    return result
+    return compact(result)
 
 
 @mcp.tool()
@@ -1569,13 +1595,13 @@ def search_vulns(days: int = 7, threat_type: str = "", software: str = "", limit
     )
     if not data:
         result['summary'] = 'Failed to fetch KB data'
-        return result
+        return compact(result)
 
     try:
         root = ET.fromstring(data)
     except ET.ParseError:
         result['summary'] = 'Failed to parse KB data'
-        return result
+        return compact(result)
 
     # Parse all vulns, apply filters client-side
     all_vulns_xml = root.findall('.//VULN')
@@ -1635,7 +1661,7 @@ def search_vulns(days: int = 7, threat_type: str = "", software: str = "", limit
         real_qds = qds_scores.get(v['qid'], 0)
         result['vulns'].append({
             'qid': v['qid'],
-            'title': v['title'],
+            'title': v['title'][:80],
             'severity': v['severity'],
             'qds': real_qds or v.get('qds', 0),
             'cvss_v3': v.get('cvss_v3'),
@@ -1659,7 +1685,7 @@ def search_vulns(days: int = 7, threat_type: str = "", software: str = "", limit
         f"{len(matching)} matching vulns ({filter_label}) out of {len(all_vulns_xml)} "
         f"published in last {days} days. {patched} have patches available."
     )
-    return result
+    return compact(result)
 
 
 def _get_first_cloud_evals():
@@ -1916,7 +1942,7 @@ def get_recommendations() -> dict:
         f'patch acceleration'
     )
 
-    return result
+    return compact(result)
 
 
 @mcp.tool()
@@ -1985,8 +2011,8 @@ def get_eliminate_status() -> dict:
 
         pm_assets = concurrent.get(f'{platform}_assets') or []
         result['patchManagement'][platform] = {
-            'totalJobs': len(patch_jobs),
-            'activeJobs': len(active),
+            'total': len(patch_jobs),
+            'active': len(active),
             'byStatus': by_status,
             'recentJobs': recent_jobs,
             'managedAssets': len(pm_assets),
@@ -2016,8 +2042,8 @@ def get_eliminate_status() -> dict:
             })
 
         result['mitigations'][platform] = {
-            'totalJobs': len(mtg_jobs),
-            'activeJobs': len(mtg_active),
+            'total': len(mtg_jobs),
+            'active': len(mtg_active),
             'byStatus': mtg_by_status,
             'recentJobs': mtg_recent,
         }
@@ -2045,7 +2071,7 @@ def get_eliminate_status() -> dict:
         f'Use Mitigate to apply compensating controls when no patch exists.'
     )
 
-    return result
+    return compact(result)
 
 
 @mcp.tool()
@@ -2107,7 +2133,7 @@ def get_scanner_health() -> dict:
             'runningScanCount': running,
             'maxCapacity': capacity,
             'heartbeatsMissed': s.get('heartbeatsMissed', 0),
-            'lastUpdated': s.get('lastUpdated', ''),
+            'lastUpdated': short_date(s.get('lastUpdated', '')),
         }
         if sigs_outdated:
             scanner_info['vulnsigsOutdated'] = True
@@ -2128,7 +2154,7 @@ def get_scanner_health() -> dict:
         'byState': scan_states,
         'errorScans': [{
             'title': s.get('title', ''),
-            'launched': s.get('launched', ''),
+            'launched': short_date(s.get('launched', '')),
             'scanner': s.get('scannerName', ''),
         } for s in error_scans[:10]],
         'activeScans': [{
@@ -2162,7 +2188,7 @@ def get_scanner_health() -> dict:
         + (f'Warnings: {"; ".join(warnings)}.' if warnings else 'No warnings.')
     )
 
-    return result
+    return compact(result)
 
 
 @mcp.tool()
@@ -2220,7 +2246,7 @@ def get_etm_findings(qql: str = "", report_id: str = "") -> dict:
         if not detail:
             result['reportStatus'] = 'error'
             result['summary'] = {'error': 'Could not retrieve report status'}
-            return result
+            return compact(result)
 
         result['reportStatus'] = detail.get('status', 'UNKNOWN')
         if detail['status'] == 'COMPLETED':
@@ -2238,17 +2264,17 @@ def get_etm_findings(qql: str = "", report_id: str = "") -> dict:
             if not qql:
                 ETM_RESULT_CACHE = formatted
                 ETM_RESULT_CACHE_TIME = now
-            return formatted
+            return compact(formatted)
 
         elif detail['status'] == 'FAILED':
             result['summary'] = {'error': 'Report generation failed', 'reportId': report_id}
-            return result
+            return compact(result)
         else:
             result['summary'] = {
                 'message': f'Report is still processing (status: {detail["status"]}). Try again in 30-60 seconds.',
                 'reportId': report_id,
             }
-            return result
+            return compact(result)
 
     # For unfiltered queries: check in-memory cache first (1-hour TTL)
     if not qql and ETM_RESULT_CACHE is not None and ETM_RESULT_CACHE_TIME:
@@ -2257,7 +2283,7 @@ def get_etm_findings(qql: str = "", report_id: str = "") -> dict:
             _log(f"ETM result cache hit (age {int(age)}s)")
             cached = dict(ETM_RESULT_CACHE)
             cached['cacheAge'] = int(age)
-            return cached
+            return compact(cached)
 
     # No report_id — check for a recent completed report matching the query
     reports = etm_api('POST', '/etm/api/rest/v1/reports/list', {'pageSize': 50})
@@ -2294,7 +2320,7 @@ def get_etm_findings(qql: str = "", report_id: str = "") -> dict:
     if not new_report:
         result['reportStatus'] = 'error'
         result['summary'] = {'error': 'Failed to create ETM report. ETM module may not be enabled.'}
-        return result
+        return compact(result)
 
     rid = new_report.get('id', '')
     result['reportStatus'] = 'creating'
@@ -2303,7 +2329,7 @@ def get_etm_findings(qql: str = "", report_id: str = "") -> dict:
         'reportId': rid,
         'qql': qql or '(all findings)',
     }
-    return result
+    return compact(result)
 
 
 def _format_etm_findings(all_findings, report_detail):
@@ -2354,7 +2380,7 @@ def _format_etm_findings(all_findings, report_detail):
         entry = {
             'cveId': cve,
             'qid': qid,
-            'title': f.get('title', ''),
+            'title': f.get('title', '')[:80],
             'severity': sev,
             'qds': qds,
             'qvss': qvss,
@@ -2367,8 +2393,8 @@ def _format_etm_findings(all_findings, report_detail):
             'isQualysPatchable': f.get('isQualysPatchable', False),
             'cvss': f.get('cvss', {}),
             'source': source,
-            'firstFound': f.get('firstFound'),
-            'lastFound': f.get('lastFound'),
+            'firstFound': short_date(f.get('firstFound')),
+            'lastFound': short_date(f.get('lastFound')),
         }
 
         if category == 'MISCONFIGURATION':
@@ -2405,7 +2431,7 @@ def _format_etm_findings(all_findings, report_detail):
             'byCategory': by_category,
             'bySource': by_source,
         },
-        'topCVEs': [{'cve': cve, 'qid': info.get('qid', ''), 'affectedAssets': info['count'], 'severity': info['severity'], 'title': info['title'][:80]} for cve, info in top_cves],
+        'topCVEs': [{'cve': cve, 'qid': info.get('qid', ''), 'assets': info['count'], 'severity': info['severity'], 'title': info['title'][:80]} for cve, info in top_cves],
     }
 
     # Add misconfiguration breakdown if any exist
@@ -2536,7 +2562,7 @@ def get_morning_report() -> dict:
             'delta': round(delta),
         }
 
-    return result
+    return compact(result)
 
 
 @mcp.tool()
@@ -2582,7 +2608,7 @@ def get_cve_details(cves: str) -> dict:
                     is_ransomware = True
                 all_kb.append({
                     'qid': qid,
-                    'title': kb.get('title', ''),
+                    'title': kb.get('title', '')[:80],
                     'severity': kb.get('severity', 0),
                     'qds': real_qds or kb.get('qds', 0),
                     'cvss_v3': kb.get('cvss_v3'),
@@ -2602,8 +2628,8 @@ def get_cve_details(cves: str) -> dict:
             'title': best.get('title', '') if best else '',
             'patchAvailable': best.get('patch_available', False) if best else False,
             'has_exploit': best.get('has_exploit', False) if best else False,
-            'solution': (best.get('solution', '') if best else '')[:500],
-            'diagnosis': (best.get('diagnosis', '') if best else '')[:300],
+            'solution': (best.get('solution', '') if best else '')[:120],
+            'diagnosis': (best.get('diagnosis', '') if best else '')[:120],
             'threatIntel': sorted(all_threat_intel),
             'ransomware': is_ransomware,
             'kbEntries': all_kb,
@@ -2622,7 +2648,7 @@ def get_cve_details(cves: str) -> dict:
             result['cves'].append(entry)
 
     result['cves'].sort(key=lambda x: (-x.get('severity', 0), x['cve']))
-    return result
+    return compact(result)
 
 
 @mcp.tool()
@@ -2645,7 +2671,7 @@ def get_qid_details(qids: str) -> dict:
         if q.isdigit():
             qid_list.append(int(q))
     if not qid_list:
-        return {'error': 'No valid QIDs provided', 'requested': 0, 'found': 0, 'qids': []}
+        return compact({'error': 'No valid QIDs provided', 'requested': 0, 'found': 0, 'qids': []})
 
     result = {'requested': len(qid_list), 'found': 0, 'qids': []}
 
@@ -2664,7 +2690,7 @@ def get_qid_details(qids: str) -> dict:
             result['found'] += 1
             result['qids'].append({
                 'qid': qid,
-                'title': kb.get('title', ''),
+                'title': kb.get('title', '')[:80],
                 'severity': kb.get('severity', 0),
                 'qds': real_qds or kb.get('qds', 0),
                 'qds_factors': kb.get('qds_factors', ''),
@@ -2674,8 +2700,8 @@ def get_qid_details(qids: str) -> dict:
                 'cves': kb.get('cves', []),
                 'patchAvailable': kb.get('patch_available', False),
                 'has_exploit': kb.get('has_exploit', False),
-                'solution': kb.get('solution', '')[:500],
-                'diagnosis': kb.get('diagnosis', '')[:300],
+                'solution': kb.get('solution', '')[:120],
+                'diagnosis': kb.get('diagnosis', '')[:120],
                 'threatIntel': kb.get('threat_intel', []),
                 'ransomware': kb.get('ransomware', False),
             })
@@ -2683,12 +2709,12 @@ def get_qid_details(qids: str) -> dict:
             result['qids'].append({'qid': qid, 'found': False})
 
     result['qids'].sort(key=lambda x: (-x.get('severity', 0), -x.get('qds', 0)))
-    return result
+    return compact(result)
 
 
 def get_compliance_gaps(limit: int = 20) -> dict:
     """Get top failing compliance controls that could fail audits."""
-    result = {'passRate': 0, 'failingControls': 0, 'topFailing': []}
+    result = {'pass_pct': 0, 'failingControls': 0, 'topFailing': []}
 
     fails = {}
     passes = 0
@@ -2708,7 +2734,7 @@ def get_compliance_gaps(limit: int = 20) -> dict:
     result['topFailing'] = [{'controlId': c, 'failCount': n} for c, n in sorted(fails.items(), key=lambda x: x[1], reverse=True)[:limit]]
 
     total = sum(fails.values()) + passes
-    result['passRate'] = round(passes / total * 100, 1) if total else 0
+    result['pass_pct'] = round(passes / total * 100, 1) if total else 0
     return result
 
 
@@ -2781,7 +2807,7 @@ def get_cloud_risk(limit: int = 20) -> dict:
             result['stats']['critical'] += 1
         result['threats'].append({'severity': sev, 'category': f.get('category', ''), 'resource': f.get('resourceId', '')})
 
-    return result
+    return compact(result)
 
 
 @mcp.tool()
@@ -2878,7 +2904,7 @@ def get_cdr_findings(days: int = 7, limit: int = 50, severity: str = "", cloud_p
         f"Providers: {providers}. Top categories: {top_cats}."
     )
 
-    return result
+    return compact(result)
 
 
 @mcp.tool()
@@ -2920,7 +2946,7 @@ def get_asset_risk(asset_id: str, tag: str = "", asset_group: str = "") -> dict:
             for sw in (sw_list.get('software') or [])[:30]:
                 name = sw.get('fullName') or sw.get('productName') or sw.get('name') or ''
                 sw_info = {
-                    'name': name.strip(),
+                    'name': name.strip()[:60],
                     'version': sw.get('version', ''),
                     'category': sw.get('category', ''),
                 }
@@ -2949,7 +2975,7 @@ def get_asset_risk(asset_id: str, tag: str = "", asset_group: str = "") -> dict:
                     kb = kb_data.get(d['qid']) or {}
                     vulns.append({
                         'qid': d['qid'],
-                        'title': kb.get('title', ''),
+                        'title': kb.get('title', '')[:80],
                         'severity': d.get('severity', 0),
                         'qds': d.get('qds', 0) or kb.get('qds', 0),
                         'cvss_v3': kb.get('cvss_v3'),
@@ -2958,12 +2984,12 @@ def get_asset_risk(asset_id: str, tag: str = "", asset_group: str = "") -> dict:
                         'patchAvailable': kb.get('patch_available', False),
                         'has_exploit': kb.get('has_exploit', False),
                         'ransomware': kb.get('ransomware', False),
-                        'first_found': d.get('first_found', ''),
+                        'first_found': short_date(d.get('first_found', '')),
                     })
                 result['vulns'] = vulns[:50]
                 result['vulnCount'] = len(dets)
 
-    return result
+    return compact(result)
 
 
 @mcp.tool()
@@ -2995,7 +3021,7 @@ def get_tech_debt(limit: int = 100) -> dict:
     result['hardware'].sort(key=lambda x: (-x['criticality'], -x['riskScore']))
     result['summary'] = {'osEOL': len(result['os']), 'hardwareEOL': len(result['hardware'])}
 
-    return result
+    return compact(result)
 
 
 @mcp.tool()
@@ -3045,13 +3071,13 @@ def get_image_vulns(image_id: str, limit: int = 50) -> dict:
 
         result['vulns'].append({
             'qid': v.get('qid'), 'cve': v.get('cveId', ''),
-            'severity': sev, 'title': v.get('title', ''),
+            'severity': sev, 'title': v.get('title', '')[:80],
             'fixVersion': v.get('fixedVersion', '')
         })
 
     result['stats']['total'] = len(vulns)
     result['vulns'] = sorted(result['vulns'], key=lambda x: x['severity'], reverse=True)[:limit]
-    return result
+    return compact(result)
 
 
 @mcp.tool()
@@ -3233,7 +3259,7 @@ def get_expiring_certs(days: int = 90, include_expired: bool = True, weak_only: 
     severity_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3}
     result['issues'].sort(key=lambda x: severity_order.get(x.get('severity', 'LOW'), 4))
 
-    return result
+    return compact(result)
 
 
 def get_threats(days: int = 7, limit: int = 50) -> dict:
@@ -3447,7 +3473,7 @@ def get_webapp_vulns(severity: int = 0, days: int = 30, app_name: str = "", owas
             'severity': sev,
             'url': f.get('url', ''),
             'webApp': webapp_name,
-            'detectedDate': f.get('detectedDate', ''),
+            'detectedDate': short_date(f.get('detectedDate', '')),
             'type': f.get('type', ''),
             'owaspCategory': owasp_cat,
         })
@@ -3463,7 +3489,7 @@ def get_webapp_vulns(severity: int = 0, days: int = 30, app_name: str = "", owas
     # Sort byCategory and owaspTop10 by count descending
     result['byCategory'] = dict(sorted(result['byCategory'].items(), key=lambda x: x[1], reverse=True))
     result['owaspTop10'] = dict(sorted(result['owaspTop10'].items(), key=lambda x: x[1], reverse=True))
-    return result
+    return compact(result)
 
 
 @mcp.tool()
@@ -3492,7 +3518,7 @@ def get_asset_full_profile(asset_id: str) -> dict:
     asset = get_asset_by_id(asset_id)
     if not asset:
         result['summary'] = {'error': f'Asset {asset_id} not found in CSAM'}
-        return result
+        return compact(result)
 
     host_id = str(asset.get('hostId') or '')
     hostname = asset.get('dnsHostName', '') or asset.get('dnsName', '') or asset.get('address', '')
@@ -3504,7 +3530,7 @@ def get_asset_full_profile(asset_id: str) -> dict:
     eol_software = []
     for sw in (sw_list.get('software') or [])[:30]:
         name = sw.get('fullName') or sw.get('productName') or sw.get('name') or ''
-        sw_info = {'name': name.strip(), 'version': sw.get('version', '')}
+        sw_info = {'name': name.strip()[:60], 'version': sw.get('version', '')}
         lifecycle = (sw.get('lifecycle') or {})
         if lifecycle.get('stage') and lifecycle['stage'] not in ('Unknown', 'Not Applicable', 'OS Dependent'):
             sw_info['lifecycleStage'] = lifecycle['stage']
@@ -3519,7 +3545,7 @@ def get_asset_full_profile(asset_id: str) -> dict:
         'hostId': host_id,
         'riskScore': int(asset.get('riskScore') or 0),
         'criticality': get_criticality(asset),
-        'lastSeen': asset.get('lastModifiedDate', ''),
+        'lastSeen': short_date(asset.get('lastModifiedDate', '')),
         'software': software[:20],
         'eolSoftware': eol_software,
         'tags': [t.get('name', '') for t in (asset.get('tags') or {}).get('tag', [])[:10]],
@@ -3591,7 +3617,7 @@ def get_asset_full_profile(asset_id: str) -> dict:
         kb = vmdr_kb.get(d.get('qid', 0)) or {}
         vmdr_dets.append({
             'qid': d.get('qid', 0),
-            'title': kb.get('title', ''),
+            'title': kb.get('title', '')[:80],
             'severity': d.get('severity', 0),
             'qds': d.get('qds', 0) or kb.get('qds', 0),
             'cvss_v3': kb.get('cvss_v3'),
@@ -3601,7 +3627,7 @@ def get_asset_full_profile(asset_id: str) -> dict:
             'has_exploit': kb.get('has_exploit', False),
             'ransomware': kb.get('ransomware', False),
             'status': d.get('status', ''),
-            'firstFound': d.get('first_found', ''),
+            'firstFound': short_date(d.get('first_found', '')),
         })
     vmdr_dets.sort(key=lambda x: (-x['severity'], -x['qds']))
     result['vmdrDetections'] = vmdr_dets[:30]
@@ -3622,7 +3648,7 @@ def get_asset_full_profile(asset_id: str) -> dict:
         'etmAsync': etm_async,
     }
 
-    return result
+    return compact(result)
 
 
 @mcp.tool()
@@ -3682,7 +3708,7 @@ def get_risk_by_tag(tag: str, limit: int = 10) -> dict:
         result['topRiskAssets'].append({
             'rank': i + 1,
             'assetId': str(a.get('assetId', '')),
-            'hostname': a.get('dnsHostName', '') or a.get('dnsName', ''),
+            'hostname': short_host(a.get('dnsHostName', '') or a.get('dnsName', '')),
             'ip': a.get('address', ''),
             'riskScore': int(a.get('riskScore') or 0),
             'os': (a.get('operatingSystem') or {}).get('osName', ''),
@@ -3697,7 +3723,7 @@ def get_risk_by_tag(tag: str, limit: int = 10) -> dict:
         f"{eol} EOL/EOS systems."
     )
 
-    return result
+    return compact(result)
 
 
 @mcp.tool()
@@ -3780,7 +3806,7 @@ def get_environment_summary() -> dict:
         f"Criticality: {crit_high} high-criticality assets."
     )
 
-    return result
+    return compact(result)
 
 
 @mcp.tool()
@@ -3804,7 +3830,7 @@ def cache_status(clear: bool = False) -> dict:
     result = {
         'kb_entries': len(KB_CACHE),
         'detection_entries': len(DETECTION_CACHE),
-        'detection_cache_age_seconds': None,
+        'cache_age_s': None,
         'qds_entries': len(QDS_CACHE),
         'was_keys': len(WAS_CACHE),
         'scanner_cached': SCANNER_CACHE is not None,
@@ -3816,7 +3842,7 @@ def cache_status(clear: bool = False) -> dict:
 
     if DETECTION_CACHE_TIME:
         newest = max(DETECTION_CACHE_TIME.values())
-        result['detection_cache_age_seconds'] = int((now - newest).total_seconds())
+        result['cache_age_s'] = int((now - newest).total_seconds())
     if BEARER_TOKEN_TIME:
         result['bearer_token_age_seconds'] = int((now - BEARER_TOKEN_TIME).total_seconds())
     if SCANNER_CACHE_TIME:
@@ -3843,11 +3869,11 @@ def cache_status(clear: bool = False) -> dict:
         result['was_keys'] = 0
         result['scanner_cached'] = False
         result['etm_result_cached'] = False
-        result['detection_cache_age_seconds'] = None
+        result['cache_age_s'] = None
         result['scanner_cache_age_seconds'] = None
         result['etm_cache_age_seconds'] = None
 
-    return result
+    return compact(result)
 
 
 @mcp.tool()
@@ -3946,7 +3972,7 @@ def get_edr_events(days: int = 7, severity: str = "", category: str = "", host: 
         reverse=True,
     )[:10]
 
-    return {
+    return compact({
         'summary': {
             'total': total,
             'critical': sev_counts['CRITICAL'],
@@ -3958,7 +3984,7 @@ def get_edr_events(days: int = 7, severity: str = "", category: str = "", host: 
         'byCategory': by_category,
         'topHosts': top_hosts,
         'events': events_out,
-    }
+    })
 
 
 @mcp.tool()
@@ -4079,7 +4105,7 @@ def get_fim_events(days: int = 1, severity: str = "", host: str = "", path: str 
         reverse=True,
     )[:10]
 
-    return {
+    return compact({
         'summary': {
             'total': total,
             'critical': sev_counts['CRITICAL'],
@@ -4092,7 +4118,7 @@ def get_fim_events(days: int = 1, severity: str = "", host: str = "", path: str 
         'topHosts': top_hosts,
         'criticalChanges': critical_changes,
         'events': events_out,
-    }
+    })
 
 
 def _parse_duration(duration_str):
@@ -4174,7 +4200,7 @@ def get_scan_status(state: str = "Running,Paused,Queued,Error", days: int = 7, l
         scan_entry = {
             'ref': s.get('ref', ''), 'title': s.get('title', ''),
             'state': scan_state, 'type': s.get('type', ''),
-            'target': s.get('target', ''), 'launched': launched,
+            'target': s.get('target', ''), 'launched': short_date(launched),
             'duration': _parse_duration(s.get('duration', '')),
             'scanner': s.get('scannerName', ''),
         }
@@ -4187,7 +4213,7 @@ def get_scan_status(state: str = "Running,Paused,Queued,Error", days: int = 7, l
             result['failedScans'].append({
                 'ref': scan_entry['ref'], 'title': scan_entry['title'],
                 'scanner': scan_entry['scanner'], 'target': scan_entry['target'],
-                'launched': launched,
+                'launched': short_date(launched),
             })
 
     # Process active scans
@@ -4228,7 +4254,7 @@ def get_scan_status(state: str = "Running,Paused,Queued,Error", days: int = 7, l
     if result['failedScans']:
         result['summary'] += ' ⚠ Use get_scanner_health() to check scanner appliance status for failed scans.'
 
-    return result
+    return compact(result)
 
 
 @mcp.tool()
@@ -4329,28 +4355,28 @@ def get_pm_status(platform: str = "Windows", days: int = 30, status: str = "", l
                         'patchStatus': a.get('patchStatus', ''),
                     })
 
-            return {
+            return compact({
                 'summary': {
                     'platform': plat,
-                    'totalJobs': len(job_list),
-                    'activeJobs': active_count,
-                    'failedJobs': failed_count,
+                    'total': len(job_list),
+                    'active': active_count,
+                    'failed': failed_count,
                     'patchCoverage': f"{coverage_pct}%",
                     'criticalPatches': critical,
                 },
                 'jobs': job_list,
                 'patchSeverity': sev_data,
                 'topAssets': top_assets,
-            }
+            })
         except Exception as e:
             _log(f"PM status error for {plat}: {e}")
-            return {
+            return compact({
                 'summary': {'platform': plat, 'error': str(e)},
                 'jobs': [], 'patchSeverity': {}, 'topAssets': [],
-            }
+            })
 
     if len(platforms) == 1:
-        return _pm_for_platform(platforms[0])
+        return compact(_pm_for_platform(platforms[0]))
 
     # Multi-platform: run in parallel
     tasks = {p: lambda p=p: _pm_for_platform(p) for p in platforms}
@@ -4362,11 +4388,11 @@ def get_pm_status(platform: str = "Windows", days: int = 30, status: str = "", l
             'jobs': [], 'patchSeverity': {}, 'topAssets': [],
         }
     # Aggregate summary
-    total_jobs = sum(r['summary'].get('totalJobs', 0) for r in results.values())
-    active_jobs = sum(r['summary'].get('activeJobs', 0) for r in results.values())
-    failed_jobs = sum(r['summary'].get('failedJobs', 0) for r in results.values())
+    total_jobs = sum(r['summary'].get('total', 0) for r in results.values())
+    active_jobs = sum(r['summary'].get('active', 0) for r in results.values())
+    failed_jobs = sum(r['summary'].get('failed', 0) for r in results.values())
     results['summary'] = f"All platforms: {total_jobs} jobs ({active_jobs} active, {failed_jobs} failed)"
-    return results
+    return compact(results)
 
 
 @mcp.tool()
@@ -4445,7 +4471,7 @@ def get_asset_inventory(query: str = "", tag: str = "", os: str = "", days_since
             'name': a.get('name', '') or a.get('dnsName', ''),
             'ip': a.get('address', '') or a.get('ipAddress', ''),
             'os': os_name,
-            'lastSeen': a.get('lastSeen', ''),
+            'lastSeen': short_date(a.get('lastSeen', '')),
             'tags': asset_tags,
             'truRiskScore': a.get('riskScore', 0) or a.get('truRiskScore', 0) or 0,
             'openVulns': open_vulns,
@@ -4453,7 +4479,7 @@ def get_asset_inventory(query: str = "", tag: str = "", os: str = "", days_since
         })
 
     result_assets.sort(key=lambda x: -x['truRiskScore'])
-    return {'summary': summary, 'assets': result_assets}
+    return compact({'summary': summary, 'assets': result_assets})
 
 
 @mcp.tool()
@@ -4485,13 +4511,13 @@ def get_vuln_exceptions(status: str = "Active", vuln_type: str = "", days_to_exp
     data = api_get(url, timeout=30)
     if not data:
         result['note'] = 'Exceptions API not available — may require additional Qualys subscription'
-        return result
+        return compact(result)
 
     try:
         root = ET.fromstring(data)
     except ET.ParseError:
         result['note'] = 'Exceptions API returned invalid response'
-        return result
+        return compact(result)
 
     today = datetime.now(timezone.utc)
     expiry_cutoff = today + timedelta(days=days_to_expiry) if days_to_expiry > 0 else None
@@ -4540,7 +4566,7 @@ def get_vuln_exceptions(status: str = "Active", vuln_type: str = "", days_to_exp
             result['exceptions'].append(entry)
 
     result['stats']['total'] = sum(result['stats']['byType'].values())
-    return result
+    return compact(result)
 
 
 @mcp.tool()
@@ -4561,14 +4587,14 @@ def get_compliance_posture(framework: str = "", platform: str = "", limit: int =
     Performance: ~5s cold. Falls back to cloud compliance if PC module not licensed."""
 
     def _empty_result():
-        return {
+        return compact({
             'summary': {
-                'totalControls': 0, 'passing': 0, 'failing': 0,
-                'passRate': 0.0, 'affectedAssets': 0, 'frameworks': [],
+                'controls': 0, 'passing': 0, 'failing': 0,
+                'pass_pct': 0.0, 'assets': 0, 'frameworks': [],
             },
             'topFailingControls': [],
             'byFramework': {},
-        }
+        })
 
     def _parse_controls(root):
         """Parse controls from XML response and build result dict."""
@@ -4638,22 +4664,22 @@ def get_compliance_posture(framework: str = "", platform: str = "", limit: int =
         failing.sort(key=lambda x: (-x['failingAssets'], sev_order.get(x['severity'], 9)))
 
         result = _empty_result()
-        result['summary']['totalControls'] = total
+        result['summary']['controls'] = total
         result['summary']['passing'] = passed
         result['summary']['failing'] = failed
-        result['summary']['passRate'] = round(passed / total * 100, 1)
-        result['summary']['affectedAssets'] = max(affected_hosts) if affected_hosts else 0
+        result['summary']['pass_pct'] = round(passed / total * 100, 1)
+        result['summary']['assets'] = max(affected_hosts) if affected_hosts else 0
         result['summary']['frameworks'] = sorted(frameworks_seen)
         result['topFailingControls'] = failing[:limit]
 
         for fw_name, counts in by_fw.items():
             fw_total = counts['pass'] + counts['fail']
             result['byFramework'][fw_name] = {
-                'passRate': round(counts['pass'] / fw_total * 100, 1) if fw_total else 0,
+                'pass_pct': round(counts['pass'] / fw_total * 100, 1) if fw_total else 0,
                 'failing': counts['fail'],
             }
 
-        return result
+        return compact(result)
 
     # --- Strategy 1: PC posture info endpoint ---
     _log("Compliance posture: trying posture/info endpoint...")
@@ -4685,18 +4711,18 @@ def get_compliance_posture(framework: str = "", platform: str = "", limit: int =
     _log("Compliance posture: falling back to cloud compliance gaps...")
     try:
         gaps = get_compliance_gaps(limit=limit)
-        if gaps and (gaps.get('failingControls', 0) > 0 or gaps.get('passRate', 0) > 0):
+        if gaps and (gaps.get('failingControls', 0) > 0 or gaps.get('pass_pct', 0) > 0):
             total_failing = gaps.get('failingControls', 0)
-            pass_rate = gaps.get('passRate', 0)
+            pass_rate = gaps.get('pass_pct', 0)
             # Estimate total from pass rate
             total = int(total_failing / (1 - pass_rate / 100)) if pass_rate < 100 and total_failing else total_failing
             passing = total - total_failing
 
             result = _empty_result()
-            result['summary']['totalControls'] = total
+            result['summary']['controls'] = total
             result['summary']['passing'] = passing
             result['summary']['failing'] = total_failing
-            result['summary']['passRate'] = pass_rate
+            result['summary']['pass_pct'] = pass_rate
             result['summary']['frameworks'] = ['Cloud-CIS']
             result['topFailingControls'] = [
                 {
@@ -4710,7 +4736,7 @@ def get_compliance_posture(framework: str = "", platform: str = "", limit: int =
             ]
             result['source'] = 'cloud_compliance_fallback'
             result['note'] = 'Data from cloud compliance evaluations (TotalCloud). Enable Policy Compliance module for on-prem/endpoint posture.'
-            return result
+            return compact(result)
     except Exception as e:
         _log(f"Compliance posture: cloud fallback failed: {e}")
 
@@ -4718,7 +4744,7 @@ def get_compliance_posture(framework: str = "", platform: str = "", limit: int =
     result = _empty_result()
     result['error'] = 'PC module not licensed or no compliance data available'
     result['suggestion'] = 'Enable the Qualys Policy Compliance (PC) module, or use get_cloud_risk() for cloud CIS compliance.'
-    return result
+    return compact(result)
 
 
 @mcp.tool()
@@ -4776,7 +4802,7 @@ def get_trurisk_score(days: int = 30, breakdown_by: str = "tag") -> dict:
                 tags.append(tag_name)
         result['topAssets'].append({
             'assetId': str(asset.get('assetId', '')),
-            'hostname': asset.get('dnsHostName', '') or asset.get('dnsName', ''),
+            'hostname': short_host(asset.get('dnsHostName', '') or asset.get('dnsName', '')),
             'ip': asset.get('address', ''),
             'truriskScore': int(asset.get('riskScore') or 0),
             'os': (asset.get('operatingSystem') or {}).get('osName', ''),
@@ -4860,7 +4886,7 @@ def get_trurisk_score(days: int = 30, breakdown_by: str = "tag") -> dict:
         breakdown.sort(key=lambda x: -x['avgTruRisk'])
         result['breakdown'] = breakdown[:20]
 
-    return result
+    return compact(result)
 
 
 @mcp.tool()
@@ -4885,7 +4911,7 @@ def get_tags(limit: int = 500) -> dict:
             if name:
                 tag_set.add(name)
     tags_sorted = sorted(tag_set)
-    return {'totalTags': len(tags_sorted), 'tags': tags_sorted}
+    return compact({'totalTags': len(tags_sorted), 'tags': tags_sorted})
 
 
 @mcp.tool()
@@ -4910,7 +4936,7 @@ def get_asset_groups(limit: int = 500) -> dict:
             if name:
                 group_set.add(name)
     groups_sorted = sorted(group_set)
-    return {'totalGroups': len(groups_sorted), 'assetGroups': groups_sorted}
+    return compact({'totalGroups': len(groups_sorted), 'assetGroups': groups_sorted})
 
 
 @mcp.tool()
@@ -4949,22 +4975,22 @@ def get_assets_by_tag(tag_name: str, limit: int = 50) -> dict:
                 asset_tags.append(name)
         result_assets.append({
             'assetId': str(a.get('assetId', '')),
-            'hostname': a.get('dnsHostName', '') or a.get('dnsName', ''),
+            'hostname': short_host(a.get('dnsHostName', '') or a.get('dnsName', '')),
             'ip': a.get('address', ''),
             'riskScore': int(a.get('riskScore') or 0),
             'os': os_info.get('osName', ''),
             'tags': asset_tags,
-            'lastSeen': a.get('lastModifiedDate', ''),
+            'lastSeen': short_date(a.get('lastModifiedDate', '')),
             'criticality': get_criticality(a),
         })
 
     result_assets.sort(key=lambda x: -x['riskScore'])
-    return {
+    return compact({
         'tag': tag_name,
         'total': total_count,
         'returned': len(result_assets),
         'assets': result_assets,
-    }
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -4987,7 +5013,7 @@ def list_reports(limit: int = 50) -> dict:
     Performance: ~3s."""
     data = api_get(f"{BASE_URL}/api/2.0/fo/report/?action=list", timeout=30)
     if not data:
-        return {'error': 'Failed to fetch report list', 'reports': []}
+        return compact({'error': 'Failed to fetch report list', 'reports': []})
     reports = []
     try:
         root = ET.fromstring(data)
@@ -4998,13 +5024,13 @@ def list_reports(limit: int = 50) -> dict:
                 'type': r.findtext('TYPE', ''),
                 'status': r.findtext('STATUS/STATE', ''),
                 'percentComplete': r.findtext('STATUS/PERCENT', ''),
-                'launchDatetime': r.findtext('LAUNCH_DATETIME', ''),
+                'launchDatetime': short_date(r.findtext('LAUNCH_DATETIME', '')),
                 'outputFormat': r.findtext('OUTPUT_FORMAT', ''),
                 'size': r.findtext('SIZE', ''),
             })
     except ET.ParseError:
-        return {'error': 'Failed to parse report list XML', 'reports': []}
-    return {'total': len(reports), 'reports': reports}
+        return compact({'error': 'Failed to parse report list XML', 'reports': []})
+    return compact({'total': len(reports), 'reports': reports})
 
 
 @mcp.tool()
@@ -5048,9 +5074,9 @@ def generate_report(template_id: str, report_title: str = "", output_format: str
     except HTTPError as e:
         body = e.read() if hasattr(e, 'read') else b''
         _log(f"Report launch error {e.code}")
-        return {'error': f'API error {e.code}', 'detail': body.decode(errors='replace')[:500]}
+        return compact({'error': f'API error {e.code}', 'detail': body.decode(errors='replace')[:500]})
     except Exception as e:
-        return {'error': str(e)}
+        return compact({'error': str(e)})
     try:
         root = ET.fromstring(body)
         text = root.findtext('.//TEXT', '')
@@ -5060,10 +5086,10 @@ def generate_report(template_id: str, report_title: str = "", output_format: str
                 report_id = item.findtext('VALUE', '')
                 break
         if report_id:
-            return {'reportId': report_id, 'message': text}
-        return {'error': text or 'Unknown error launching report'}
+            return compact({'reportId': report_id, 'message': text})
+        return compact({'error': text or 'Unknown error launching report'})
     except ET.ParseError:
-        return {'error': 'Failed to parse launch response', 'raw': body.decode(errors='replace')[:500]}
+        return compact({'error': 'Failed to parse launch response', 'raw': body.decode(errors='replace')[:500]})
 
 
 @mcp.tool()
@@ -5082,23 +5108,23 @@ def get_report_status(report_id: str) -> dict:
     Performance: ~2s."""
     data = api_get(f"{BASE_URL}/api/2.0/fo/report/?action=list&id={report_id}", timeout=30)
     if not data:
-        return {'error': 'Failed to fetch report status'}
+        return compact({'error': 'Failed to fetch report status'})
     try:
         root = ET.fromstring(data)
         r = root.find('.//REPORT')
         if r is None:
-            return {'error': f'Report {report_id} not found'}
-        return {
+            return compact({'error': f'Report {report_id} not found'})
+        return compact({
             'id': r.findtext('ID', ''),
             'title': r.findtext('TITLE', ''),
             'status': r.findtext('STATUS/STATE', ''),
             'percentComplete': r.findtext('STATUS/PERCENT', ''),
             'outputFormat': r.findtext('OUTPUT_FORMAT', ''),
             'size': r.findtext('SIZE', ''),
-            'launchDatetime': r.findtext('LAUNCH_DATETIME', ''),
-        }
+            'launchDatetime': short_date(r.findtext('LAUNCH_DATETIME', '')),
+        })
     except ET.ParseError:
-        return {'error': 'Failed to parse report status XML'}
+        return compact({'error': 'Failed to parse report status XML'})
 
 
 @mcp.tool()
@@ -5124,23 +5150,23 @@ def download_report(report_id: str) -> dict:
             content_type = resp.headers.get('Content-Type', 'application/octet-stream')
             body = resp.read()
     except HTTPError as e:
-        return {'error': f'API error {e.code}'}
+        return compact({'error': f'API error {e.code}'})
     except Exception as e:
-        return {'error': str(e)}
+        return compact({'error': str(e)})
     text_types = ('text/', 'application/xml', 'application/csv')
     if any(content_type.startswith(t) for t in text_types):
-        return {
+        return compact({
             'reportId': report_id,
             'contentType': content_type,
             'encoding': 'text',
             'data': body.decode(errors='replace'),
-        }
-    return {
+        })
+    return compact({
         'reportId': report_id,
         'contentType': content_type,
         'encoding': 'base64',
         'data': base64.b64encode(body).decode(),
-    }
+    })
 
 
 @mcp.tool()
@@ -5159,7 +5185,7 @@ def list_report_templates(limit: int = 100) -> dict:
     Performance: ~2s."""
     data = api_get(f"{BASE_URL}/api/2.0/fo/report/template/?action=list", timeout=30)
     if not data:
-        return {'error': 'Failed to fetch report templates', 'templates': []}
+        return compact({'error': 'Failed to fetch report templates', 'templates': []})
     templates = []
     try:
         root = ET.fromstring(data)
@@ -5171,8 +5197,8 @@ def list_report_templates(limit: int = 100) -> dict:
                 'isGlobal': t.findtext('GLOBAL', '') == '1',
             })
     except ET.ParseError:
-        return {'error': 'Failed to parse template list XML', 'templates': []}
-    return {'total': len(templates), 'templates': templates}
+        return compact({'error': 'Failed to parse template list XML', 'templates': []})
+    return compact({'total': len(templates), 'templates': templates})
 
 
 @mcp.tool()
@@ -5198,15 +5224,15 @@ def delete_report(report_id: str) -> dict:
             body = resp.read()
     except HTTPError as e:
         body = e.read() if hasattr(e, 'read') else b''
-        return {'error': f'API error {e.code}', 'detail': body.decode(errors='replace')[:500]}
+        return compact({'error': f'API error {e.code}', 'detail': body.decode(errors='replace')[:500]})
     except Exception as e:
-        return {'error': str(e)}
+        return compact({'error': str(e)})
     try:
         root = ET.fromstring(body)
         text = root.findtext('.//TEXT', '')
-        return {'reportId': report_id, 'message': text or 'Report deleted'}
+        return compact({'reportId': report_id, 'message': text or 'Report deleted'})
     except ET.ParseError:
-        return {'reportId': report_id, 'message': 'Report deleted'}
+        return compact({'reportId': report_id, 'message': 'Report deleted'})
 
 
 def _warmup_vmdr_cache():
