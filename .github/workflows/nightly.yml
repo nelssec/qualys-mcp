@@ -7,15 +7,15 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: write
+  actions: write
+
 env:
   QUALYS_USERNAME: ${{ secrets.QUALYS_USERNAME }}
   QUALYS_PASSWORD: ${{ secrets.QUALYS_PASSWORD }}
   QUALYS_BASE_URL: ${{ secrets.QUALYS_BASE_URL }}
   QUALYS_GATEWAY_URL: ${{ secrets.QUALYS_GATEWAY_URL }}
-
-permissions:
-  contents: write
-  actions: write
 
 jobs:
   full-eval:
@@ -68,6 +68,16 @@ jobs:
         if: steps.creds.outputs.skip != 'true'
         run: python tests/run_conversations.py --verbose
 
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-results-${{ github.run_number }}
+          path: |
+            benchmark_results.json
+            eval_results.json
+          retention-days: 90
+
       - name: Post summary
         if: always()
         run: |
@@ -94,16 +104,6 @@ jobs:
             echo "### Eval" >> "$GITHUB_STEP_SUMMARY"
             echo "_eval.py not available — skipped_" >> "$GITHUB_STEP_SUMMARY"
           fi
-
-      - name: Upload results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: nightly-results-${{ github.run_number }}
-          path: |
-            benchmark_results.json
-            eval_results.json
-          retention-days: 90
 
   update-baseline:
     name: Update Benchmark Baseline
