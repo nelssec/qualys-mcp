@@ -8,6 +8,7 @@ import (
 	"github.com/nelssec/qualys-mcp/config"
 	"github.com/nelssec/qualys-mcp/internal/auth"
 	"github.com/nelssec/qualys-mcp/internal/common"
+	"github.com/nelssec/qualys-mcp/internal/modules/activitylog"
 	"github.com/nelssec/qualys-mcp/internal/modules/car"
 	"github.com/nelssec/qualys-mcp/internal/modules/certview"
 	"github.com/nelssec/qualys-mcp/internal/modules/compliance"
@@ -155,8 +156,15 @@ func (s *Server) registerModules() {
 		remediationModule.RegisterTools(s.mcp)
 	}
 
+	var alClient *activitylog.Client
+	if s.config.IsModuleEnabled("activitylog") {
+		alClient = activitylog.NewClient(s.http, s.config.BaseURL)
+		alModule := activitylog.NewWithClient(alClient)
+		alModule.RegisterTools(s.mcp)
+	}
+
 	if s.config.IsModuleEnabled("workflows") {
-		workflowsModule := workflows.NewComplete(gavClient, vmdrClient, kbClient, pmClient, carClient, wasClient, containerClient, tcClient, pcClient)
+		workflowsModule := workflows.NewComplete(gavClient, vmdrClient, kbClient, pmClient, carClient, wasClient, containerClient, tcClient, pcClient, alClient)
 		workflowsModule.RegisterTools(s.mcp)
 	}
 }
