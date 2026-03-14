@@ -29,6 +29,11 @@ from datetime import datetime
 
 import qualys_mcp
 
+# Install VMDR fixture mocks when VMDR_MOCK_FIXTURES=1
+from tests.fixtures import should_mock, install_vmdr_mocks
+if should_mock():
+    install_vmdr_mocks(qualys_mcp)
+
 
 # Each eval question: (description, tool_name, kwargs, expected_keywords, optional)
 # optional=True means skip if required env vars are missing
