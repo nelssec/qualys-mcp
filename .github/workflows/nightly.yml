@@ -22,15 +22,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check credentials
+        id: creds
+        run: |
+          if [ -z "$QUALYS_USERNAME" ]; then
+            echo "⚠️ Qualys secrets not configured — skipping live eval"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Set up Python 3.11
+        if: steps.creds.outputs.skip != 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install dependencies
+        if: steps.creds.outputs.skip != 'true'
         run: pip install -e . 2>/dev/null || pip install mcp httpx
 
       - name: Run full eval
+        if: steps.creds.outputs.skip != 'true'
         run: python eval.py --limit 500 --json eval_results.json
 
       - name: Post eval summary
