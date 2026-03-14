@@ -31,7 +31,7 @@ func NewWithClient(client *Client) *Module {
 func (m *Module) RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcp.NewTool("tc_list_connectors",
-			mcp.WithDescription("List cloud connectors from TotalCloud/CSPM. Shows AWS, Azure, GCP, and OCI account connections and sync status."),
+			mcp.WithDescription("[CLOUD CONNECTORS] List cloud connectors from TotalCloud/CSPM showing account connections and sync status.\n\nUSE WHEN: user asks 'cloud accounts', 'connected accounts', 'cloud connectors', 'sync status'\nDO NOT USE WHEN: user wants cloud security posture (use get_cloud_risk_summary), user wants cloud resources (use tc_list_resources)\n\nParameters:\n  provider: cloud provider — aws, azure, gcp, oci (default: aws)\n  limit: max connectors to return (default: 100)\n\nReturns: connectors with IDs, account names, provider, sync status, last sync time\n\nPerformance: ~2s cold / ~0.1s warm (cached)"),
 			mcp.WithString("provider", mcp.Description("Cloud provider: aws, azure, gcp, or oci (default: aws)")),
 			mcp.WithNumber("limit", mcp.Description("Maximum number of connectors to return (default 100)")),
 		),
@@ -40,7 +40,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("tc_list_resources",
-			mcp.WithDescription("List cloud resources from TotalCloud/CSPM. Shows inventory of cloud assets. AWS types: EC2_INSTANCE, BUCKET, RDS_INSTANCE, LAMBDA_FUNCTION, VPC, SECURITY_GROUP, IAM_USER, IAM_ROLE, EBS_VOLUME, EKS_CLUSTER. Azure types: VM_INSTANCE, STORAGE_ACCOUNT, SQL_DATABASE, NETWORK, NSG, KEY_VAULT. GCP types: VM_INSTANCE, BUCKET, CLOUD_FUNCTION, K8S_CLUSTER, NETWORK, FIREWALL_RULES."),
+			mcp.WithDescription("[CLOUD RESOURCES] List cloud resources from TotalCloud/CSPM inventory.\n\nUSE WHEN: user asks 'cloud resources', 'EC2 instances', 'S3 buckets', 'list our cloud assets by type'\nDO NOT USE WHEN: user wants security posture summary (use get_cloud_risk_summary), user wants evaluations for a resource (use tc_get_resource_evaluations)\nPREFER INSTEAD: get_cloud_risk_summary for security-focused cloud overview; tc_get_resource_evaluations when user wants compliance status of one resource\n\nParameters:\n  provider: cloud provider — AWS, AZURE, GCP, OCI (default: AWS)\n  resource_type: resource type (default: EC2_INSTANCE). AWS: EC2_INSTANCE, BUCKET, RDS_INSTANCE, LAMBDA_FUNCTION, VPC, SECURITY_GROUP, IAM_USER, IAM_ROLE, EBS_VOLUME, EKS_CLUSTER. Azure: VM_INSTANCE, STORAGE_ACCOUNT, SQL_DATABASE, NETWORK, NSG, KEY_VAULT. GCP: VM_INSTANCE, BUCKET, CLOUD_FUNCTION, K8S_CLUSTER, NETWORK, FIREWALL_RULES\n  limit: max resources to return (default: 100)\n\nReturns: cloud resources with IDs, names, type, region, account, tags\n\nPerformance: ~2s cold / ~0.1s warm (cached)"),
 			mcp.WithString("provider", mcp.Description("Cloud provider: AWS, AZURE, GCP, or OCI (default: AWS)")),
 			mcp.WithString("resource_type", mcp.Description("Resource type (e.g., EC2_INSTANCE, BUCKET, VM_INSTANCE). Default: EC2_INSTANCE")),
 			mcp.WithNumber("limit", mcp.Description("Maximum number of resources to return (default 100)")),
@@ -50,7 +50,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("tc_list_controls",
-			mcp.WithDescription("List security controls from TotalCloud/CSPM. Shows compliance controls and their pass/fail status."),
+			mcp.WithDescription("[CLOUD CONTROLS] List security controls from TotalCloud/CSPM with pass/fail status.\n\nUSE WHEN: user asks 'cloud controls', 'CSPM controls', 'what controls are checked', browsing security controls\nDO NOT USE WHEN: user wants evaluations for a specific control (use tc_get_control_evaluations), user wants overall cloud posture (use get_cloud_risk_summary)\nPREFER INSTEAD: tc_get_control_evaluations when user asks about results for a specific control\n\nParameters:\n  provider: cloud provider — aws, azure, gcp, oci (default: aws)\n  limit: max controls to return (default: 100)\n\nReturns: controls with IDs, names, description, severity, pass/fail counts\n\nPerformance: ~2s cold / ~0.1s warm (cached)"),
 			mcp.WithString("provider", mcp.Description("Cloud provider: aws, azure, gcp, or oci (default: aws)")),
 			mcp.WithNumber("limit", mcp.Description("Maximum number of controls to return (default 100)")),
 		),
@@ -59,7 +59,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("tc_list_evaluations",
-			mcp.WithDescription("List all control evaluations for a cloud account. Use output_mode to control response size: 'summary' for stats + top failures (~1k tokens), 'failed_only' for only failed evaluations, 'full' for all data."),
+			mcp.WithDescription("[CLOUD EVALUATIONS] List all control evaluations for a cloud account with configurable output modes.\n\nUSE WHEN: user asks 'evaluation results for account X', 'what failed in this account', 'cloud compliance for account'\nDO NOT USE WHEN: user wants evaluations for one specific control (use tc_get_control_evaluations), user wants evaluations for one resource (use tc_get_resource_evaluations)\nPREFER INSTEAD: tc_get_control_evaluations for one control's results; tc_get_resource_evaluations for one resource's results\n\nParameters:\n  account_id: (required) cloud account ID (AWS account, Azure subscription, GCP project, OCI tenant)\n  provider: cloud provider — aws, azure, gcp, oci (default: aws)\n  output_mode: 'summary' (stats + top 20 failures ~1k tokens), 'failed_only' (only FAIL results), 'full' (all data, default)\n  limit: max evaluations to return (default: 100)\n\nReturns: control evaluations with control name, resource, status (PASS/FAIL), severity\n\nPerformance: ~3s cold / ~0.3s warm (cached)"),
 			mcp.WithString("account_id", mcp.Required(), mcp.Description("Cloud account ID (AWS account ID, Azure subscription ID, GCP project ID, or OCI tenant ID)")),
 			mcp.WithString("provider", mcp.Description("Cloud provider: aws, azure, gcp, or oci (default: aws)")),
 			mcp.WithString("output_mode", mcp.Description("Output mode: 'summary' (stats + top 20 failures), 'failed_only' (only FAIL results), 'full' (all data, default)")),
@@ -70,7 +70,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("tc_get_control_evaluations",
-			mcp.WithDescription("Get evaluation results for a specific security control. Shows which resources passed or failed."),
+			mcp.WithDescription("[CLOUD CONTROL DETAIL] Get evaluation results for a specific security control showing which resources passed or failed.\n\nUSE WHEN: user asks 'which resources failed control X', 'control results', drilling into one control's evaluations\nDO NOT USE WHEN: user wants all evaluations for an account (use tc_list_evaluations), user wants evaluations for a resource (use tc_get_resource_evaluations)\n\nParameters:\n  control_id: (required) the control ID to get evaluations for\n  account_id: (required) cloud account ID\n  provider: cloud provider — aws, azure, gcp, oci (default: aws)\n  limit: max evaluations to return (default: 100)\n\nReturns: resources evaluated against this control with PASS/FAIL status, resource details\n\nPerformance: ~2s cold / ~0.1s warm (cached)"),
 			mcp.WithString("control_id", mcp.Required(), mcp.Description("The control ID to get evaluations for")),
 			mcp.WithString("account_id", mcp.Required(), mcp.Description("Cloud account ID")),
 			mcp.WithString("provider", mcp.Description("Cloud provider: aws, azure, gcp, or oci (default: aws)")),
@@ -81,7 +81,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("tc_get_resource_evaluations",
-			mcp.WithDescription("Get all control evaluations for a specific cloud resource."),
+			mcp.WithDescription("[CLOUD RESOURCE DETAIL] Get all control evaluations for a specific cloud resource.\n\nUSE WHEN: user asks 'is this resource compliant', 'what controls failed on resource X', drilling into one resource's posture\nDO NOT USE WHEN: user wants all evaluations for an account (use tc_list_evaluations), user wants evaluations for a control (use tc_get_control_evaluations)\n\nParameters:\n  resource_id: (required) the resource ID to get evaluations for\n  account_id: (required) cloud account ID\n  provider: cloud provider — aws, azure, gcp, oci (default: aws)\n  limit: max evaluations to return (default: 100)\n\nReturns: all controls evaluated against this resource with PASS/FAIL status\n\nPerformance: ~2s cold / ~0.1s warm (cached)"),
 			mcp.WithString("resource_id", mcp.Required(), mcp.Description("The resource ID to get evaluations for")),
 			mcp.WithString("account_id", mcp.Required(), mcp.Description("Cloud account ID")),
 			mcp.WithString("provider", mcp.Description("Cloud provider: aws, azure, gcp, or oci (default: aws)")),
@@ -92,7 +92,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("tc_list_cdr_findings",
-			mcp.WithDescription("List Cloud Detection and Response (CDR) findings. Shows security threats, anomalies, and detections across cloud environments including container escapes, cryptominers, fileless malware, and suspicious network activity."),
+			mcp.WithDescription("[CLOUD THREATS] List Cloud Detection and Response (CDR) findings — security threats and anomalies across cloud environments.\n\nUSE WHEN: user asks 'cloud threats', 'CDR findings', 'cloud detections', 'suspicious cloud activity', 'cryptominers', 'container escapes'\nDO NOT USE WHEN: user wants compliance/posture (use get_cloud_risk_summary or tc_list_evaluations), user wants EDR endpoint detections (use edr_list_indicators)\nPREFER INSTEAD: get_cloud_risk_summary for overall cloud posture including CDR; edr_list_indicators for endpoint-level threat detection\n\nParameters:\n  provider: filter by cloud provider — AWS, AZURE, GCP\n  severity: filter by severity — LOW, MEDIUM, HIGH, CRITICAL\n  days: days to look back (default: 7)\n  limit: max findings to return (default: 100)\n\nReturns: CDR findings with type (container escape, cryptominer, fileless malware, etc.), severity, resource, timestamp\n\nPerformance: ~2s cold / ~0.1s warm (cached)"),
 			mcp.WithString("provider", mcp.Description("Cloud provider filter: AWS, AZURE, or GCP")),
 			mcp.WithString("severity", mcp.Description("Filter by severity: LOW, MEDIUM, HIGH, or CRITICAL")),
 			mcp.WithNumber("days", mcp.Description("Number of days to look back for findings (default: 7)")),
