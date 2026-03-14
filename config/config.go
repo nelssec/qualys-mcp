@@ -105,7 +105,7 @@ Set with: export QUALYS_POD=<pod>`)
 
 	modules := os.Getenv("QUALYS_MODULES")
 	if modules == "" {
-		modules = "vmdr,container,gav,knowledgebase,totalcloud,patch,edr,fim,was,compliance,certview,car,workflows"
+		modules = "vmdr,container,gav,knowledgebase,totalcloud,patch,edr,fim,was,compliance,certview,car,activitylog,workflows"
 	}
 
 	rateLimit := 100

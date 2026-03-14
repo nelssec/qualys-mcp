@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/nelssec/qualys-mcp/internal/modules/activitylog"
 	"github.com/nelssec/qualys-mcp/internal/modules/car"
 	"github.com/nelssec/qualys-mcp/internal/modules/compliance"
 	"github.com/nelssec/qualys-mcp/internal/modules/container"
@@ -20,15 +21,16 @@ import (
 )
 
 type Client struct {
-	gav        *gav.Client
-	vmdr       *vmdr.Client
-	kb         *knowledgebase.Client
-	pm         *patch.Client
-	car        *car.Client
-	was        *was.Client
-	container  *container.Client
-	totalcloud *totalcloud.Client
-	compliance *compliance.Client
+	gav         *gav.Client
+	vmdr        *vmdr.Client
+	kb          *knowledgebase.Client
+	pm          *patch.Client
+	car         *car.Client
+	was         *was.Client
+	container   *container.Client
+	totalcloud  *totalcloud.Client
+	compliance  *compliance.Client
+	activitylog *activitylog.Client
 }
 
 func NewClient(gavClient *gav.Client, vmdrClient *vmdr.Client, kbClient *knowledgebase.Client, pmClient *patch.Client, carClient *car.Client) *Client {
@@ -64,17 +66,18 @@ func NewClientFull(gavClient *gav.Client, vmdrClient *vmdr.Client, kbClient *kno
 	}
 }
 
-func NewClientComplete(gavClient *gav.Client, vmdrClient *vmdr.Client, kbClient *knowledgebase.Client, pmClient *patch.Client, carClient *car.Client, wasClient *was.Client, containerClient *container.Client, tcClient *totalcloud.Client, pcClient *compliance.Client) *Client {
+func NewClientComplete(gavClient *gav.Client, vmdrClient *vmdr.Client, kbClient *knowledgebase.Client, pmClient *patch.Client, carClient *car.Client, wasClient *was.Client, containerClient *container.Client, tcClient *totalcloud.Client, pcClient *compliance.Client, alClient *activitylog.Client) *Client {
 	return &Client{
-		gav:        gavClient,
-		vmdr:       vmdrClient,
-		kb:         kbClient,
-		pm:         pmClient,
-		car:        carClient,
-		was:        wasClient,
-		container:  containerClient,
-		totalcloud: tcClient,
-		compliance: pcClient,
+		gav:         gavClient,
+		vmdr:        vmdrClient,
+		kb:          kbClient,
+		pm:          pmClient,
+		car:         carClient,
+		was:         wasClient,
+		container:   containerClient,
+		totalcloud:  tcClient,
+		compliance:  pcClient,
+		activitylog: alClient,
 	}
 }
 
@@ -1388,7 +1391,18 @@ type SecurityPosture struct {
 	ContainerStats  ContainerPostureStats  `json:"containerStats,omitempty"`
 	CloudStats      CloudPostureStats      `json:"cloudStats,omitempty"`
 	ComplianceStats CompliancePostureStats `json:"complianceStats,omitempty"`
+	NotableChanges  *NotableChangesStats   `json:"notableChanges,omitempty"`
 	Warnings        []string               `json:"warnings,omitempty"`
+}
+
+type NotableChangesStats struct {
+	TotalEvents      int    `json:"totalEvents"`
+	ConfigDrift      int    `json:"configDrift"`
+	PolicyChanges    int    `json:"policyChanges"`
+	ScanActivity     int    `json:"scanActivity"`
+	UserChanges      int    `json:"userChanges"`
+	ExceptionChanges int    `json:"exceptionChanges"`
+	Summary          string `json:"summary"`
 }
 
 type AssetPostureStats struct {
@@ -1658,6 +1672,32 @@ func (c *Client) GetSecurityPosture(ctx context.Context) (*SecurityPosture, erro
 			mu.Lock()
 			result.ComplianceStats.TotalPolicies = len(policies)
 			result.ComplianceStats.ActiveScans = len(scans)
+			mu.Unlock()
+		}()
+	}
+
+	// Goroutine 6: Activity log notable changes (last 24h)
+	if c.activitylog != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			changes, err := c.activitylog.GetNotableChanges(ctx, 24)
+			if err != nil {
+				mu.Lock()
+				result.Warnings = append(result.Warnings, "Activity log unavailable")
+				mu.Unlock()
+				return
+			}
+			mu.Lock()
+			result.NotableChanges = &NotableChangesStats{
+				TotalEvents:      changes.TotalEvents,
+				ConfigDrift:      len(changes.ConfigDrift),
+				PolicyChanges:    len(changes.PolicyChanges),
+				ScanActivity:     len(changes.ScanActivity),
+				UserChanges:      len(changes.UserChanges),
+				ExceptionChanges: len(changes.ExceptionChanges),
+				Summary:          changes.Summary,
+			}
 			mu.Unlock()
 		}()
 	}
