@@ -5,6 +5,8 @@ import os
 import sys
 import json
 import ssl
+import time
+import random
 import base64
 import random
 import time
@@ -15,10 +17,16 @@ from urllib.error import HTTPError, URLError
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from threading import Lock, Thread, Event
+from threading import Lock, Thread, Event, Semaphore
 from fastmcp import FastMCP
 
 mcp = FastMCP("qualys-mcp")
+
+RETRY_STATUS = {429, 503, 502}
+MAX_RETRIES = 4
+_CSAM_SEM = Semaphore(3)
+_CSAM_COUNT_CACHE = {}
+_CSAM_COUNT_CACHE_TTL = 300
 
 
 def compact(d):
@@ -204,15 +212,17 @@ def api_get(url, gateway=False, timeout=30):
             with _open(req, timeout=timeout) as resp:
                 return resp.read()
         except HTTPError as e:
-            if e.code in RETRY_STATUS:
-                retry_after = None
-                try:
-                    retry_after = float(e.headers.get('Retry-After', ''))
-                except (TypeError, ValueError):
-                    pass
-                wait = retry_after if retry_after else (2 ** attempt + random.uniform(0, 1))
-                _log(f"HTTP {e.code} on {url.split('?')[0]} — retry {attempt+1}/{MAX_RETRIES} in {wait:.1f}s")
-                time.sleep(wait)
+            if e.code in RETRY_STATUS and attempt < MAX_RETRIES - 1:
+                retry_after = e.headers.get('Retry-After') if e.headers else None
+                if retry_after:
+                    try:
+                        delay = float(retry_after)
+                    except ValueError:
+                        delay = 2 ** attempt + random.uniform(0, 1)
+                else:
+                    delay = 2 ** attempt + random.uniform(0, 1)
+                _log(f"Retry {attempt + 1}/{MAX_RETRIES} after {e.code} for {url.split('?')[0]} (wait {delay:.1f}s)")
+                time.sleep(delay)
                 continue
             _log(f"API error {e.code}: {url.split('?')[0]}")
             return None
@@ -564,20 +574,15 @@ def _scope_filters(base_filters, tag='', asset_group=''):
     return filters or None
 
 
-_CSAM_SEM = threading.Semaphore(3)
-_CSAM_COUNT_CACHE = {}
-_CSAM_COUNT_CACHE_TIME = {}
-_CSAM_COUNT_TTL = 300
-
-
 def csam_count(filters=None):
     """Count assets with optional structured filters. Fast (~0.2s).
     filters: list of {"field": "...", "operator": "...", "value": "..."} dicts
     """
-    cache_key = json.dumps(filters, sort_keys=True) if filters else "__all__"
-    if cache_key in _CSAM_COUNT_CACHE and (time.time() - _CSAM_COUNT_CACHE_TIME[cache_key]) < _CSAM_COUNT_TTL:
-        return _CSAM_COUNT_CACHE[cache_key]
     with _CSAM_SEM:
+        cache_key = json.dumps(filters, sort_keys=True) if filters else "__all__"
+        cached = _CSAM_COUNT_CACHE.get(cache_key)
+        if cached and (time.time() - cached[1]) < _CSAM_COUNT_CACHE_TTL:
+            return cached[0]
         token = get_bearer_token()
         url = f"{GATEWAY_URL}/rest/2.0/count/am/asset"
         body = json.dumps({"filters": filters}) if filters else "{}"
@@ -588,10 +593,9 @@ def csam_count(filters=None):
         req.add_header('X-Requested-With', 'qualys-mcp')
         try:
             with _open(req, timeout=30) as resp:
-                result = json.loads(resp.read()).get('count', 0)
-                _CSAM_COUNT_CACHE[cache_key] = result
-                _CSAM_COUNT_CACHE_TIME[cache_key] = time.time()
-                return result
+                count = json.loads(resp.read()).get('count', 0)
+                _CSAM_COUNT_CACHE[cache_key] = (count, time.time())
+                return count
         except Exception:
             return 0
 
