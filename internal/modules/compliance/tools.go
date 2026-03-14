@@ -31,7 +31,7 @@ func NewWithClient(client *Client) *Module {
 func (m *Module) RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcp.NewTool("pc_list_policies",
-			mcp.WithDescription("List compliance policies from Qualys Policy Compliance. Shows policy names, status, and control counts."),
+			mcp.WithDescription("[COMPLIANCE POLICIES] List compliance policies from Qualys Policy Compliance with names, status, and control counts.\n\nUSE WHEN: user asks 'compliance policies', 'list policies', 'what policies do we have'\nDO NOT USE WHEN: user wants compliance gaps/failures (use get_compliance_gaps), user wants cloud compliance (use get_cloud_risk_summary)\nPREFER INSTEAD: get_compliance_gaps when user asks about failing controls or audit readiness; pc_get_policy_details when user wants details on one policy\n\nParameters:\n  limit: max policies to return (default: 100)\n\nReturns: policies with IDs, names, status, control count, last evaluation date\n\nPerformance: ~2s cold / ~0.1s warm (cached)"),
 			mcp.WithNumber("limit", mcp.Description("Maximum number of policies to return (default 100)")),
 		),
 		m.listPolicies,
@@ -39,7 +39,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("pc_list_scans",
-			mcp.WithDescription("List compliance scans. Shows scan status, launch date, and targets."),
+			mcp.WithDescription("[COMPLIANCE SCANS] List compliance scans with status, launch date, and targets.\n\nUSE WHEN: user asks 'compliance scans', 'PC scan status', 'when did compliance scans run'\nDO NOT USE WHEN: user wants vulnerability scans (use vmdr_list_scans), user wants WAS scans (use was_list_scans)\n\nParameters:\n  status: filter by scan status — Running, Finished, Error\n  limit: max scans to return (default: 100)\n\nReturns: compliance scans with IDs, status, launch date, targets, policy references\n\nPerformance: ~2s cold / ~0.1s warm (cached)"),
 			mcp.WithString("status", mcp.Description("Filter by scan status (e.g., 'Running', 'Finished', 'Error')")),
 			mcp.WithNumber("limit", mcp.Description("Maximum number of scans to return (default 100)")),
 		),
@@ -48,7 +48,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("pc_get_policy_details",
-			mcp.WithDescription("Get detailed information about a specific compliance policy."),
+			mcp.WithDescription("[COMPLIANCE POLICY DETAIL] Get detailed information about a specific compliance policy.\n\nUSE WHEN: user asks 'details on policy X', 'what controls does policy X check', drilling into one policy\nDO NOT USE WHEN: user wants to list all policies (use pc_list_policies), user wants compliance gaps across all policies (use get_compliance_gaps)\n\nParameters:\n  policy_id: (required) the policy ID to get details for\n\nReturns: policy details with controls, control descriptions, expected values, severity\n\nPerformance: ~2s cold / ~0.1s warm (cached)"),
 			mcp.WithString("policy_id", mcp.Required(), mcp.Description("The policy ID to get details for")),
 		),
 		m.getPolicyDetails,
@@ -56,7 +56,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("pc_list_exceptions",
-			mcp.WithDescription("List compliance exceptions. Shows approved deviations from policy controls."),
+			mcp.WithDescription("[COMPLIANCE EXCEPTIONS] List compliance exceptions — approved deviations from policy controls.\n\nUSE WHEN: user asks 'compliance exceptions', 'approved deviations', 'exception list', 'waivers'\nDO NOT USE WHEN: user wants failing controls (use get_compliance_gaps), user wants policy details (use pc_get_policy_details)\n\nParameters:\n  limit: max exceptions to return (default: 100)\n\nReturns: exceptions with control reference, asset, reason, approval status, expiry date\n\nPerformance: ~2s cold / ~0.1s warm (cached)"),
 			mcp.WithNumber("limit", mcp.Description("Maximum number of exceptions to return (default 100)")),
 		),
 		m.listExceptions,
