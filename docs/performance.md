@@ -48,10 +48,10 @@
 | `get_cve_details` | 10–30s | 3–5s | Multi-CVE KB lookups |
 | `get_qid_details` | 3–8s | 0.1s | KB cache |
 | `get_vulns_by_software` | 3–8s | 3–8s | KB API, no cache |
-| `get_asset_risk` | 2–5s | 0.5s | CSAM (cached by asset) |
+| `get_asset` | 2–5s | 0.5s | CSAM (cached by asset) |
 | `get_tech_debt` | 15–60s | 5–10s | Paginated CSAM |
 | `get_cloud_risk` | 15–30s | 5–10s | Sequential provider loops ⚠️ |
-| `get_cdr_findings` | 2–8s | 2–8s | No cache |
+| `get_cloud_risk` (threats) | 2–8s | 2–8s | No cache |
 | `get_image_vulns` | 2–6s | 2–6s | No cache |
 | `get_etm_findings` | 5–300s | 5–10s | Depends on report existence |
 | `get_scanner_health` | 3–8s | 3–8s | No cache |
@@ -76,7 +76,7 @@
 | Cloud risk | < 8s | < 2s | ⚠️ 15–30s → parallelize |
 | WAS findings | < 10s | < 2s | ❓ unknown → add cache |
 | Scanner health | < 5s | < 1s | ⚠️ no cache → add |
-| Asset full profile | < 8s | < 2s | 📋 not yet built |
+| Asset full profile (`get_asset` detail=full) | < 8s | < 2s | 📋 not yet built |
 | Tech debt | < 30s | < 5s | ✅ (paginated correctly) |
 
 ---
@@ -276,7 +276,7 @@ BENCHMARKS = [
     ("get_scanner_health", {}, "Scanner health (appliance XML)"),
     ("get_etm_findings", {}, "ETM findings (report API)"),
     ("get_cloud_risk", {}, "Cloud risk (sequential providers)"),
-    ("get_cdr_findings", {"days": 7}, "CDR findings"),
+    ("get_cloud_risk", {"include_threats": True, "days": 7}, "Cloud threats (CDR findings)"),
     ("get_morning_report", {}, "Morning report (multi-concurrent)"),
     ("get_tech_debt", {"limit": 20}, "Tech debt (paginated CSAM)"),
     ("investigate_cve", {"cve": "CVE-2021-44228"}, "CVE investigation"),
@@ -354,7 +354,7 @@ get_patch_status                   7.4       1.8          ✅
 get_scanner_health                 4.1       4.1          ⚠️ (no cache)
 get_etm_findings                  12.5       8.3          ⚠️ (no report cache)
 get_cloud_risk                    22.3       8.1          ⚠️ (sequential providers)
-get_cdr_findings                   3.8       3.8          ⚠️ (no cache)
+get_cloud_risk (threats)           3.8       3.8          ⚠️ (no cache)
 get_morning_report                14.2       4.1          ✅
 get_tech_debt                     28.4       9.2          ⚠️ (paginated)
 investigate_cve                    8.9       1.2          ✅
@@ -373,7 +373,7 @@ get_patch_status                   6.8       1.2          ✅
 get_scanner_health                 4.0       0.2          ✅ (scanner cache added)
 get_etm_findings                   9.0       0.2          ✅ (ETM cache)
 get_cloud_risk                     6.5       1.8          ✅ (parallel providers)
-get_cdr_findings                   3.5       0.2          ✅ (CDR cache)
+get_cloud_risk (threats)           3.5       0.2          ✅ (CDR cache)
 get_morning_report                12.0       2.1          ✅
 get_tech_debt                     26.0       8.5          ⚠️ (paginated — expected)
 investigate_cve                    7.5       0.8          ✅
@@ -442,20 +442,19 @@ investigate_cve                    7.5       0.8          ✅
 | `get_morning_report` | "Use when / NOT for" routing hints |
 | `get_security_posture` | "Use when / NOT for" routing hints |
 | `get_recommendations` | "Use when / NOT for" routing hints |
-| `get_cloud_risk` | Cross-reference to `get_cdr_findings` |
-| `get_cdr_findings` | "Use when" + cross-reference to `get_cloud_risk` |
+| `get_cloud_risk` | Cross-reference to `get_cloud_risk(include_threats=True)` for CDR findings |
 
 ### Phase 4: Aggregator Tools — Implemented
 
 | New Tool | Description | Expected Latency |
 |----------|-------------|-----------------|
-| `get_asset_full_profile(asset_id)` | CSAM + ETM (cached or async) + VMDR host detections in parallel | ~5-8s cold, ~2s warm |
+| `get_asset(asset_id, detail="full")` | CSAM + ETM (cached or async) + VMDR host detections in parallel | ~5-8s cold, ~2s warm |
 | `get_risk_by_tag(tag, limit)` | 6 parallel CSAM count/search queries for tagged asset group | ~3s |
-| `get_environment_summary()` | 11 parallel CSAM count queries: OS, cloud, EOL, criticality | <3s |
+| `get_morning_report(quick=True)` | 11 parallel CSAM count queries: OS, cloud, EOL, criticality | <3s |
 
 ### Updated Tool Count
 
-**22 tools** (up from 19). New tools added to README Tools table and test_tools.sh.
+Tools consolidated via parameterized interfaces. New tools added to README Tools table and test_tools.sh.
 
 ### Post-Implementation Targets (Estimated)
 
@@ -467,9 +466,9 @@ investigate_cve                    7.5       0.8          ✅
 | `get_security_posture` (cloud section) | 8–15s | ~5s | Parallel cloud connectors |
 | `get_was_findings` | 5–30s | <0.1s warm | 10-min WAS cache |
 | WAS-based tools (2nd call) | 5–30s | <0.1s | WAS cache hit |
-| `get_environment_summary` | new | <3s | 11-way parallel CSAM |
+| `get_morning_report(quick=True)` | new | <3s | 11-way parallel CSAM |
 | `get_risk_by_tag` | new | ~3s | 6-way parallel CSAM |
-| `get_asset_full_profile` | new | ~5-8s cold / ~2s warm | 3-way parallel + ETM cache |
+| `get_asset(detail="full")` | new | ~5-8s cold / ~2s warm | 3-way parallel + ETM cache |
 
 ### Phase 5: Request Deduplication — Implemented (Issue #16)
 

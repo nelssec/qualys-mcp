@@ -351,67 +351,11 @@ limit: int = 50
 
 ---
 
-### Tool: `get_pm_status`
+### Tool: `get_pm_status` -- CONSOLIDATED
 
-**Priority:** 🟡 High — 42/50 patch management questions are uncovered. Many operators use Qualys VMDR+PM together.
+**Status:** REMOVED -- use `get_eliminate_status()` instead.
 
-**Questions it answers:**
-- "Show me all active patch deployment jobs."
-- "What's the status of patch job ID 12345?"
-- "Which patches failed to deploy in the last week?"
-- "Which assets repeatedly fail to patch?"
-- "Show me patch coverage by operating system."
-
-**Description:**
-Patch Management deployment job status and patch coverage. Shows active jobs, recent results, failed patches, and coverage by OS platform.
-
-**Parameters:**
-```python
-platform: str = "Windows"   # Windows, Linux, macOS
-days: int = 30              # Job history window
-status: str = ""            # Active, Completed, Failed (empty=all)
-limit: int = 20
-```
-
-**API endpoints:**
-- `GET /pm/v1/deploymentjobs?platform={platform}&pageSize={limit}`
-- `GET /pm/v1/patches/count?platform={platform}&groupBy=vendorSeverity`
-- `GET /pm/v1/assets?platform={platform}&pageSize={limit}`
-
-**Returns:**
-```json
-{
-  "summary": {
-    "platform": "Windows",
-    "totalAssets": 450,
-    "patchedAssets": 387,
-    "coveragePercent": 86.0,
-    "activeJobs": 2,
-    "failedJobs": 1
-  },
-  "patchCounts": {
-    "Critical": 12,
-    "Important": 45,
-    "Moderate": 23
-  },
-  "jobs": [
-    {
-      "id": "job-123",
-      "name": "March Patch Tuesday",
-      "status": "Completed",
-      "platform": "Windows",
-      "targetCount": 200,
-      "successCount": 187,
-      "failedCount": 13,
-      "startedAt": "2024-03-14T02:00:00Z",
-      "completedAt": "2024-03-14T04:35:00Z"
-    }
-  ],
-  "topFailingAssets": [...]
-}
-```
-
-**Implementation notes:** Internal helpers `get_pm_jobs()`, `get_pm_patches_count()`, `get_pm_assets()` exist. Combine them into a single status tool.
+Patch Management functionality has been consolidated into `get_eliminate_status()`, which combines TruRisk Eliminate mitigation/patch data with PM deployment job status and patch coverage.
 
 ---
 
@@ -622,7 +566,7 @@ Answers WAS scan coverage questions (10 gaps). Lists web applications in scope, 
 | `get_fim_events` | 35 | 🔴 High | ✅ Helper exists |
 | `get_compliance_posture` | 45 | 🔴 High | ⚠️ PC API research needed |
 | `get_scan_status` | 14 | 🟡 High | ✅ Helper exists |
-| `get_pm_status` | 42 | 🟡 High | ✅ Helper exists |
+| ~~`get_pm_status`~~ | 42 | CONSOLIDATED | Use `get_eliminate_status()` |
 | `get_asset_inventory` | 35 | 🟡 Medium | ✅ CSAM API works |
 | `get_vuln_trends` | 20 | 🟡 Medium | ⚠️ Computed from detections |
 | `get_vuln_exceptions` | 10 | 🟡 Medium | ⚠️ Exceptions API |
@@ -639,7 +583,7 @@ Answers WAS scan coverage questions (10 gaps). Lists web applications in scope, 
 
 | Tool | Current Gap | Enhancement |
 |------|-------------|-------------|
-| `get_asset_risk` | Only single-asset lookup | Add `get_asset_risk_bulk` for list of IDs |
+| `get_asset` | Only single-asset lookup | Add bulk mode for list of IDs |
 | `get_cloud_risk` | Only first cloud account | Iterate all accounts |
 | `get_scanner_health` | No scan history | Link to `get_scan_status` |
 | `get_security_posture` | No WAS/compliance data | Add WAS and PC summary once tools exist |
