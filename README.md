@@ -241,22 +241,22 @@ export ANTHROPIC_API_KEY="sk-..."
 
 ```bash
 # Full eval (500 questions)
-python eval.py
+python -m eval
 
 # Smoke test (~20 questions, fast)
-python eval.py --quick
+python -m eval --quick
 
 # Single category
-python eval.py --category "Vulnerability Management"
+python -m eval --category "Vulnerability Management"
 
 # First N questions
-python eval.py --limit 10
+python -m eval --limit 10
 
 # Set pass/fail threshold (default: 0.7)
-python eval.py --threshold 0.8
+python -m eval --threshold 0.8
 
-# Update coverage tags in docs/questions.md based on results
-python eval.py --update-questions
+# Don't update coverage tags in docs/questions.md
+python -m eval --no-update
 ```
 
 ### Scoring
