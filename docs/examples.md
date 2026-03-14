@@ -450,6 +450,36 @@ Example response shape:
 
 ---
 
+## Remediation Workflow
+
+```
+Q: What remediation tickets are currently open?
+→ get_remediation_tickets(status="OPEN")
+
+Q: Show me all overdue remediation tickets
+→ get_remediation_tickets(overdue=True)
+
+Q: What tickets are assigned to jsmith?
+→ get_remediation_tickets(assignee="jsmith")
+
+Q: Create a remediation ticket for QID 376267 on asset 233946644
+→ create_remediation_ticket(qid="376267", asset_id="233946644", assignee="jsmith")
+
+Q: What's our SLA compliance rate?
+→ get_sla_status()
+
+Q: What's our mean time to remediate?
+→ get_sla_status()
+
+Q: How quickly are we fixing critical vulnerabilities?
+→ get_sla_status()
+
+Q: Which overdue tickets are the highest severity?
+→ get_remediation_tickets(overdue=True)
+```
+
+---
+
 ## Compliance
 
 ```
@@ -695,3 +725,5 @@ Turn 3: "Which apps are affected?"
 - **For software vulnerability searches** → `get_vulns_by_software(software="<product name>")`
 - **For threat hunting** → `get_threat_intel(threat_type="<category>")` — see all available RTI tags
 - **For program health** → `get_security_posture()` → `get_recommendations()` → `get_scanner_health()`
+- **For remediation tracking** → `get_remediation_tickets()` for ticket status, `get_sla_status()` for MTTR and compliance
+- **For overdue items** → `get_remediation_tickets(overdue=True)` — include in morning reports
