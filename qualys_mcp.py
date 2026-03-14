@@ -12,7 +12,7 @@ from urllib.error import HTTPError, URLError
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from threading import Lock
+from threading import Lock, Thread, Event
 from fastmcp import FastMCP
 
 mcp = FastMCP("qualys-mcp")
@@ -47,14 +47,17 @@ ETM_RESULT_CACHE_TIME = None  # datetime of cache fill
 AUTH_ERROR = None
 AUTH_LOCK = Lock()
 
-# Per-key cache locks for _get_or_fetch request deduplication
-_cache_locks = {}
-_cache_locks_lock = Lock()
+# Per-key in-flight deduplication: maps cache key -> Event (set when fetch completes)
+_inflight = {}          # {key: Event}
+_inflight_lock = Lock() # protects _inflight dict
 
 # Pagination safety: max pages any helper will fetch to prevent runaway loops.
 # Set QUALYS_MAX_PAGES env var to override. 0 = unlimited (default).
 # Tools needing just a count use count_only=True (1 API call).
 MAX_PAGES = int(os.environ.get('QUALYS_MAX_PAGES', '0'))
+
+# VMDR cache TTL (detection + QDS caches). Default 30 minutes; override via env.
+VMDR_CACHE_TTL = int(os.environ.get('VMDR_CACHE_TTL_SECONDS', 1800))
 
 # SSL context for environments with self-signed certificates
 SSL_CTX = None
@@ -73,22 +76,42 @@ def _log(msg):
 
 
 def _get_or_fetch(cache_dict, cache_time_dict, key, fetch_fn, ttl):
-    """Thread-safe cache get-or-fetch with per-key locking.
-    Prevents duplicate concurrent requests for the same cache key.
-    Uses datetime objects for timestamps to match existing cache patterns."""
-    with _cache_locks_lock:
-        if key not in _cache_locks:
-            _cache_locks[key] = Lock()
-        lock = _cache_locks[key]
-    with lock:
+    """Thread-safe cache get-or-fetch with in-flight request deduplication.
+    If a fetch is already in progress for *key*, subsequent callers wait on a
+    threading.Event instead of issuing a duplicate API call."""
+    now = datetime.now(timezone.utc)
+    cached_time = cache_time_dict.get(key)
+    if key in cache_dict and cached_time and (now - cached_time).total_seconds() < ttl:
+        return cache_dict[key]
+
+    with _inflight_lock:
+        # Re-check cache inside lock (another thread may have just finished)
         now = datetime.now(timezone.utc)
         cached_time = cache_time_dict.get(key)
         if key in cache_dict and cached_time and (now - cached_time).total_seconds() < ttl:
             return cache_dict[key]
+        evt = _inflight.get(key)
+        if evt is not None:
+            # Another thread is already fetching — wait for it
+            is_owner = False
+        else:
+            evt = Event()
+            _inflight[key] = evt
+            is_owner = True
+
+    if not is_owner:
+        evt.wait()  # block until the fetching thread signals completion
+        return cache_dict.get(key)  # return whatever the owner stored
+
+    try:
         result = fetch_fn()
         cache_dict[key] = result
         cache_time_dict[key] = datetime.now(timezone.utc)
         return result
+    finally:
+        with _inflight_lock:
+            _inflight.pop(key, None)
+        evt.set()  # wake up any waiters
 
 
 def get_bearer_token():
@@ -190,7 +213,7 @@ def _parse_detections_xml(data):
 
 
 def get_detections(severity=5, limit=0, use_cache=True, days=30, qds_min=0, fetch_all=True):
-    """Get VMDR detections with hostname and QDS. Uses 5-minute cache (TTL 300s).
+    """Get VMDR detections with hostname and QDS. Uses VMDR_CACHE_TTL (default 30min).
     Thread-safe via _get_or_fetch — concurrent calls for the same params are deduplicated.
     Best practices: filter_superseded_qids, vm_processed_after, qds_min.
     Note: VMDR classic API is slow (~2min) for large environments.
@@ -239,7 +262,7 @@ def get_detections(severity=5, limit=0, use_cache=True, days=30, qds_min=0, fetc
         DETECTION_CACHE_TIME[cache_key] = datetime.now(timezone.utc)
         return result[:limit] if limit > 0 else result
 
-    dets = _get_or_fetch(DETECTION_CACHE, DETECTION_CACHE_TIME, cache_key, _fetch, 300)
+    dets = _get_or_fetch(DETECTION_CACHE, DETECTION_CACHE_TIME, cache_key, _fetch, VMDR_CACHE_TTL)
     return dets[:limit] if limit > 0 else dets
 
 
@@ -280,15 +303,15 @@ def get_host_detections(host_id, severity=4, days=30):
 
 def get_qds_for_qids(qids):
     """Fetch real QDS scores from the detection API for a list of QIDs.
-    Returns {qid: max_qds} across all hosts/detections. Uses 5-minute cache.
+    Returns {qid: max_qds} across all hosts/detections. Uses VMDR_CACHE_TTL (default 30min).
     Gracefully returns {} on failure so callers can fall back to QDS=0."""
     global QDS_CACHE, QDS_CACHE_TIME
     if not qids:
         return {}
 
     now = datetime.now(timezone.utc)
-    # Expire cache after 5 minutes
-    if QDS_CACHE_TIME and (now - QDS_CACHE_TIME).total_seconds() > 300:
+    # Expire cache after VMDR_CACHE_TTL (default 30 minutes)
+    if QDS_CACHE_TIME and (now - QDS_CACHE_TIME).total_seconds() > VMDR_CACHE_TTL:
         QDS_CACHE = {}
         QDS_CACHE_TIME = None
 
@@ -4952,7 +4975,24 @@ def delete_report(report_id: str) -> dict:
         return {'reportId': report_id, 'message': 'Report deleted'}
 
 
+def _warmup_vmdr_cache():
+    """Background thread: pre-fetch VMDR detections for severity 3-5 to warm cache."""
+    import time
+    time.sleep(2)  # brief delay to let server finish startup
+    for sev in (5, 4, 3):
+        try:
+            _log(f"Cache warm-up: fetching severity {sev} detections...")
+            get_detections(severity=sev)
+            _log(f"Cache warm-up: severity {sev} done")
+        except Exception as e:
+            _log(f"Cache warm-up: severity {sev} failed: {e}")
+    _log("Cache warm-up: complete")
+
+
 def main():
+    # Spawn background daemon thread to warm VMDR detection cache
+    warmup = Thread(target=_warmup_vmdr_cache, daemon=True, name="vmdr-cache-warmup")
+    warmup.start()
     mcp.run()
 
 
