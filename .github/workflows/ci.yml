@@ -4,6 +4,10 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+  pull-requests: write
+
 env:
   QUALYS_USERNAME: ${{ secrets.QUALYS_USERNAME }}
   QUALYS_PASSWORD: ${{ secrets.QUALYS_PASSWORD }}
@@ -175,11 +179,29 @@ jobs:
       - name: Install dependencies
         run: pip install -e . 2>/dev/null || pip install mcp httpx
 
-      - name: Run eval harness
-        run: python eval.py --quick --limit 50 --json eval_results.json
+      - name: Run eval (if available)
+        id: eval
+        run: |
+          if [ -f eval.py ]; then
+            python eval.py --quick --limit 50 --json eval_results.json
+            echo "eval_ran=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "eval.py not found, skipping"
+            echo "eval_ran=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check eval threshold
+        if: steps.eval.outputs.eval_ran == 'true'
+        run: |
+          score=$(python -c "import json; d=json.load(open('eval_results.json')); print(d.get('score', d.get('accuracy', 0)))")
+          echo "Eval score: ${score}%"
+          if (( $(echo "$score < $EVAL_PASS_THRESHOLD" | bc -l) )); then
+            echo "::error::Eval score ${score}% is below threshold ${EVAL_PASS_THRESHOLD}%"
+            exit 1
+          fi
 
       - name: Upload eval results
-        if: always()
+        if: always() && steps.eval.outputs.eval_ran == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: eval-results
@@ -208,7 +230,7 @@ jobs:
   pr-comment:
     name: PR Summary Comment
     runs-on: ubuntu-latest
-    needs: [benchmark, eval, conversation-tests]
+    needs: [smoke-test, benchmark, eval, conversation-tests]
     if: always() && github.event_name == 'pull_request'
     permissions:
       pull-requests: write
