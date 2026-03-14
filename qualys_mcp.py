@@ -3953,15 +3953,17 @@ def get_asset_inventory(query: str = "", tag: str = "", os: str = "", days_since
 
 
 @mcp.tool()
-def get_vuln_exceptions(status: str = "active", vuln_type: str = "", days_to_expiry: int = 0, limit: int = 50) -> dict:
+def get_vuln_exceptions(status: str = "Active", vuln_type: str = "", days_to_expiry: int = 30, limit: int = 50) -> dict:
     """[VM] Vulnerability exceptions — approved risk acceptances, false positives, compensating controls. Shows expiring exceptions needing review. Use get_patch_status() for remediation status."""
     result = {
         'status': status,
-        'stats': {'total': 0, 'byType': {}, 'expiringSoon': 0},
+        'stats': {'total': 0, 'active': 0, 'expiringSoon': 0, 'expired': 0, 'byType': {}},
         'exceptions': []
     }
 
     url = f"{BASE_URL}/api/2.0/fo/exception/vuln/?action=list&status={status}"
+    if vuln_type:
+        url += f"&exception_type={quote(vuln_type)}"
     data = api_get(url, timeout=30)
     if not data:
         result['note'] = 'Exceptions API not available — may require additional Qualys subscription'
@@ -3981,18 +3983,24 @@ def get_vuln_exceptions(status: str = "active", vuln_type: str = "", days_to_exp
         if vuln_type and vuln_type.lower() not in exc_type.lower():
             continue
 
+        exc_status = exc.findtext('STATUS', status)
         expiry = exc.findtext('EXPIRY_DATE', '') or exc.findtext('EXPIRATION_DATE', '')
         days_left = None
         if expiry:
             try:
                 exp_date = datetime.strptime(expiry[:10], '%Y-%m-%d').replace(tzinfo=timezone.utc)
                 days_left = (exp_date - today).days
-                if days_left <= 30:
+                if days_left < 0:
+                    result['stats']['expired'] += 1
+                elif days_left <= days_to_expiry:
                     result['stats']['expiringSoon'] += 1
                 if expiry_cutoff and exp_date > expiry_cutoff:
                     continue
             except ValueError:
                 pass
+
+        if exc_status.lower() == 'active':
+            result['stats']['active'] += 1
 
         result['stats']['byType'][exc_type] = result['stats']['byType'].get(exc_type, 0) + 1
 
@@ -4000,10 +4008,13 @@ def get_vuln_exceptions(status: str = "active", vuln_type: str = "", days_to_exp
             entry = {
                 'id': exc.findtext('EXCEPTION_NUMBER', '') or exc.findtext('ID', ''),
                 'qid': exc.findtext('QID', ''),
+                'title': exc.findtext('VULN_TITLE', '') or exc.findtext('TITLE', ''),
                 'type': exc_type,
-                'status': exc.findtext('STATUS', status),
-                'comments': exc.findtext('COMMENTS', '') or exc.findtext('REASON', ''),
+                'status': exc_status,
+                'reason': exc.findtext('COMMENTS', '') or exc.findtext('REASON', ''),
+                'approvedBy': exc.findtext('APPROVED_BY', '') or exc.findtext('ASSIGNEE', ''),
                 'hostIp': exc.findtext('HOST_IP', '') or exc.findtext('IP', ''),
+                'assetCount': exc.findtext('ASSET_COUNT', '') or exc.findtext('HOST_COUNT', ''),
                 'expiryDate': expiry,
             }
             if days_left is not None:
