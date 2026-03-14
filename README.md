@@ -105,7 +105,7 @@ For environments with self-signed certs, add `"QUALYS_SSL_VERIFY": "false"` to t
 
 | Tool | What it answers |
 |------|----------------|
-| `get_pm_status` | What's our patch deployment status? Jobs, patch counts by severity, asset coverage |
+| `get_pm_status` | What's our patch deployment status? Jobs, patch severity breakdown, asset coverage %, failed/active job counts. Filter by platform (Windows/Linux/macOS/all), status, and date range |
 
 ### QID Lookups
 
