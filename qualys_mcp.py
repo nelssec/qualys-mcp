@@ -6,6 +6,9 @@ import sys
 import json
 import ssl
 import base64
+import random
+import time
+import threading
 from urllib.request import Request, urlopen
 from urllib.parse import urlencode, quote
 from urllib.error import HTTPError, URLError
@@ -184,26 +187,43 @@ def get_bearer_token():
             return None
 
 
+RETRY_STATUS = {429, 503, 502}
+MAX_RETRIES = 4
+
+
 def api_get(url, gateway=False, timeout=30):
-    req = Request(url)
-    if gateway:
-        token = get_bearer_token()
-        req.add_header('Authorization', f'Bearer {token}' if token else f'Basic {BASIC_AUTH}')
-    else:
-        req.add_header('Authorization', f'Basic {BASIC_AUTH}')
-    req.add_header('X-Requested-With', 'qualys-mcp')
-    try:
-        with _open(req, timeout=timeout) as resp:
-            return resp.read()
-    except HTTPError as e:
-        _log(f"API error {e.code}: {url.split('?')[0]}")
-        return None
-    except URLError as e:
-        _log(f"Connection error: {e.reason}")
-        return None
-    except Exception as e:
-        _log(f"Request failed: {e}")
-        return None
+    for attempt in range(MAX_RETRIES):
+        req = Request(url)
+        if gateway:
+            token = get_bearer_token()
+            req.add_header('Authorization', f'Bearer {token}' if token else f'Basic {BASIC_AUTH}')
+        else:
+            req.add_header('Authorization', f'Basic {BASIC_AUTH}')
+        req.add_header('X-Requested-With', 'qualys-mcp')
+        try:
+            with _open(req, timeout=timeout) as resp:
+                return resp.read()
+        except HTTPError as e:
+            if e.code in RETRY_STATUS:
+                retry_after = None
+                try:
+                    retry_after = float(e.headers.get('Retry-After', ''))
+                except (TypeError, ValueError):
+                    pass
+                wait = retry_after if retry_after else (2 ** attempt + random.uniform(0, 1))
+                _log(f"HTTP {e.code} on {url.split('?')[0]} — retry {attempt+1}/{MAX_RETRIES} in {wait:.1f}s")
+                time.sleep(wait)
+                continue
+            _log(f"API error {e.code}: {url.split('?')[0]}")
+            return None
+        except URLError as e:
+            _log(f"Connection error: {e.reason}")
+            return None
+        except Exception as e:
+            _log(f"Request failed: {e}")
+            return None
+    _log(f"Max retries exceeded for {url.split('?')[0]}")
+    return None
 
 
 def _parse_detections_xml(data):
@@ -544,23 +564,36 @@ def _scope_filters(base_filters, tag='', asset_group=''):
     return filters or None
 
 
+_CSAM_SEM = threading.Semaphore(3)
+_CSAM_COUNT_CACHE = {}
+_CSAM_COUNT_CACHE_TIME = {}
+_CSAM_COUNT_TTL = 300
+
+
 def csam_count(filters=None):
     """Count assets with optional structured filters. Fast (~0.2s).
     filters: list of {"field": "...", "operator": "...", "value": "..."} dicts
     """
-    token = get_bearer_token()
-    url = f"{GATEWAY_URL}/rest/2.0/count/am/asset"
-    body = json.dumps({"filters": filters}) if filters else "{}"
-    req = Request(url, data=body.encode(), method='POST')
-    req.add_header('Authorization', f'Bearer {token}' if token else f'Basic {BASIC_AUTH}')
-    req.add_header('Content-Type', 'application/json')
-    req.add_header('Accept', 'application/json')
-    req.add_header('X-Requested-With', 'qualys-mcp')
-    try:
-        with _open(req, timeout=30) as resp:
-            return json.loads(resp.read()).get('count', 0)
-    except Exception:
-        return 0
+    cache_key = json.dumps(filters, sort_keys=True) if filters else "__all__"
+    if cache_key in _CSAM_COUNT_CACHE and (time.time() - _CSAM_COUNT_CACHE_TIME[cache_key]) < _CSAM_COUNT_TTL:
+        return _CSAM_COUNT_CACHE[cache_key]
+    with _CSAM_SEM:
+        token = get_bearer_token()
+        url = f"{GATEWAY_URL}/rest/2.0/count/am/asset"
+        body = json.dumps({"filters": filters}) if filters else "{}"
+        req = Request(url, data=body.encode(), method='POST')
+        req.add_header('Authorization', f'Bearer {token}' if token else f'Basic {BASIC_AUTH}')
+        req.add_header('Content-Type', 'application/json')
+        req.add_header('Accept', 'application/json')
+        req.add_header('X-Requested-With', 'qualys-mcp')
+        try:
+            with _open(req, timeout=30) as resp:
+                result = json.loads(resp.read()).get('count', 0)
+                _CSAM_COUNT_CACHE[cache_key] = result
+                _CSAM_COUNT_CACHE_TIME[cache_key] = time.time()
+                return result
+        except Exception:
+            return 0
 
 
 def csam_search(filters=None, limit=100, fields=None, fetch_all=True):
@@ -569,54 +602,55 @@ def csam_search(filters=None, limit=100, fields=None, fetch_all=True):
     fields: comma-separated includeFields (e.g. "operatingSystem,hardware")
     When fetch_all=True (default), paginates using lastSeenAssetId cursor until all pages exhausted.
     """
-    token = get_bearer_token()
-    # Always include tags so every asset response has tags[]
-    if fields:
-        if 'tags' not in fields:
-            fields = f"{fields},tags"
-    else:
-        fields = "tags"
-    page_size = min(limit, 100) if not fetch_all else 100
-    body = json.dumps({"filters": filters}) if filters else "{}"
-    all_assets = []
-    last_id = None
-    max_page_cap = MAX_PAGES if MAX_PAGES > 0 else 0  # 0 = unlimited
-    pages = 0
-    while True:
-        if max_page_cap > 0 and pages >= max_page_cap:
-            _log(f"CSAM search: hit MAX_PAGES cap ({max_page_cap})")
-            break
-        if not fetch_all and len(all_assets) >= limit:
-            break
-        url = f"{GATEWAY_URL}/rest/2.0/search/am/asset?pageSize={page_size}"
+    with _CSAM_SEM:
+        token = get_bearer_token()
+        # Always include tags so every asset response has tags[]
         if fields:
-            url += f"&includeFields={fields}"
-        if last_id:
-            url += f"&lastSeenAssetId={last_id}"
-        req = Request(url, data=body.encode(), method='POST')
-        req.add_header('Authorization', f'Bearer {token}' if token else f'Basic {BASIC_AUTH}')
-        req.add_header('Content-Type', 'application/json')
-        req.add_header('Accept', 'application/json')
-        req.add_header('X-Requested-With', 'qualys-mcp')
-        try:
-            with _open(req, timeout=30) as resp:
-                data = json.loads(resp.read())
-                assets = data.get('assetListData', {}).get('asset', [])
-                if not assets:
-                    break
-                all_assets.extend(assets)
-                pages += 1
-                if not data.get('hasMore'):
-                    break
-                last_id = assets[-1].get('assetId')
-        except Exception as e:
-            _log(f"csam_search error: {e}")
-            break
-    if pages > 1:
-        _log(f"CSAM search: fetched {len(all_assets)} assets across {pages} pages")
-    if not fetch_all:
-        return all_assets[:limit]
-    return all_assets
+            if 'tags' not in fields:
+                fields = f"{fields},tags"
+        else:
+            fields = "tags"
+        page_size = min(limit, 100) if not fetch_all else 100
+        body = json.dumps({"filters": filters}) if filters else "{}"
+        all_assets = []
+        last_id = None
+        max_page_cap = MAX_PAGES if MAX_PAGES > 0 else 0  # 0 = unlimited
+        pages = 0
+        while True:
+            if max_page_cap > 0 and pages >= max_page_cap:
+                _log(f"CSAM search: hit MAX_PAGES cap ({max_page_cap})")
+                break
+            if not fetch_all and len(all_assets) >= limit:
+                break
+            url = f"{GATEWAY_URL}/rest/2.0/search/am/asset?pageSize={page_size}"
+            if fields:
+                url += f"&includeFields={fields}"
+            if last_id:
+                url += f"&lastSeenAssetId={last_id}"
+            req = Request(url, data=body.encode(), method='POST')
+            req.add_header('Authorization', f'Bearer {token}' if token else f'Basic {BASIC_AUTH}')
+            req.add_header('Content-Type', 'application/json')
+            req.add_header('Accept', 'application/json')
+            req.add_header('X-Requested-With', 'qualys-mcp')
+            try:
+                with _open(req, timeout=30) as resp:
+                    data = json.loads(resp.read())
+                    assets = data.get('assetListData', {}).get('asset', [])
+                    if not assets:
+                        break
+                    all_assets.extend(assets)
+                    pages += 1
+                    if not data.get('hasMore'):
+                        break
+                    last_id = assets[-1].get('assetId')
+            except Exception as e:
+                _log(f"csam_search error: {e}")
+                break
+        if pages > 1:
+            _log(f"CSAM search: fetched {len(all_assets)} assets across {pages} pages")
+        if not fetch_all:
+            return all_assets[:limit]
+        return all_assets
 
 
 def get_asset_by_id(asset_id):
