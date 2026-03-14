@@ -1045,7 +1045,12 @@ def _extract_software_keywords(title):
 
 @mcp.tool()
 def investigate_cve(cve: str) -> dict:
-    """[Vulnerability Intelligence] Investigate a specific CVE across your environment — maps the CVE to Qualys QIDs, retrieves KB details (severity, patches, threat intel, ransomware linkage), and searches your asset inventory for systems running the affected software. Fast (~5s). For bulk CVE lookup without asset search, use get_cve_details."""
+    """[Vulnerability Intelligence] Investigate a specific CVE across your environment — maps the CVE to Qualys QIDs, retrieves KB details (severity, patches, threat intel, ransomware linkage), and searches your asset inventory for systems running the affected software. Fast (~5s).
+
+    **Use when:** Deep-diving a single CVE — "are we affected by CVE-2024-3400?", incident response triage, or tracing a CVE to specific assets. Returns KB + asset impact in one call.
+    **NOT for:** Bulk CVE lookup (use get_cve_details for up to 20 CVEs at once), KB-only search without asset context (use search_vulns), or confirmed finding status (use get_etm_findings with QQL `vulnerabilities.vulnerability.cveIds:CVE-...`).
+
+    **Difference from get_cve_details:** investigate_cve does a single CVE but also searches your asset inventory for systems running affected software. get_cve_details handles up to 20 CVEs but returns KB data only (no asset search)."""
     result = {'cve': cve, 'qids': [], 'severity': 0, 'qds': 0,
               'qds_factors': '',
               'title': '', 'patchAvailable': False, 'solution': '',
@@ -1255,7 +1260,12 @@ def get_security_posture() -> dict:
 
 @mcp.tool()
 def get_patch_status(limit: int = 20) -> dict:
-    """[Patch Management] Patching coverage and remediation gaps — TruRisk distribution across severity tiers and top unpatched assets ranked by risk score. Fast (~5s). Follow up with get_asset_risk(assetId) for per-asset patch details. For active patch job status, use get_eliminate_status. For PM catalog details, use get_pm_status."""
+    """[Patch Management] Patching coverage and remediation gaps — TruRisk distribution across severity tiers and top unpatched assets ranked by risk score. Fast (~5s).
+
+    **Use when:** Assessing patch posture, "how many assets are unpatched?", or identifying top unpatched assets by risk. Returns risk distribution tiers and highest-risk assets.
+    **NOT for:** Active patch job deployment status (use get_eliminate_status), PM catalog/job details per platform (use get_pm_status), or single-asset patch details (use get_asset_risk).
+
+    Follow up with get_asset_risk(assetId) for per-asset vulnerability details."""
     result = {'coverage': 0, 'assetsTotal': 0, 'riskDistribution': {},
               'highRiskAssets': []}
 
@@ -1321,9 +1331,28 @@ def get_patch_status(limit: int = 20) -> dict:
 def search_vulns(days: int = 7, threat_type: str = "", software: str = "", limit: int = 50) -> dict:
     """[Vulnerability Intelligence] Unified vulnerability search across the Qualys Knowledge Base — find newly published vulns, filter by threat intel (RTI) tags, and/or search by affected software name. One API call covers all use cases.
 
+    **Use when:** Searching for new vulns, threat intel queries ("any ransomware vulns this week?"), or software-specific vuln lookups ("what vulns affect Apache?"). Replaces separate get_threat_intel / get_vulns_by_software / get_new_vulns calls.
+    **NOT for:** Cross-environment tracing of a single CVE with asset impact (use investigate_cve), bulk CVE lookup (use get_cve_details), or confirmed findings in your environment (use get_etm_findings).
+
     days: how far back to search (default 7). Use days=1 for today, days=30 for last month.
-    threat_type: RTI filter — Ransomware, Malware, Active_Attacks, Exploit_Public, Easy_Exploit, Wormable, Cisa_Known_Exploited_Vulns, Denial_of_Service, Privilege_Escalation, Remote_Code_Execution, Predicted_High_Risk, Unauthenticated_Exploitation.
-    software: filter by product name in KB title/diagnosis (e.g. 'Apache', 'OpenSSL', 'Microsoft Exchange').
+
+    threat_type: RTI filter — one of the 12 Real-Time Threat Indicator tags:
+      - Ransomware              — linked to ransomware campaigns
+      - Malware                 — associated with known malware
+      - Active_Attacks          — seen in active exploitation in the wild
+      - Exploit_Public          — public exploit code available
+      - Easy_Exploit            — low-skill exploitation possible
+      - Wormable                — can spread without user interaction
+      - Cisa_Known_Exploited_Vulns — on CISA KEV catalog
+      - Denial_of_Service       — can cause service disruption
+      - Privilege_Escalation    — enables privilege elevation
+      - Remote_Code_Execution   — enables remote code execution
+      - Predicted_High_Risk     — ML-predicted high risk
+      - Unauthenticated_Exploitation — exploitable without authentication
+
+    software: filter by product name in KB title/diagnosis. Fuzzy substring match — partial names work.
+      Examples: 'Apache', 'OpenSSL', 'Microsoft Exchange', 'Chrome', 'nginx', 'Java', 'Log4j',
+                'Cisco IOS', 'VMware', 'WordPress', 'PHP', 'PostgreSQL', 'Docker'
 
     Filters combine: search_vulns(days=30, threat_type='Ransomware', software='Apache') returns Apache vulns with ransomware linkage from the last 30 days. Fast (~5s).
 
@@ -1455,7 +1484,7 @@ def _get_first_cloud_evals():
 def get_recommendations() -> dict:
     """[Program Advisor] Security program coach — analyzes your environment and recommends Qualys modules and actions to reduce risk. Probes all data sources (VMDR, TotalCloud, TotalAppSec, FIM, EDR, CertView, Patch Management) to find coverage gaps.
 
-    **Use when:** Asked "what should we invest in?", "what's missing from our security program?", or "how do we reduce our TruRisk score?". Identifies both eliminate (patch/fix) and mitigate (compensating control) actions.
+    **Use when:** Gap analysis, program improvement, "what modules should we add?", "what should we invest in?", "what's missing from our security program?", or "how do we reduce our TruRisk score?". Identifies both eliminate (patch/fix) and mitigate (compensating control) actions.
     **NOT for:** Immediate threat response (use get_morning_report), asset-level vuln details (use get_asset_risk), or patching status (use get_eliminate_status).
 
     Returns: prioritized recommendations with riskAction (eliminate/mitigate), qualysModule, finding, and coverage map of active vs missing security capabilities."""
@@ -1689,7 +1718,10 @@ def get_recommendations() -> dict:
 
 @mcp.tool()
 def get_eliminate_status() -> dict:
-    """[TruRisk Eliminate] Patch and mitigation deployment status — shows active patch jobs (Qualys Patch Management), mitigation jobs (TruRisk Mitigate), patch catalog coverage, and managed asset counts for both Windows and Linux. Returns job status, completion rates, and patch counts by vendor severity. Use when asked about patching progress, risk elimination, or mitigation status."""
+    """[TruRisk Eliminate] Patch and mitigation deployment status — shows active patch jobs (Qualys Patch Management), mitigation jobs (TruRisk Mitigate), patch catalog coverage, and managed asset counts for both Windows and Linux. Returns job status, completion rates, and patch counts by vendor severity.
+
+    **Use when:** Asked about patching progress, risk elimination, or mitigation status — "are patches deploying?", "how many mitigation jobs are running?", "what's our patch catalog size?".
+    **NOT for:** Patch coverage by risk tier (use get_patch_status), per-platform PM job details (use get_pm_status), or per-asset patch status (use get_asset_risk)."""
     result = {
         'patchManagement': {'windows': {}, 'linux': {}},
         'mitigations': {'windows': {}, 'linux': {}},
@@ -1810,7 +1842,10 @@ def get_eliminate_status() -> dict:
 
 @mcp.tool()
 def get_scanner_health() -> dict:
-    """[Infrastructure] Scanner appliance health — online/offline status, running and failed scans, capacity utilization, and vulnerability signature currency. Use when asked about scan failures, scanner health, or scanning infrastructure. Fast (~5s)."""
+    """[Infrastructure] Scanner appliance health — online/offline status, running and failed scans, capacity utilization, and vulnerability signature currency. Fast (~5s).
+
+    **Use when:** Scanners appear offline, coverage seems low, checking last scan times, "why did my scan fail?", or verifying scanner infrastructure health.
+    **NOT for:** Scan job status/history (use get_scan_status), vulnerability findings (use get_etm_findings), or patch deployment status (use get_eliminate_status)."""
     result = {
         'scanners': [],
         'scanStatus': {},
@@ -1920,6 +1955,9 @@ def get_scanner_health() -> dict:
 @mcp.tool()
 def get_etm_findings(qql: str = "", report_id: str = "") -> dict:
     """[Enterprise TruRisk] Query ETM for confirmed vulnerability and misconfiguration findings across all sources — VMDR, TotalCloud, and third-party scanners. Returns per-asset findings with TruRisk scores, QDS, CVSS, patch status, and remediation details.
+
+    **Use when:** Searching for confirmed vulnerabilities with rich filtering, compliance evidence, or cross-source vuln aggregation. Best for "show me all critical vulns on PCI assets" or "find Log4Shell across the environment".
+    **NOT for:** New KB-only vulns not yet confirmed in scans (use search_vulns), cloud misconfigs (use get_cloud_risk), or single-CVE deep-dive with asset software search (use investigate_cve).
 
     Use qql to filter findings with Qualys Query Language (QQL):
 
@@ -2169,7 +2207,7 @@ def _format_etm_findings(all_findings, report_detail):
 def get_morning_report() -> dict:
     """[Daily Briefing] Morning security report — what happened overnight. New vulnerabilities (last 24h) with ransomware and active exploit flags, environment health score, top risk assets, EOL count, and prioritized action items.
 
-    **Use when:** Starting the day, shift handover, "what's new today?", or "give me a briefing". Combines security posture + weekly priorities + threat intel in one fast call.
+    **Use when:** Starting the day, shift handover, "what's new today?", or "give me a briefing". Use this first in a session — gives a complete picture. Combines security posture + weekly priorities + threat intel in one fast call.
     **NOT for:** Deep vulnerability investigation (use investigate_cve), week-level planning (use get_weekly_priorities), or cloud-specific threats (use get_cdr_findings).
 
     Returns: environment health, new vuln counts (24h), threat flags (ransomware/exploits/CISA KEV), top risk assets, and prioritized action items."""
@@ -2246,7 +2284,10 @@ def get_morning_report() -> dict:
 
 @mcp.tool()
 def get_cve_details(cves: str) -> dict:
-    """[Vulnerability Intelligence] Bulk CVE lookup — get severity, patches, threat intel, and remediation for multiple CVEs at once. Accepts comma-separated CVE IDs (e.g. 'CVE-2021-44228,CVE-2024-3400'). Up to 20 CVEs per call. Fast (~5s). For cross-product tracing of a single CVE with asset impact, use investigate_cve."""
+    """[Vulnerability Intelligence] Bulk CVE lookup — get severity, patches, threat intel, and remediation for multiple CVEs at once. Accepts comma-separated CVE IDs (e.g. 'CVE-2021-44228,CVE-2024-3400,CVE-2023-20198'). Up to 20 CVEs per call; 10 recommended for best performance. Fast (~5s).
+
+    **Use when:** Looking up multiple CVEs at once — "what's the severity of these CVEs?", comparing CVE risk, or building a CVE summary table. KB data only (no asset search).
+    **NOT for:** Single CVE with asset impact analysis (use investigate_cve), QID-based lookup (use get_qid_details), or confirmed findings in your environment (use get_etm_findings)."""
     cve_list = [c.strip() for c in cves.split(',') if c.strip()]
     result = {'requested': len(cve_list), 'found': 0, 'cves': []}
 
@@ -2314,7 +2355,10 @@ def get_cve_details(cves: str) -> dict:
 
 @mcp.tool()
 def get_qid_details(qids: str) -> dict:
-    """[Vulnerability Intelligence] Direct QID lookup — get KB details (severity, QDS, patches, threat intel, CVEs) for specific Qualys QIDs. Accepts comma-separated QIDs (e.g. '38747,376418'). Up to 50 QIDs per call. Fast (~3s). If you have CVE IDs instead, use get_cve_details."""
+    """[Vulnerability Intelligence] Direct QID lookup — get KB details (severity, QDS, patches, threat intel, CVEs) for specific Qualys QIDs. Accepts comma-separated QIDs (e.g. '38747,376418'). Up to 50 QIDs per call. Fast (~3s).
+
+    **Use when:** You have specific QID numbers (from ETM findings, scan reports, or VMDR detections) and need KB details. QIDs are Qualys-internal vulnerability identifiers.
+    **NOT for:** CVE-based lookup (use get_cve_details), KB search by software or threat type (use search_vulns), or confirmed findings across assets (use get_etm_findings)."""
     qid_list = []
     for q in qids.split(','):
         q = q.strip()
@@ -2386,7 +2430,12 @@ def get_compliance_gaps(limit: int = 20) -> dict:
 
 @mcp.tool()
 def get_cloud_risk(limit: int = 20) -> dict:
-    """[Cloud Security] Cloud security posture across AWS, Azure, and GCP — connected accounts, CIS benchmark control failures, and CDR threat summary. Fetches all cloud providers in parallel for fast results (~6s cold). For CDR details, use get_cdr_findings. For compliance-focused view, use get_compliance_posture."""
+    """[Cloud Security] Cloud security posture across AWS, Azure, and GCP — connected accounts, CIS benchmark control failures, and CDR threat summary. Fetches all cloud providers in parallel for fast results (~6s cold).
+
+    **Use when:** Asked about cloud security posture, "how are our cloud accounts doing?", CIS benchmark compliance, or cloud risk overview. Shows all providers in one call.
+    **NOT for:** CDR threat details/incident response (use get_cdr_findings), host-based vulnerabilities (use get_etm_findings), or on-prem compliance (use get_compliance_posture).
+
+    Note: CIS benchmark evaluations are fetched from the first cloud account per provider. For multi-account evaluation, use the Qualys TotalCloud console directly. For CDR threat details, use get_cdr_findings."""
     result = {'accounts': [], 'failedControls': [], 'threats': [], 'stats': {'total': 0, 'critical': 0}}
 
     # Fetch all three cloud providers' connectors in parallel
@@ -2456,6 +2505,10 @@ def get_cdr_findings(days: int = 7, limit: int = 50, severity: str = "", cloud_p
     and affected resources.
 
     **Use when:** Investigating active cloud threats, lateral movement alerts, or suspicious network activity in cloud accounts. Best for incident response and threat hunting in cloud environments.
+    **NOT for:** Cloud posture / CIS benchmarks (use get_cloud_risk), host-based threats (use get_edr_events), or file integrity monitoring (use get_fim_events).
+
+    CDR category examples: Malware, Ransomware, CryptoMiner, C2, LateralMovement, Reconnaissance, DataExfiltration, SuspiciousNetworkActivity, UnauthorizedAccess, PrivilegeEscalation.
+
     **Cross-reference:** Use get_cloud_risk() for broader cloud posture (CIS benchmark failures, account inventory, and misconfigurations) alongside CDR threat detections."""
     result = {
         'days': days,
@@ -2537,7 +2590,10 @@ def get_cdr_findings(days: int = 7, limit: int = 50, severity: str = "", cloud_p
 
 @mcp.tool()
 def get_asset_risk(asset_id: str) -> dict:
-    """[Asset Risk] Detailed risk profile for a specific asset — TruRisk score, OS, criticality, installed software with lifecycle status, and EOL flags. Accepts a CSAM assetId (from get_weekly_priorities, get_patch_status, etc). Fast (~3s). For full asset profile including ETM findings, use get_asset_full_profile."""
+    """[Asset Risk] Detailed risk profile for a specific asset — TruRisk score, OS, criticality, installed software with lifecycle status, and EOL flags. Accepts a CSAM assetId (from get_weekly_priorities, get_patch_status, etc). Fast (~3s).
+
+    **Use when:** Investigating a specific asset — "what's the risk on this server?", checking installed software, or confirming EOL status. Pass assetId from get_weekly_priorities, get_patch_status, get_etm_findings, or get_asset_inventory results.
+    **NOT for:** Full asset profile with ETM findings + VMDR detections (use get_asset_full_profile), browsing multiple assets (use get_weekly_priorities or get_asset_inventory), or environment-wide risk (use get_weekly_priorities)."""
     result = {'assetId': asset_id, 'riskScore': 0, 'software': [], 'eolSoftware': []}
 
     asset = get_asset_by_id(asset_id)
@@ -2579,7 +2635,14 @@ def get_asset_risk(asset_id: str) -> dict:
 
 @mcp.tool()
 def get_tech_debt(limit: int = 100) -> dict:
-    """[Asset Lifecycle] End-of-life and end-of-support systems — OS and hardware assets running unsupported software that no longer receives security patches, sorted by criticality and risk score. Default limit=100 (~25s). Use limit=500 for full inventory (~2min)."""
+    """[Asset Lifecycle] End-of-life and end-of-support systems — OS and hardware assets running unsupported software that no longer receives security patches, sorted by criticality and risk score. Default limit=100 (~25s). Use limit=500 for full inventory (~2min).
+
+    **Use when:** Asked about tech debt, EOL/EOS exposure, "which systems are unsupported?", or upgrade planning. Returns both OS EOL (e.g. Windows Server 2012) and hardware EOL assets.
+    **NOT for:** Single-asset EOL check (use get_asset_risk), general asset inventory (use get_asset_inventory), or environment overview (use get_environment_summary).
+
+    CSAM filter examples used internally: operatingSystem.lifecycle.stage CONTAINS 'EOL', hardware.lifecycle.stage CONTAINS 'EOL'. Results are sorted by criticality then risk score.
+
+    Note: limit=500 takes ~2 minutes due to paginated CSAM API calls."""
     max_pages = max(5, (limit // 10) + 2)
 
     # Run OS and hardware EOL fetches concurrently
@@ -2602,7 +2665,12 @@ def get_tech_debt(limit: int = 100) -> dict:
 
 @mcp.tool()
 def get_image_vulns(image_id: str, limit: int = 50) -> dict:
-    """[Container Security] Vulnerabilities for a specific container image — severity breakdown (critical/high/medium/low) and individual vulnerability details with fix versions. Accepts a TotalCloud imageId. Use get_asset_inventory to find container images first."""
+    """[Container Security] Vulnerabilities for a specific container image — severity breakdown (critical/high/medium/low) and individual vulnerability details with fix versions.
+
+    **Use when:** Investigating vulnerabilities in a specific container image, pre-deployment image scanning review, or container remediation planning.
+    **NOT for:** Listing all container images (use get_asset_inventory), host-based vulnerabilities (use get_asset_risk), or cloud posture (use get_cloud_risk).
+
+    Accepts a TotalCloud imageId. To find container image IDs, use get_asset_inventory or check get_weekly_priorities container risk section."""
     result = {
         'imageId': image_id, 'repo': '', 'tag': '',
         'stats': {'critical': 0, 'high': 0, 'medium': 0, 'low': 0, 'total': 0},
@@ -3341,7 +3409,10 @@ def get_environment_summary() -> dict:
 
 @mcp.tool()
 def cache_status(clear: bool = False) -> dict:
-    """[Admin] Show cache stats or clear all caches. Use clear=True to reset caches."""
+    """[Admin] Show cache stats or clear all caches. Use clear=True to reset caches.
+
+    **Use when:** Debugging stale data, checking cache freshness, or forcing a cache refresh before re-running a tool.
+    **NOT for:** Any security analysis — this is an administrative/diagnostic tool only."""
     global ETM_RESULT_CACHE, ETM_RESULT_CACHE_TIME
     global SCANNER_CACHE, SCANNER_CACHE_TIME
 
@@ -3397,7 +3468,10 @@ def cache_status(clear: bool = False) -> dict:
 
 @mcp.tool()
 def get_edr_events(days: int = 7, severity: str = "", category: str = "", host: str = "", limit: int = 50) -> dict:
-    """[EDR] Endpoint Detection & Response events — malware, ransomware, C2 beaconing, process injection, lateral movement, suspicious executions. Returns summary counts, per-category breakdown, and top affected hosts. Use get_fim_events() for file integrity events."""
+    """[EDR] Endpoint Detection & Response events — malware, ransomware, C2 beaconing, process injection, lateral movement, suspicious executions. Returns summary counts, per-category breakdown, and top affected hosts.
+
+    **Use when:** Investigating endpoint threats, malware detections, suspicious process executions, or host-level incident response. Filter by severity, category, or specific host.
+    **NOT for:** File integrity changes (use get_fim_events), cloud threats (use get_cdr_findings), or network-level vulnerabilities (use get_etm_findings)."""
 
     # Severity normalization: numeric or mixed-case → canonical label
     SEV_NORM = {
@@ -3644,7 +3718,8 @@ def get_scan_status(state: str = "Running,Paused,Queued,Error", days: int = 7, l
     Shows active scans filtered by state, plus recently finished scans within the look-back window.
     Includes error details and suggestions when failures are detected.
 
-    Use get_scanner_health() for appliance/scanner status instead.
+    **Use when:** Checking scan progress, "are any scans running?", troubleshooting failed scans, or reviewing scan history for the week.
+    **NOT for:** Scanner appliance health (use get_scanner_health), vulnerability findings from scans (use get_etm_findings), or patch deployment status (use get_pm_status).
 
     Args:
         state: comma-separated states to filter (Running,Paused,Queued,Error)
@@ -3753,10 +3828,13 @@ def get_scan_status(state: str = "Running,Paused,Queued,Error", days: int = 7, l
 @mcp.tool()
 def get_pm_status(platform: str = "Windows", days: int = 30, status: str = "", limit: int = 20) -> dict:
     """[PM] Patch Management deployment status — jobs, patch severity breakdown, asset coverage %.
+
+    **Use when:** Reviewing PM job details per platform, patch severity breakdown, or asset coverage percentage. More granular than get_eliminate_status — shows individual jobs, filter by platform/status.
+    **NOT for:** High-level eliminate/mitigate overview (use get_eliminate_status), risk-tier-based patch coverage (use get_patch_status), or per-asset patch details (use get_asset_risk).
+
     platform: Windows, Linux, macOS, or 'all' (loops all three).
     days: only include jobs from the last N days.
-    status: filter by job status (e.g. 'Success', 'Failed', 'Running'). Empty = all.
-    Use get_eliminate_status() for TruRisk Eliminate/Mitigate overview."""
+    status: filter by job status (e.g. 'Success', 'Failed', 'Running'). Empty = all."""
     platforms = ['Windows', 'Linux', 'macOS'] if platform.lower() == 'all' else [platform]
 
     def _pm_for_platform(plat):
@@ -3880,12 +3958,21 @@ def get_pm_status(platform: str = "Windows", days: int = 30, status: str = "", l
 
 @mcp.tool()
 def get_asset_inventory(query: str = "", tag: str = "", os: str = "", days_since_seen: int = 0, eol_only: bool = False, limit: int = 50) -> dict:
-    """[CSAM] Asset inventory — search by OS, tag, or keyword. EOL/EOS filtering, stale-asset filtering, OS and tag breakdowns. Use get_asset_risk() for a specific asset's vulnerability details.
+    """[CSAM] Asset inventory — search by OS, tag, or keyword. EOL/EOS filtering, stale-asset filtering, OS and tag breakdowns.
+
+    **Use when:** Searching for assets by name/OS/tag, finding stale assets, or building asset lists for remediation. Also useful for finding container image IDs for get_image_vulns.
+    **NOT for:** Single-asset risk details (use get_asset_risk), environment-wide counts only (use get_environment_summary), or risk-ranked asset lists (use get_weekly_priorities).
+
+    CSAM filter examples (applied automatically from parameters):
+      - os="Windows Server 2019"      → operatingSystem.osName CONTAINS 'Windows Server 2019'
+      - tag="PCI"                      → tags.name CONTAINS 'PCI'
+      - eol_only=True                  → operatingSystem.lifecycle.stage CONTAINS 'EOL'
+      - days_since_seen=30             → assets not seen in 30+ days (stale)
 
     Parameters:
         query: free-text search on hostname/name
         tag: filter by asset tag name
-        os: filter by OS (e.g. "Windows", "Linux")
+        os: filter by OS (e.g. "Windows", "Linux", "Ubuntu", "CentOS")
         days_since_seen: only assets NOT seen in last N days (stale assets); 0 = no filter
         eol_only: only return end-of-life assets
         limit: max results (default 50)
@@ -3954,7 +4041,10 @@ def get_asset_inventory(query: str = "", tag: str = "", os: str = "", days_since
 
 @mcp.tool()
 def get_vuln_exceptions(status: str = "Active", vuln_type: str = "", days_to_expiry: int = 30, limit: int = 50) -> dict:
-    """[VM] Vulnerability exceptions — approved risk acceptances, false positives, compensating controls. Shows expiring exceptions needing review. Use get_patch_status() for remediation status."""
+    """[VM] Vulnerability exceptions — approved risk acceptances, false positives, compensating controls. Shows expiring exceptions needing review.
+
+    **Use when:** Reviewing active risk acceptances/waivers, finding expiring exceptions that need renewal, or auditing false positive classifications.
+    **NOT for:** Remediation/patching status (use get_patch_status or get_eliminate_status), vulnerability findings (use get_etm_findings), or compliance controls (use get_compliance_posture)."""
     result = {
         'status': status,
         'stats': {'total': 0, 'active': 0, 'expiringSoon': 0, 'expired': 0, 'byType': {}},
@@ -4027,7 +4117,10 @@ def get_vuln_exceptions(status: str = "Active", vuln_type: str = "", days_to_exp
 
 @mcp.tool()
 def get_compliance_posture(framework: str = "", platform: str = "", limit: int = 20) -> dict:
-    """[PC] Qualys Policy Compliance (PC) module posture — surfaces pass/fail rates, top failing controls, and per-framework breakdown for CIS Benchmark, PCI-DSS, HIPAA, NIST, SOC2, and ISO27001 compliance frameworks. Filter by framework or platform (Linux, Windows, etc.). Use get_cloud_risk() for cloud-specific CIS compliance."""
+    """[PC] Qualys Policy Compliance (PC) module posture — surfaces pass/fail rates, top failing controls, and per-framework breakdown for CIS Benchmark, PCI-DSS, HIPAA, NIST, SOC2, and ISO27001 compliance frameworks. Filter by framework or platform (Linux, Windows, etc.).
+
+    **Use when:** Asked about compliance posture, audit readiness, "are we passing CIS benchmarks?", or framework-specific control status. Covers on-prem and host-level compliance.
+    **NOT for:** Cloud-specific CIS compliance (use get_cloud_risk), vulnerability findings (use get_etm_findings), or certificate compliance (use get_expiring_certs)."""
 
     def _empty_result():
         return {
