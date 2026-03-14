@@ -1525,6 +1525,7 @@ def search_vulns(days: int = 7, threat_type: str = "", software: str = "", limit
     DO NOT USE WHEN: Tracing a single CVE to affected assets in your environment, doing bulk CVE metadata lookup, or querying confirmed detections on your assets.
     PREFER INSTEAD: investigate_cve for single-CVE deep-dive with asset impact; get_cve_details for bulk CVE metadata; get_etm_findings for confirmed detections in YOUR environment.
 
+    Parameters:
     days: how far back to search (default 7). Use days=1 for today, days=30 for last month.
 
     threat_type: RTI filter — one of the 12 Real-Time Threat Indicator tags:
@@ -2171,6 +2172,10 @@ def get_etm_findings(qql: str = "", report_id: str = "") -> dict:
     USE WHEN: User asks what vulns exist on their assets — "show me all critical vulns on PCI assets", "find Log4Shell across the environment", "what's confirmed in our scans?". Best for rich QQL filtering across confirmed detections.
     DO NOT USE WHEN: Searching the KB for newly published vulns (not yet scanned), doing single-CVE investigation with asset software search, or checking cloud misconfigs.
     PREFER INSTEAD: search_vulns for KB-only search (published vulns, not your detections); investigate_cve for single-CVE deep-dive with asset impact; get_cloud_risk for cloud misconfigurations.
+
+    Parameters:
+    qql: Qualys Query Language filter string (optional). Use to filter findings.
+    report_id: resume polling an async ETM report (optional).
 
     Use qql to filter findings with Qualys Query Language (QQL):
 
@@ -3784,6 +3789,7 @@ def cache_status(clear: bool = False) -> dict:
 
     USE WHEN: Debugging stale data, checking cache freshness, or forcing a cache refresh before re-running a tool.
     DO NOT USE WHEN: Performing any security analysis — this is an administrative/diagnostic tool only.
+    PREFER INSTEAD: Any security analysis tool (get_morning_report, get_weekly_priorities, etc.) for actual security work.
 
     Parameters:
         clear: set True to reset all caches (default False)
@@ -5066,6 +5072,7 @@ def get_report_status(report_id: str) -> dict:
 
     USE WHEN: "is my report done?", checking report progress after generate_report, or polling for report completion.
     DO NOT USE WHEN: You want to list all reports (use list_reports) or download a finished report (use download_report).
+    PREFER INSTEAD: list_reports when browsing all reports; download_report when report is already finished.
 
     Parameters:
         report_id: the report ID to check (from generate_report or list_reports)
@@ -5100,6 +5107,7 @@ def download_report(report_id: str) -> dict:
 
     USE WHEN: "download report", "get report content", "fetch the report", or retrieving a completed report's data.
     DO NOT USE WHEN: Report is still generating (check with get_report_status first) or you haven't generated a report yet.
+    PREFER INSTEAD: get_report_status when report may not be finished yet; generate_report when no report exists.
 
     Parameters:
         report_id: the report ID to download (must be in 'Finished' status)
@@ -5141,6 +5149,7 @@ def list_report_templates(limit: int = 100) -> dict:
 
     USE WHEN: "what report templates are available?", finding template IDs before generate_report, or browsing report template catalog.
     DO NOT USE WHEN: You already have a template ID and want to generate a report (use generate_report directly).
+    PREFER INSTEAD: generate_report when you already have a template ID.
 
     Parameters:
         limit: max templates to return (default 100)
@@ -5172,6 +5181,7 @@ def delete_report(report_id: str) -> dict:
 
     USE WHEN: "delete report", "remove report", "clean up old reports", or managing report storage.
     DO NOT USE WHEN: You want to check report status (use get_report_status) or download it (use download_report).
+    PREFER INSTEAD: get_report_status when you need status info; download_report when you want the content.
 
     Parameters:
         report_id: the report ID to delete
