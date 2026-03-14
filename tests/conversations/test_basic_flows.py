@@ -15,6 +15,11 @@ import pytest
 
 import qualys_mcp
 
+# Install VMDR fixture mocks when VMDR_MOCK_FIXTURES=1
+from tests.fixtures import should_mock, install_vmdr_mocks
+if should_mock():
+    install_vmdr_mocks(qualys_mcp)
+
 skip_no_creds = pytest.mark.skipif(
     not os.getenv("QUALYS_USERNAME"),
     reason="QUALYS_USERNAME not set — skipping live API tests",
