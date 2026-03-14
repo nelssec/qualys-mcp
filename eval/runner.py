@@ -1,0 +1,144 @@
+"""Send questions to the MCP server via Claude API with tools enabled."""
+
+import os
+import sys
+from pathlib import Path
+
+import anthropic
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+
+MODEL = "claude-sonnet-4-20250514"
+
+SYSTEM_PROMPT = (
+    "You are a security analyst assistant with access to Qualys security tools. "
+    "Use the available tools to answer the user's question about their security environment. "
+    "Be concise and data-driven."
+)
+
+
+async def get_mcp_tools(session: ClientSession) -> list[dict]:
+    """Get tool definitions from the MCP server in Anthropic API format."""
+    tools_result = await session.list_tools()
+    anthropic_tools = []
+    for tool in tools_result.tools:
+        anthropic_tools.append(
+            {
+                "name": tool.name,
+                "description": tool.description or "",
+                "input_schema": tool.inputSchema,
+            }
+        )
+    return anthropic_tools
+
+
+async def call_mcp_tool(
+    session: ClientSession, name: str, arguments: dict
+) -> str:
+    """Call a tool on the MCP server and return the text result."""
+    result = await session.call_tool(name, arguments)
+    parts = []
+    for content in result.content:
+        if hasattr(content, "text"):
+            parts.append(content.text)
+        else:
+            parts.append(str(content))
+    return "\n".join(parts)
+
+
+async def run_question(
+    client: anthropic.Anthropic,
+    session: ClientSession,
+    tools: list[dict],
+    question: str,
+) -> dict:
+    """Run a single question through Claude with MCP tools.
+
+    Returns {"response": str, "tool_calls": list[dict]}
+    """
+    messages = [{"role": "user", "content": question}]
+    tool_calls_log = []
+    assistant_text = ""
+
+    for _ in range(10):  # max iterations
+        resp = client.messages.create(
+            model=MODEL,
+            max_tokens=4096,
+            system=SYSTEM_PROMPT,
+            tools=tools,
+            messages=messages,
+        )
+
+        # Collect assistant content
+        assistant_text = ""
+        tool_use_blocks = []
+        for block in resp.content:
+            if block.type == "text":
+                assistant_text += block.text
+            elif block.type == "tool_use":
+                tool_use_blocks.append(block)
+
+        messages.append({"role": "assistant", "content": resp.content})
+
+        if resp.stop_reason == "end_turn" or not tool_use_blocks:
+            return {"response": assistant_text, "tool_calls": tool_calls_log}
+
+        # Process tool calls
+        tool_results = []
+        for block in tool_use_blocks:
+            try:
+                result_text = await call_mcp_tool(
+                    session, block.name, block.input
+                )
+                tool_calls_log.append(
+                    {
+                        "tool": block.name,
+                        "input": block.input,
+                        "output_preview": result_text[:500],
+                        "error": None,
+                    }
+                )
+                tool_results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": result_text,
+                    }
+                )
+            except Exception as e:
+                tool_calls_log.append(
+                    {
+                        "tool": block.name,
+                        "input": block.input,
+                        "output_preview": None,
+                        "error": str(e),
+                    }
+                )
+                tool_results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": f"Error: {e}",
+                        "is_error": True,
+                    }
+                )
+
+        messages.append({"role": "user", "content": tool_results})
+
+    return {"response": assistant_text, "tool_calls": tool_calls_log}
+
+
+def get_server_params() -> StdioServerParameters:
+    """Build MCP server parameters from environment."""
+    return StdioServerParameters(
+        command=sys.executable,
+        args=[str(Path(__file__).parent.parent / "qualys_mcp.py")],
+        env={
+            **os.environ,
+            "QUALYS_USERNAME": os.environ["QUALYS_USERNAME"],
+            "QUALYS_PASSWORD": os.environ["QUALYS_PASSWORD"],
+            "QUALYS_BASE_URL": os.environ["QUALYS_BASE_URL"],
+            "QUALYS_GATEWAY_URL": os.environ.get("QUALYS_GATEWAY_URL", ""),
+            "QUALYS_SSL_VERIFY": os.environ.get("QUALYS_SSL_VERIFY", ""),
+        },
+    )
