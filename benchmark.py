@@ -238,7 +238,7 @@ def main():
         benchmarks = [b for b in BENCHMARKS if b[3]]
 
     print(f"Qualys MCP Benchmark — {len(benchmarks)} tools, {args.runs} runs each")
-    print(f"Server: {os.environ.get('QUALYS_BASE_URL', '?')}")
+    base = os.environ.get("QUALYS_BASE_URL", "?"); host = base.split("/")[2] if "/" in base else base; print(f"Server: {host}")
     print(f"CVE test: {os.environ.get('BENCHMARK_CVE', 'CVE-2021-44228')}")
     print()
 
