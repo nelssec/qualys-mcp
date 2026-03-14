@@ -43,6 +43,12 @@ except ImportError as e:
     print("Run from the qualys-mcp project root directory.")
     sys.exit(1)
 
+# Install VMDR fixture mocks when VMDR_MOCK_FIXTURES=1
+from tests.fixtures import should_mock, install_vmdr_mocks
+if should_mock():
+    install_vmdr_mocks(qualys_mcp)
+    print("⚙ VMDR fixture mocks enabled — no live API calls for VMDR detections/QDS")
+
 # ---- benchmark definitions
 # (function_name, kwargs, description, quick?)
 BENCHMARKS = [
