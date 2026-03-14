@@ -226,28 +226,51 @@ For environments with self-signed certs, add `"QUALYS_SSL_VERIFY": "false"` to t
 
 See [docs/examples.md](docs/examples.md) for the full Q&A reference with 100+ mapped examples.
 
-## Testing
+## Eval Harness
 
-### Tool Tests (requires credentials)
+Automated evaluation that sends 500 customer questions from `docs/questions.md` against the live MCP server and scores response quality using Claude-as-judge.
 
-```bash
-./test_tools.sh              # all tools
-./test_tools.sh fast         # fast tools only (~3-5s each)
-./test_tools.sh medium       # medium tools (~10-30s each)
-./test_tools.sh aggregator   # aggregator tools
-```
-
-### Conversation Context Tests (no credentials needed)
-
-Tests that multi-turn conversation context carries correctly across tool calls:
+### Requirements
 
 ```bash
-python3 tests/run_conversations.py              # all 10 scenarios
-python3 tests/run_conversations.py --verbose     # detailed per-turn output
-python3 tests/run_conversations.py --scenario filter_chaining  # single scenario
+pip install anthropic mcp
+export ANTHROPIC_API_KEY="sk-..."
 ```
 
-Scenarios cover filter chaining, asset drilldowns, CVE investigation, scan workflows, compliance, cross-tool context, certificates, tag scoping, scanner health, and web app vulnerabilities. See `tests/conversations/` for the YAML scenario files.
+### Usage
+
+```bash
+# Full eval (500 questions)
+python -m eval
+
+# Smoke test (~20 questions, fast)
+python -m eval --quick
+
+# Single category
+python -m eval --category "Vulnerability Management"
+
+# First N questions
+python -m eval --limit 10
+
+# Set pass/fail threshold (default: 0.7)
+python -m eval --threshold 0.8
+
+# Don't update coverage tags in docs/questions.md
+python -m eval --no-update
+```
+
+### Scoring
+
+Each response is scored by Claude-as-judge:
+
+| Score | Weight | Meaning |
+|-------|--------|---------|
+| `correct` | 1.0 | Tool called, returned data, answered well |
+| `partial` | 0.5 | Tool called but answer incomplete |
+| `wrong` | 0.0 | Wrong tool or missed the point |
+| `tool-error` | 0.0 | Tool exception or no tool called |
+
+Results are saved to `eval_results/YYYY-MM-DD.json` with per-question detail and automatic regression detection against previous runs.
 
 ## Qualys PODs
 
