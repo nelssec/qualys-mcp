@@ -91,21 +91,21 @@ ROUTING_CASES: list[RoutingCase] = [
     # Asset risk tools
     RoutingCase(
         "What's the risk score on server-prod-01?",
-        "get_asset_risk",
-        "Single asset risk drill-down",
-        wrong_tools=["get_asset_full_profile", "get_risk_by_tag"],
+        "get_asset",
+        "Single asset risk drill-down (summary mode)",
+        wrong_tools=["get_risk_by_tag"],
     ),
     RoutingCase(
         "Give me the full complete profile for this asset",
-        "get_asset_full_profile",
-        "User explicitly requests full/complete profile",
-        wrong_tools=["get_asset_risk"],
+        "get_asset",
+        "User explicitly requests full/complete profile (detail='full')",
+        wrong_tools=["get_risk_by_tag"],
     ),
     RoutingCase(
         "What's the risk situation for our PCI assets?",
         "get_risk_by_tag",
         "Tag-scoped aggregate risk",
-        wrong_tools=["get_asset_risk", "get_asset_full_profile"],
+        wrong_tools=["get_asset"],
     ),
     RoutingCase(
         "Show me risk for the Production environment",
@@ -171,7 +171,7 @@ ROUTING_CASES: list[RoutingCase] = [
         "How is our patching going?",
         "get_patch_status",
         "Patch coverage/gaps summary",
-        wrong_tools=["get_eliminate_status", "get_pm_status"],
+        wrong_tools=["get_eliminate_status"],
     ),
     RoutingCase(
         "How many assets are unpatched?",
@@ -183,7 +183,7 @@ ROUTING_CASES: list[RoutingCase] = [
         "What patches are deploying right now?",
         "get_eliminate_status",
         "Active deployment status",
-        wrong_tools=["get_patch_status", "get_pm_status"],
+        wrong_tools=["get_patch_status"],
     ),
     RoutingCase(
         "Are there active mitigation jobs running?",
@@ -193,9 +193,9 @@ ROUTING_CASES: list[RoutingCase] = [
     ),
     RoutingCase(
         "Show me Patch Management module details and per-platform job breakdown",
-        "get_pm_status",
-        "PM module granular details",
-        wrong_tools=["get_patch_status", "get_eliminate_status"],
+        "get_eliminate_status",
+        "PM module details (get_pm_status deprecated, use get_eliminate_status)",
+        wrong_tools=["get_patch_status"],
     ),
 ]
 
