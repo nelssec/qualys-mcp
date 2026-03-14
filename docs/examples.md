@@ -142,6 +142,58 @@ Q: Which Windows 2012 servers are still in our environment?
 
 ---
 
+## Aggregator Tools
+
+### Full Asset Profile
+
+```
+Q: Give me everything on asset 233946644 — risk, vulns, detections, the works
+→ get_asset_full_profile(asset_id="233946644")
+
+Q: I need to build a remediation ticket for prod-db-01. What's the full picture?
+→ get_asset_full_profile(asset_id="<id for prod-db-01>")
+
+Q: What ETM findings and VMDR detections does this asset have?
+→ get_asset_full_profile(asset_id="<assetId>")
+```
+
+Combines CSAM metadata (OS, IP, software, EOL), ETM confirmed findings (QDS, CVSS, patch status), and VMDR host detections in a single parallel call (~5-8s cold, ~2s warm). Use assetId from `get_weekly_priorities`, `get_asset_risk`, or `get_etm_findings`.
+
+### Risk by Tag
+
+```
+Q: How's our Production environment looking risk-wise?
+→ get_risk_by_tag(tag="Production")
+
+Q: What's the risk exposure in our PCI scope?
+→ get_risk_by_tag(tag="PCI")
+
+Q: Show me the top 20 riskiest DMZ assets
+→ get_risk_by_tag(tag="DMZ", limit=20)
+
+Q: How many critical-risk assets are in our AWS environment?
+→ get_risk_by_tag(tag="AWS")
+```
+
+Returns asset count, risk tier distribution (TruRisk > 900/700/500), top risky assets, and EOL count — all from parallel CSAM queries (~3s).
+
+### Environment Summary
+
+```
+Q: What does our environment look like?
+→ get_environment_summary()
+
+Q: Quick health check — how many assets, what OS mix, cloud vs on-prem?
+→ get_environment_summary()
+
+Q: I'm new here. Give me the lay of the land.
+→ get_environment_summary()
+```
+
+Fast all-CSAM snapshot (<3s): total assets, OS family breakdown, cloud provider split, EOL counts, criticality distribution. Use this first for orientation, then drill into `get_weekly_priorities` or `get_risk_by_tag` for details.
+
+---
+
 ## Patching
 
 ```
@@ -550,7 +602,10 @@ Q: I need to brief the CISO on our security program.
 - **For "what happened" questions** → Start with `get_morning_report()` or `get_new_vulns()`
 - **For specific CVE questions** → `investigate_cve()` gives full context; `get_cve_details()` for bulk
 - **For "what should we fix" questions** → `get_weekly_priorities()` ranks by TruRisk
+- **For full asset investigation** → `get_asset_full_profile(asset_id=...)` combines CSAM + ETM + VMDR in one call
 - **For asset-specific questions** → `get_asset_risk(asset_id=...)` with the asset's numeric ID
+- **For tag-based risk** → `get_risk_by_tag(tag="...")` — risk tiers and top assets for a business unit or environment
+- **For environment orientation** → `get_environment_summary()` — fast snapshot before deeper analysis
 - **For cloud questions** → `get_cloud_risk()` for posture, `get_cdr_findings()` for active threats
 - **For software vulnerability searches** → `get_vulns_by_software(software="<product name>")`
 - **For threat hunting** → `get_threat_intel(threat_type="<category>")` — see all available RTI tags
