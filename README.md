@@ -2,7 +2,7 @@
 
 > ⚠️ **Unofficial project.** This is a personal project to showcase the viability of connecting AI assistants to Qualys via the Model Context Protocol. It is not affiliated with, endorsed by, or supported by Qualys, Inc.
 
-A lightweight MCP server that connects AI assistants to Qualys security data. **32 tools**, pure Python, zero config beyond credentials. Install with `uvx` and start asking security questions in plain English.
+A lightweight MCP server that connects AI assistants to Qualys security data. **35 tools**, pure Python, zero config beyond credentials. Install with `uvx` and start asking security questions in plain English.
 
 ## Setup
 
@@ -40,7 +40,7 @@ For environments with self-signed certs, add `"QUALYS_SSL_VERIFY": "false"` to t
 
 ## Tools
 
-32 tools covering vulnerability management, threat intelligence, asset risk, cloud security, containers, web application security, certificate monitoring, endpoint detection, file integrity monitoring, patch management, compliance, aggregator tools, and security program coaching.
+35 tools covering vulnerability management, threat intelligence, asset risk, cloud security, containers, web application security, certificate monitoring, endpoint detection, file integrity monitoring, patch management, compliance, remediation workflow, aggregator tools, and security program coaching.
 
 ### Daily Operations & Coaching
 
@@ -106,6 +106,14 @@ For environments with self-signed certs, add `"QUALYS_SSL_VERIFY": "false"` to t
 | Tool | What it answers |
 |------|----------------|
 | `get_pm_status` | What's our patch deployment status? Jobs, patch severity breakdown, asset coverage %, failed/active job counts. Filter by platform (Windows/Linux/macOS/all), status, and date range |
+
+### Remediation Workflow
+
+| Tool | What it answers |
+|------|----------------|
+| `get_remediation_tickets` | What remediation tickets are open? Filter by status, assignee, or overdue flag. Shows QID, severity, due dates, and assignees |
+| `create_remediation_ticket` | Create a remediation ticket for a QID + asset combo with assignee |
+| `get_sla_status` | What's our SLA compliance? Open/closed/overdue counts, compliance rate, MTTR by severity, overdue ticket details |
 
 ### QID Lookups
 
@@ -207,6 +215,16 @@ For environments with self-signed certs, add `"QUALYS_SSL_VERIFY": "false"` to t
 "What's our PCI-DSS compliance score?"        → get_compliance_posture(framework="PCI-DSS")
 "Show me failing CIS controls"                 → get_compliance_posture(framework="CIS")
 "What exceptions expire soon?"                 → get_vuln_exceptions(days_to_expiry=30)
+```
+
+### Remediation Workflow
+```
+"What remediation tickets are open?"           → get_remediation_tickets(status="OPEN")
+"Show me overdue remediation tickets"          → get_remediation_tickets(overdue=True)
+"What tickets are assigned to jsmith?"         → get_remediation_tickets(assignee="jsmith")
+"Create a ticket for QID 376267 on asset 123" → create_remediation_ticket(qid="376267", asset_id="123", assignee="jsmith")
+"What's our SLA compliance rate?"             → get_sla_status()
+"What's our mean time to remediate?"          → get_sla_status()
 ```
 
 ### Multi-Tool Workflows

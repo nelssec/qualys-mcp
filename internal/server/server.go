@@ -17,6 +17,7 @@ import (
 	"github.com/nelssec/qualys-mcp/internal/modules/gav"
 	"github.com/nelssec/qualys-mcp/internal/modules/knowledgebase"
 	"github.com/nelssec/qualys-mcp/internal/modules/patch"
+	"github.com/nelssec/qualys-mcp/internal/modules/remediation"
 	"github.com/nelssec/qualys-mcp/internal/modules/totalcloud"
 	"github.com/nelssec/qualys-mcp/internal/modules/vmdr"
 	"github.com/nelssec/qualys-mcp/internal/modules/was"
@@ -147,6 +148,11 @@ func (s *Server) registerModules() {
 		carClient = car.NewClient(s.gatewayHTTP, s.config.GatewayURL)
 		carModule := car.NewWithClient(carClient)
 		carModule.RegisterTools(s.mcp)
+	}
+
+	if s.config.IsModuleEnabled("remediation") {
+		remediationModule := remediation.New(s.http, s.config.BaseURL)
+		remediationModule.RegisterTools(s.mcp)
 	}
 
 	if s.config.IsModuleEnabled("workflows") {
