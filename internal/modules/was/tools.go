@@ -31,7 +31,7 @@ func NewWithClient(client *Client) *Module {
 func (m *Module) RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcp.NewTool("was_list_webapps",
-			mcp.WithDescription("List web applications from Qualys Web Application Scanning."),
+			mcp.WithDescription("[WAS INVENTORY] List web applications from Qualys Web Application Scanning.\n\nUSE WHEN: user asks 'web apps', 'web application inventory', 'list web applications'\nDO NOT USE WHEN: user wants web app findings (use was_list_findings or was_get_webapp_findings), user wants WAS scan status (use was_list_scans)\n\nParameters:\n  filter: filter by web app name (contains search)\n  limit: max web apps to return (default: 100)\n\nReturns: web apps with IDs, names, URLs, tags, last scan date\n\nPerformance: ~2s cold / ~0.1s warm (cached)"),
 			mcp.WithString("filter", mcp.Description("Filter by web app name (contains search)")),
 			mcp.WithNumber("limit", mcp.Description("Maximum number of web apps to return (default 100)")),
 		),
@@ -40,7 +40,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("was_list_scans",
-			mcp.WithDescription("List WAS scans. Shows scan status, type, and results."),
+			mcp.WithDescription("[WAS SCANS] List WAS scans with status, type, and results.\n\nUSE WHEN: user asks 'WAS scans', 'web app scan status', 'when did web scans run'\nDO NOT USE WHEN: user wants vulnerability scans (use vmdr_list_scans), user wants compliance scans (use pc_list_scans)\n\nParameters:\n  status: filter by scan status — SUBMITTED, RUNNING, FINISHED, ERROR\n  limit: max scans to return (default: 100)\n\nReturns: WAS scans with IDs, status, type, web app reference, launch date, vuln counts\n\nPerformance: ~2s cold / ~0.1s warm (cached)"),
 			mcp.WithString("status", mcp.Description("Filter by scan status (e.g., 'SUBMITTED', 'RUNNING', 'FINISHED', 'ERROR')")),
 			mcp.WithNumber("limit", mcp.Description("Maximum number of scans to return (default 100)")),
 		),
@@ -49,7 +49,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("was_list_findings",
-			mcp.WithDescription("List vulnerability findings from WAS scans. Use output_mode to control response size: 'stats' for counts only (~500 tokens), 'summary' for stats + top findings (~2k tokens), 'full' for all data."),
+			mcp.WithDescription("[WAS FINDINGS] List vulnerability findings from WAS scans with configurable output modes.\n\nUSE WHEN: user asks 'web app vulnerabilities', 'WAS findings', 'web application security findings'\nDO NOT USE WHEN: user wants findings for one specific web app (use was_get_webapp_findings), user wants infrastructure vulns (use vmdr_get_detection_summary)\nPREFER INSTEAD: was_get_webapp_findings when user asks about a specific web app; prioritize_external_risk for combined infra+web external risk view\n\nParameters:\n  severity: minimum severity filter 1-5 (5=critical)\n  limit: max findings to return (default: 100)\n  output_mode: 'stats' (counts only ~500 tokens), 'summary' (stats + top 20 findings ~2k tokens), 'full' (all data, default)\n\nReturns: WAS findings with type (XSS, SQLi, etc.), severity, URL, web app, remediation\n\nPerformance: ~3s cold / ~0.3s warm (cached)"),
 			mcp.WithNumber("severity", mcp.Description("Minimum severity filter (1-5, where 5 is critical)")),
 			mcp.WithNumber("limit", mcp.Description("Maximum number of findings to return (default 100)")),
 			mcp.WithString("output_mode", mcp.Description("Output mode: 'stats' (counts only), 'summary' (stats + top 20 findings), 'full' (all data, default)")),
@@ -59,7 +59,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("was_get_webapp_findings",
-			mcp.WithDescription("Get vulnerability findings for a specific web application."),
+			mcp.WithDescription("[WAS APP FINDINGS] Get vulnerability findings for a specific web application.\n\nUSE WHEN: user asks 'findings for web app X', 'vulns on this web app', drilling into one web app's security\nDO NOT USE WHEN: user wants findings across all web apps (use was_list_findings)\n\nParameters:\n  webapp_id: (required) the web application ID\n  limit: max findings to return (default: 100)\n\nReturns: findings for the web app with type, severity, URL, parameter, remediation\n\nPerformance: ~2s cold / ~0.1s warm (cached)"),
 			mcp.WithString("webapp_id", mcp.Required(), mcp.Description("The web application ID")),
 			mcp.WithNumber("limit", mcp.Description("Maximum number of findings to return (default 100)")),
 		),
@@ -68,7 +68,7 @@ func (m *Module) RegisterTools(s *server.MCPServer) {
 
 	s.AddTool(
 		mcp.NewTool("was_list_reports",
-			mcp.WithDescription("List WAS reports. Shows generated scan reports."),
+			mcp.WithDescription("[WAS REPORTS] List WAS reports — generated scan reports.\n\nUSE WHEN: user asks 'WAS reports', 'web scan reports', 'generated reports'\nDO NOT USE WHEN: user wants findings data (use was_list_findings), user wants scan status (use was_list_scans)\n\nParameters:\n  limit: max reports to return (default: 100)\n\nReturns: reports with IDs, names, format, creation date, web app reference\n\nPerformance: ~1s cold / ~0.1s warm (cached)"),
 			mcp.WithNumber("limit", mcp.Description("Maximum number of reports to return (default 100)")),
 		),
 		m.listReports,
