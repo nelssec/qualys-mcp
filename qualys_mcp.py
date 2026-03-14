@@ -472,6 +472,16 @@ def get_cve_qids(cve):
         return []
 
 
+def _scope_filters(base_filters, tag='', asset_group=''):
+    """Append tag and/or asset_group CSAM filters to a base filter list."""
+    filters = list(base_filters) if base_filters else []
+    if tag:
+        filters.append({"field": "asset.tags.name", "operator": "EQUALS", "value": tag})
+    if asset_group:
+        filters.append({"field": "asset.assetGroups.name", "operator": "EQUALS", "value": asset_group})
+    return filters or None
+
+
 def csam_count(filters=None):
     """Count assets with optional structured filters. Fast (~0.2s).
     filters: list of {"field": "...", "operator": "...", "value": "..."} dicts
@@ -498,6 +508,12 @@ def csam_search(filters=None, limit=100, fields=None, fetch_all=True):
     When fetch_all=True (default), paginates using lastSeenAssetId cursor until all pages exhausted.
     """
     token = get_bearer_token()
+    # Always include tags so every asset response has tags[]
+    if fields:
+        if 'tags' not in fields:
+            fields = f"{fields},tags"
+    else:
+        fields = "tags"
     page_size = min(limit, 100) if not fetch_all else 100
     body = json.dumps({"filters": filters}) if filters else "{}"
     all_assets = []
@@ -1012,7 +1028,7 @@ def _run_concurrent(**tasks):
 
 
 @mcp.tool()
-def get_weekly_priorities(limit: int = 10, sort_by: str = "trurisk") -> dict:
+def get_weekly_priorities(limit: int = 10, sort_by: str = "trurisk", tag: str = "", asset_group: str = "") -> dict:
     """[Risk Management] Prioritized security actions for the week — top high-risk assets ranked by TruRisk score, risk distribution across severity tiers, and container risks. Fast (~5s).
 
     **Use when:** Starting the week, planning sprint priorities, asking "what should we fix first?", or looking for the top assets to remediate.
@@ -1021,6 +1037,8 @@ def get_weekly_priorities(limit: int = 10, sort_by: str = "trurisk") -> dict:
     Parameters:
         limit: max top-risk assets to return (default 10)
         sort_by: ranking method — 'trurisk' (default, CSAM field truRisk DESC) or 'severity'
+        tag: filter to assets with this tag (e.g. Production, PCI, cloud)
+        asset_group: filter to assets in this Qualys asset group
 
     Returns: topRiskAssets (ranked by TruRisk), priorities (actionable items), summary counts by risk tier.
     Follow up with get_asset_risk(assetId) for per-asset vulnerability details. For actual patch deployment status, use get_eliminate_status. For a patch catalog view, use get_patch_status."""
@@ -1030,17 +1048,17 @@ def get_weekly_priorities(limit: int = 10, sort_by: str = "trurisk") -> dict:
     # Search at multiple risk tiers to ensure we get the actual highest-risk assets
     # (CSAM API doesn't sort results, so a broad >500 search may miss >900 assets)
     concurrent = _run_concurrent(
-        total=lambda: csam_count(),
-        risk_900=lambda: csam_count([{"field": "asset.truRisk", "operator": "GREATER", "value": "900"}]),
-        risk_700=lambda: csam_count([{"field": "asset.truRisk", "operator": "GREATER", "value": "700"}]),
-        risk_500=lambda: csam_count([{"field": "asset.truRisk", "operator": "GREATER", "value": "500"}]),
-        eol_count=lambda: csam_count([{"field": "operatingSystem.lifecycle.stage", "operator": "CONTAINS", "value": "EOL"}]),
+        total=lambda: csam_count(_scope_filters(None, tag, asset_group)),
+        risk_900=lambda: csam_count(_scope_filters([{"field": "asset.truRisk", "operator": "GREATER", "value": "900"}], tag, asset_group)),
+        risk_700=lambda: csam_count(_scope_filters([{"field": "asset.truRisk", "operator": "GREATER", "value": "700"}], tag, asset_group)),
+        risk_500=lambda: csam_count(_scope_filters([{"field": "asset.truRisk", "operator": "GREATER", "value": "500"}], tag, asset_group)),
+        eol_count=lambda: csam_count(_scope_filters([{"field": "operatingSystem.lifecycle.stage", "operator": "CONTAINS", "value": "EOL"}], tag, asset_group)),
         assets_900=lambda: csam_search(
-            [{"field": "asset.truRisk", "operator": "GREATER", "value": "900"}],
+            _scope_filters([{"field": "asset.truRisk", "operator": "GREATER", "value": "900"}], tag, asset_group),
             limit=limit
         ),
         assets_700=lambda: csam_search(
-            [{"field": "asset.truRisk", "operator": "GREATER", "value": "700"}],
+            _scope_filters([{"field": "asset.truRisk", "operator": "GREATER", "value": "700"}], tag, asset_group),
             limit=limit
         ),
         vuln_imgs=lambda: get_images(50, 5),
@@ -1309,9 +1327,12 @@ def investigate_cve(cve: str) -> dict:
     return result
 
 
-def get_security_posture() -> dict:
+def get_security_posture(tag: str = "", asset_group: str = "") -> dict:
     """Internal helper — overall security health score (0-100). Called by get_morning_report.
     Not exposed as an MCP tool; use get_morning_report or get_weekly_priorities instead.
+
+    tag: filter to assets with this tag (e.g. Production, PCI, cloud)
+    asset_group: filter to assets in this Qualys asset group
 
     Returns: healthScore (0-100), asset counts by risk tier, container exposure, cloud account/control counts."""
     health = 100
@@ -1319,13 +1340,14 @@ def get_security_posture() -> dict:
               'vulns': {'critical': 0, 'high': 0}, 'containers': {'total': 0, 'atRisk': 0},
               'cloud': {'accounts': 0, 'failedControls': 0}, 'warnings': []}
 
+    base = _scope_filters(None, tag, asset_group)
     # All fast CSAM v2 count queries (~0.2s each, run in parallel)
     concurrent = _run_concurrent(
-        asset_count=lambda: csam_count(),
-        risk_900=lambda: csam_count([{"field": "asset.truRisk", "operator": "GREATER", "value": "900"}]),
-        risk_700=lambda: csam_count([{"field": "asset.truRisk", "operator": "GREATER", "value": "700"}]),
-        risk_500=lambda: csam_count([{"field": "asset.truRisk", "operator": "GREATER", "value": "500"}]),
-        eol_os=lambda: csam_count([{"field": "operatingSystem.lifecycle.stage", "operator": "CONTAINS", "value": "EOL"}]),
+        asset_count=lambda: csam_count(base),
+        risk_900=lambda: csam_count(_scope_filters([{"field": "asset.truRisk", "operator": "GREATER", "value": "900"}], tag, asset_group)),
+        risk_700=lambda: csam_count(_scope_filters([{"field": "asset.truRisk", "operator": "GREATER", "value": "700"}], tag, asset_group)),
+        risk_500=lambda: csam_count(_scope_filters([{"field": "asset.truRisk", "operator": "GREATER", "value": "500"}], tag, asset_group)),
+        eol_os=lambda: csam_count(_scope_filters([{"field": "operatingSystem.lifecycle.stage", "operator": "CONTAINS", "value": "EOL"}], tag, asset_group)),
         images=lambda: get_images(50),
         vuln_images=lambda: get_images(30, 5),
         containers=lambda: get_containers(50),
@@ -1388,11 +1410,16 @@ def get_security_posture() -> dict:
 
 
 @mcp.tool()
-def get_patch_status(limit: int = 20) -> dict:
+def get_patch_status(limit: int = 20, tag: str = "", asset_group: str = "") -> dict:
     """[Patch Management] Patching coverage and remediation gaps — TruRisk distribution across severity tiers and top unpatched assets ranked by risk score. Fast (~5s).
 
     **Use when:** Assessing patch posture, "how many assets are unpatched?", or identifying top unpatched assets by risk. Returns risk distribution tiers and highest-risk assets.
     **NOT for:** Active patch job deployment status (use get_eliminate_status), PM catalog/job details per platform (use get_pm_status), or single-asset patch details (use get_asset_risk).
+
+    Parameters:
+        limit: max high-risk assets to return (default 20)
+        tag: filter to assets with this tag (e.g. Production, PCI, cloud)
+        asset_group: filter to assets in this Qualys asset group
 
     Follow up with get_asset_risk(assetId) for per-asset vulnerability details."""
     result = {'coverage': 0, 'assetsTotal': 0, 'riskDistribution': {},
@@ -1401,17 +1428,17 @@ def get_patch_status(limit: int = 20) -> dict:
     # All fast CSAM v2 queries (~0.2-3s each, run in parallel)
     # Search at multiple risk tiers to ensure we get the actual highest-risk assets
     concurrent = _run_concurrent(
-        total=lambda: csam_count(),
-        risk_900=lambda: csam_count([{"field": "asset.truRisk", "operator": "GREATER", "value": "900"}]),
-        risk_700=lambda: csam_count([{"field": "asset.truRisk", "operator": "GREATER", "value": "700"}]),
-        risk_500=lambda: csam_count([{"field": "asset.truRisk", "operator": "GREATER", "value": "500"}]),
-        risk_100=lambda: csam_count([{"field": "asset.truRisk", "operator": "GREATER", "value": "100"}]),
+        total=lambda: csam_count(_scope_filters(None, tag, asset_group)),
+        risk_900=lambda: csam_count(_scope_filters([{"field": "asset.truRisk", "operator": "GREATER", "value": "900"}], tag, asset_group)),
+        risk_700=lambda: csam_count(_scope_filters([{"field": "asset.truRisk", "operator": "GREATER", "value": "700"}], tag, asset_group)),
+        risk_500=lambda: csam_count(_scope_filters([{"field": "asset.truRisk", "operator": "GREATER", "value": "500"}], tag, asset_group)),
+        risk_100=lambda: csam_count(_scope_filters([{"field": "asset.truRisk", "operator": "GREATER", "value": "100"}], tag, asset_group)),
         assets_900=lambda: csam_search(
-            [{"field": "asset.truRisk", "operator": "GREATER", "value": "900"}],
+            _scope_filters([{"field": "asset.truRisk", "operator": "GREATER", "value": "900"}], tag, asset_group),
             limit=limit
         ),
         assets_700=lambda: csam_search(
-            [{"field": "asset.truRisk", "operator": "GREATER", "value": "700"}],
+            _scope_filters([{"field": "asset.truRisk", "operator": "GREATER", "value": "700"}], tag, asset_group),
             limit=limit
         ),
     )
@@ -1457,7 +1484,7 @@ def get_patch_status(limit: int = 20) -> dict:
 
 
 @mcp.tool()
-def search_vulns(days: int = 7, threat_type: str = "", software: str = "", limit: int = 50) -> dict:
+def search_vulns(days: int = 7, threat_type: str = "", software: str = "", limit: int = 50, tag: str = "", asset_group: str = "") -> dict:
     """[Vulnerability Intelligence] Unified vulnerability search across the Qualys Knowledge Base — find newly published vulns, filter by threat intel (RTI) tags, and/or search by affected software name. One API call covers all use cases.
 
     **Use when:** Searching for new vulns, threat intel queries ("any ransomware vulns this week?"), or software-specific vuln lookups ("what vulns affect Apache?"). Replaces separate get_threat_intel / get_vulns_by_software / get_new_vulns calls.
@@ -1482,6 +1509,9 @@ def search_vulns(days: int = 7, threat_type: str = "", software: str = "", limit
     software: filter by product name in KB title/diagnosis. Fuzzy substring match — partial names work.
       Examples: 'Apache', 'OpenSSL', 'Microsoft Exchange', 'Chrome', 'nginx', 'Java', 'Log4j',
                 'Cisco IOS', 'VMware', 'WordPress', 'PHP', 'PostgreSQL', 'Docker'
+
+    tag: filter to assets with this tag (e.g. Production, PCI, cloud) — scopes affected-asset counts
+    asset_group: filter to assets in this Qualys asset group — scopes affected-asset counts
 
     Filters combine: search_vulns(days=30, threat_type='Ransomware', software='Apache') returns Apache vulns with ransomware linkage from the last 30 days. Fast (~5s).
 
@@ -2764,14 +2794,19 @@ def get_cdr_findings(days: int = 7, limit: int = 50, severity: str = "", cloud_p
 
 
 @mcp.tool()
-def get_asset_risk(asset_id: str) -> dict:
+def get_asset_risk(asset_id: str, tag: str = "", asset_group: str = "") -> dict:
     """[Asset Risk] Detailed risk profile for a specific asset — TruRisk score, OS, criticality, installed software with lifecycle status, and EOL flags. Accepts a CSAM assetId (from get_weekly_priorities, get_patch_status, etc). Fast (~3s).
 
     **Use when:** Investigating a specific asset — "what's the risk on this server?", checking installed software, or confirming EOL status. Pass assetId from get_weekly_priorities, get_patch_status, get_etm_findings, or get_asset_inventory results.
-    **NOT for:** Full asset profile with ETM findings + VMDR detections (use get_asset_full_profile), browsing multiple assets (use get_weekly_priorities or get_asset_inventory), or environment-wide risk (use get_weekly_priorities)."""
+    **NOT for:** Full asset profile with ETM findings + VMDR detections (use get_asset_full_profile), browsing multiple assets (use get_weekly_priorities or get_asset_inventory), or environment-wide risk (use get_weekly_priorities).
+
+    tag: filter to assets with this tag (e.g. Production, PCI, cloud) — confirms asset belongs to tag scope
+    asset_group: filter to assets in this Qualys asset group — confirms asset belongs to group scope"""
     result = {'assetId': asset_id, 'riskScore': 0, 'truriskScore': 0, 'software': [], 'eolSoftware': []}
 
-    asset = get_asset_by_id(asset_id)
+    filters = _scope_filters([{"field": "asset.id", "operator": "EQUALS", "value": str(asset_id)}], tag, asset_group)
+    asset = csam_search(filters=filters, limit=1)
+    asset = asset[0] if asset else None
     if asset:
         result['ip'] = asset.get('address', '')
         result['hostname'] = asset.get('dnsHostName', '') or asset.get('dnsName', '')
@@ -4631,6 +4666,90 @@ def get_trurisk_score(days: int = 30, breakdown_by: str = "tag") -> dict:
         result['breakdown'] = breakdown[:20]
 
     return result
+
+
+@mcp.tool()
+def get_tags(limit: int = 500) -> dict:
+    """[CSAM] List all asset tags defined in the environment.
+    Use when: browsing available tags, looking up tag names before filtering,
+    or giving an LLM the tag vocabulary to use in other tool calls.
+
+    Returns: list of distinct tag names found across all assets."""
+    assets = csam_search(limit=limit, fields="tags,tagList", fetch_all=False)
+    tag_set = set()
+    for a in assets:
+        for t in a.get('tags', []) or a.get('tagList', []) or []:
+            name = t.get('name', '') if isinstance(t, dict) else str(t)
+            if name:
+                tag_set.add(name)
+    tags_sorted = sorted(tag_set)
+    return {'totalTags': len(tags_sorted), 'tags': tags_sorted}
+
+
+@mcp.tool()
+def get_asset_groups(limit: int = 500) -> dict:
+    """[CSAM] List all asset groups defined in Qualys.
+    Use when: user asks about asset groups, wants to scope queries to a group,
+    or needs group names for filtering other tools.
+
+    Returns: list of distinct asset group names found across all assets."""
+    assets = csam_search(limit=limit, fields="assetGroups,tags", fetch_all=False)
+    group_set = set()
+    for a in assets:
+        for g in a.get('assetGroups', []) or []:
+            name = g.get('name', '') if isinstance(g, dict) else str(g)
+            if name:
+                group_set.add(name)
+    groups_sorted = sorted(group_set)
+    return {'totalGroups': len(groups_sorted), 'assetGroups': groups_sorted}
+
+
+@mcp.tool()
+def get_assets_by_tag(tag_name: str, limit: int = 50) -> dict:
+    """[CSAM] List assets matching a specific tag.
+    Use when: user asks 'show me Production assets', 'list assets tagged PCI', etc.
+    Returns full asset list with truRisk, OS, tags, last seen.
+
+    Parameters:
+        tag_name: the tag to filter by (e.g. Production, PCI, cloud, DMZ)
+        limit: max assets to return (default 50)"""
+    filters = [{"field": "asset.tags.name", "operator": "EQUALS", "value": tag_name}]
+    data = _run_concurrent(
+        assets=lambda: csam_search(
+            filters=filters, limit=limit,
+            fields="operatingSystem,hardware,tags,tagList,truRisk,truRiskScoreFactors"
+        ),
+        total=lambda: csam_count(filters),
+    )
+    assets = data.get('assets', [])
+    total_count = data.get('total', len(assets))
+
+    result_assets = []
+    for a in assets:
+        os_info = a.get('operatingSystem', {}) or {}
+        asset_tags = []
+        for t in a.get('tags', []) or a.get('tagList', []) or []:
+            name = t.get('name', '') if isinstance(t, dict) else str(t)
+            if name:
+                asset_tags.append(name)
+        result_assets.append({
+            'assetId': str(a.get('assetId', '')),
+            'hostname': a.get('dnsHostName', '') or a.get('dnsName', ''),
+            'ip': a.get('address', ''),
+            'riskScore': int(a.get('riskScore') or 0),
+            'os': os_info.get('osName', ''),
+            'tags': asset_tags,
+            'lastSeen': a.get('lastModifiedDate', ''),
+            'criticality': get_criticality(a),
+        })
+
+    result_assets.sort(key=lambda x: -x['riskScore'])
+    return {
+        'tag': tag_name,
+        'total': total_count,
+        'returned': len(result_assets),
+        'assets': result_assets,
+    }
 
 
 def main():
