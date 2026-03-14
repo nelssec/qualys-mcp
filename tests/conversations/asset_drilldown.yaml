@@ -1,0 +1,24 @@
+name: "Asset Drilldown"
+description: "Tests drilling from a broad asset list to a specific asset and its remediation"
+turns:
+  - user: "what are our riskiest assets?"
+    expected_tools: ["get_weekly_priorities"]
+    context_carries:
+      - key: "scope"
+        value: "all_assets"
+    context_assertions:
+      - "scope should cover all assets"
+
+  - user: "tell me more about asset 233946644"
+    expected_tools: ["get_asset_risk", "get_asset_full_profile"]
+    context_carries:
+      - key: "asset_id"
+        value: "233946644"
+    context_assertions:
+      - "asset_id 233946644 should be in context"
+
+  - user: "what patches does it need?"
+    expected_tools: ["get_patch_status", "get_etm_findings"]
+    context_assertions:
+      - "asset_id 233946644 preserved from previous turn"
+      - "focus narrowed to patches for this specific asset"

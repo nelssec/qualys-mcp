@@ -1,0 +1,25 @@
+name: "Tag Scoping"
+description: "Tests scoping by tag from assets to vulns to TruRisk score"
+turns:
+  - user: "show me all assets tagged as Production"
+    expected_tools: ["get_asset_inventory"]
+    context_carries:
+      - key: "tag"
+        value: "Production"
+    context_assertions:
+      - "tag filter set to Production"
+
+  - user: "what critical vulnerabilities do they have?"
+    expected_tools: ["search_vulns", "get_etm_findings"]
+    context_carries:
+      - key: "severity"
+        value: "Critical"
+    context_assertions:
+      - "Production tag preserved"
+      - "severity filter set to Critical"
+
+  - user: "what's the TruRisk score for this group?"
+    expected_tools: ["get_risk_by_tag"]
+    context_assertions:
+      - "Production tag preserved"
+      - "TruRisk scoring requested for Production assets"

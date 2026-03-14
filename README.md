@@ -226,6 +226,29 @@ For environments with self-signed certs, add `"QUALYS_SSL_VERIFY": "false"` to t
 
 See [docs/examples.md](docs/examples.md) for the full Q&A reference with 100+ mapped examples.
 
+## Testing
+
+### Tool Tests (requires credentials)
+
+```bash
+./test_tools.sh              # all tools
+./test_tools.sh fast         # fast tools only (~3-5s each)
+./test_tools.sh medium       # medium tools (~10-30s each)
+./test_tools.sh aggregator   # aggregator tools
+```
+
+### Conversation Context Tests (no credentials needed)
+
+Tests that multi-turn conversation context carries correctly across tool calls:
+
+```bash
+python3 tests/run_conversations.py              # all 10 scenarios
+python3 tests/run_conversations.py --verbose     # detailed per-turn output
+python3 tests/run_conversations.py --scenario filter_chaining  # single scenario
+```
+
+Scenarios cover filter chaining, asset drilldowns, CVE investigation, scan workflows, compliance, cross-tool context, certificates, tag scoping, scanner health, and web app vulnerabilities. See `tests/conversations/` for the YAML scenario files.
+
 ## Qualys PODs
 
 | POD | BASE_URL | GATEWAY_URL |

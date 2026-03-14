@@ -135,6 +135,12 @@ if [ "$FILTER" = "all" ] || [ "$FILTER" = "aggregator" ]; then
 fi
 
 
+if [ "$FILTER" = "all" ] || [ "$FILTER" = "conversations" ]; then
+  echo ""
+  echo "--- Conversation Context Tests (no credentials needed) ---"
+  python3 "$SCRIPT_DIR/tests/run_conversations.py"
+fi
+
 echo ""
 echo "=== Summary ==="
 echo "Results saved to: $RESULTS_DIR/"
