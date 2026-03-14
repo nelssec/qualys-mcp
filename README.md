@@ -81,7 +81,7 @@ For environments with self-signed certs, add `"QUALYS_SSL_VERIFY": "false"` to t
 | `get_asset_full_profile` | Full single-asset profile combining CSAM + ETM + VMDR detections in parallel (~5-8s) |
 | `get_risk_by_tag` | Risk distribution for a tagged asset group (e.g., 'PCI', 'Production', 'AWS') |
 | `get_environment_summary` | Fast all-CSAM environment snapshot: OS, cloud, EOL, criticality tiers (<3s) |
-| `get_asset_inventory` | What assets do we have? Search by OS, tag, or query; EOL filtering, platform breakdown |
+| `get_asset_inventory` | What assets do we have? Search by OS, tag, or query; EOL filtering, stale-asset detection, OS/tag breakdowns with total count |
 | `get_tech_debt` | How many EOL/EOS systems do we have? OS and hardware lifecycle status |
 | `get_cloud_risk` | What's our cloud security posture? AWS/Azure/GCP accounts and failed controls |
 | `get_image_vulns` | What vulns are in this container image? Severity breakdown and fixes |
