@@ -1,40 +1,70 @@
 {
+<<<<<<< Updated upstream
   "timestamp": "2026-03-15T02:56:47.430875",
+=======
+  "timestamp": "2026-03-15T03:01:19.463007",
+>>>>>>> Stashed changes
   "results": [
     {
       "tool": "get_security_posture",
       "description": "Security posture (CSAM concurrent)",
+<<<<<<< Updated upstream
       "cold_s": 13.53,
       "warm_s": 13.17,
+=======
+      "cold_s": 13.17,
+      "warm_s": 12.89,
+>>>>>>> Stashed changes
       "runs": 2,
-      "result_size_bytes": 207,
+      "result_size_bytes": 220,
       "errors": []
     },
     {
       "tool": "get_weekly_priorities",
       "description": "Weekly priorities (9x parallel CSAM)",
+<<<<<<< Updated upstream
       "cold_s": 3.99,
       "warm_s": 3.88,
       "runs": 2,
       "result_size_bytes": 434,
+=======
+      "cold_s": 19.97,
+      "warm_s": 10.95,
+      "runs": 2,
+      "result_size_bytes": 2112,
+>>>>>>> Stashed changes
       "errors": []
     },
     {
       "tool": "get_patch_status",
       "description": "Patch status",
+<<<<<<< Updated upstream
       "cold_s": 0.73,
       "warm_s": 0.79,
       "runs": 2,
       "result_size_bytes": 218,
+=======
+      "cold_s": 9.83,
+      "warm_s": 10.28,
+      "runs": 2,
+      "result_size_bytes": 924,
+>>>>>>> Stashed changes
       "errors": []
     },
     {
       "tool": "get_tech_debt",
       "description": "Tech debt (paginated CSAM)",
+<<<<<<< Updated upstream
       "cold_s": 0.27,
       "warm_s": 0.27,
       "runs": 2,
       "result_size_bytes": 101,
+=======
+      "cold_s": 10.24,
+      "warm_s": 5.77,
+      "runs": 2,
+      "result_size_bytes": 3249,
+>>>>>>> Stashed changes
       "errors": []
     }
   ],
