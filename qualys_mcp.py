@@ -1123,6 +1123,327 @@ def _run_concurrent(**tasks):
     return results
 
 
+# --- Growth engine helpers (issue #74) ---
+
+def _detect_gaps(data: dict) -> list[dict]:
+    """Detect coverage gaps from data already returned by existing API calls.
+
+    Analyzes the data dict for indicators of 8 gap types. Returns a list of
+    gap entries, each with gap, impact, unprotected, module, action, and unlock.
+    Skips detection if data is empty.
+    """
+    if not data:
+        return []
+
+    gaps = []
+
+    # 1. Assets unscanned >7 days → VMDR
+    total_assets = (data.get('environment') or {}).get('totalAssets', 0) or \
+                   (data.get('summary') or {}).get('totalAssets', 0) or \
+                   data.get('assetsTotal', 0) or data.get('totalAssets', 0)
+    health = (data.get('environment') or {}).get('healthScore', 100)
+    # Estimate unscanned from health penalty — if health < 80, coverage likely has gaps
+    if total_assets > 0 and health < 80:
+        estimated_unscanned = max(1, int(total_assets * (100 - health) / 200))
+        gaps.append({
+            'gap': 'Scan coverage',
+            'impact': f'Estimated {estimated_unscanned} assets may not have recent scans (health score: {health})',
+            'unprotected': estimated_unscanned,
+            'module': 'Qualys VMDR',
+            'action': 'Run vulnerability scans on unscanned assets',
+            'unlock': {
+                'module': 'Qualys VMDR',
+                'value': 'Continuous vulnerability detection across your entire attack surface',
+                'quickstart': 'Schedule a scan → ask me: get_scanner_status() to check scanner availability',
+            },
+        })
+
+    # 2. EDR coverage <80% of endpoints
+    edr_events = data.get('edr') or data.get('edr_events')
+    edr_active = bool(edr_events)
+    coverage = data.get('coverage') or {}
+    if isinstance(coverage, dict) and coverage.get('endpointDetection') is False:
+        edr_active = False
+    if not edr_active and total_assets > 0:
+        unmonitored = total_assets
+        gaps.append({
+            'gap': 'EDR coverage',
+            'impact': f'Endpoints not monitored for active threats (EDR not active)',
+            'unprotected': unmonitored,
+            'module': 'Qualys Multi-Vector EDR',
+            'action': 'Enable EDR on unmonitored endpoints',
+            'unlock': {
+                'module': 'Qualys Multi-Vector EDR',
+                'value': 'Real-time threat detection, behavioral analysis, and automated response',
+                'quickstart': 'Check EDR status → ask me: get_edr_events() to review detections',
+            },
+        })
+
+    # 3. Cloud assets with no posture check → TotalCloud
+    cloud_accounts = (data.get('environment') or {}).get('cloudAccounts', 0) or \
+                     (data.get('cloud') or {}).get('accounts', 0)
+    cloud_active = bool(coverage.get('totalCloud')) if isinstance(coverage, dict) else cloud_accounts > 0
+    cloud_assets = data.get('byCloud') or {}
+    cloud_count = sum(v for k, v in cloud_assets.items() if k != 'OnPrem') if cloud_assets else 0
+    if cloud_count > 0 and not cloud_active:
+        gaps.append({
+            'gap': 'Cloud posture',
+            'impact': f'{cloud_count} cloud assets with no posture assessment',
+            'unprotected': cloud_count,
+            'module': 'Qualys TotalCloud',
+            'action': 'Enable cloud security posture management for cloud assets',
+            'unlock': {
+                'module': 'Qualys TotalCloud',
+                'value': 'Unified cloud security: CSPM, CWPP, CIEM, and container security',
+                'quickstart': 'Connect your cloud → ask me: get_cloud_risk() to assess posture',
+            },
+        })
+
+    # 4. Web apps discovered but not WAS-scanned → TotalAppSec
+    was_active = bool(coverage.get('totalAppSec')) if isinstance(coverage, dict) else False
+    if not was_active and total_assets > 0:
+        gaps.append({
+            'gap': 'Web app scanning',
+            'impact': 'Web applications not scanned for OWASP Top 10 vulnerabilities',
+            'unprotected': 0,
+            'module': 'Qualys TotalAppSec',
+            'action': 'Scan web applications for SQLi, XSS, and other web vulnerabilities',
+            'unlock': {
+                'module': 'Qualys TotalAppSec',
+                'value': 'Automated DAST scanning for web apps and APIs with OWASP coverage',
+                'quickstart': 'Start scanning → ask me: get_was_findings() to review web app security',
+            },
+        })
+
+    # 5. Certs discovered but CertView not deployed → CertView
+    cert_active = bool(coverage.get('certificateView')) if isinstance(coverage, dict) else False
+    if not cert_active and total_assets > 0:
+        gaps.append({
+            'gap': 'Certificate monitoring',
+            'impact': 'SSL/TLS certificates not monitored for expiration or weakness',
+            'unprotected': 0,
+            'module': 'Qualys CertView',
+            'action': 'Deploy CertView to monitor certificate health and expiration',
+            'unlock': {
+                'module': 'Qualys CertView',
+                'value': 'Discover and monitor all SSL/TLS certificates, prevent outages from expiration',
+                'quickstart': 'Check certificates → ask me: get_expiring_certs() to find at-risk certs',
+            },
+        })
+
+    # 6. Patches available but no active patch job → Patch Management
+    risk_900 = (data.get('summary') or {}).get('criticalRisk', 0) or \
+               (data.get('riskDistribution') or {}).get('critical_900plus', 0)
+    risk_high = (data.get('summary') or {}).get('highRisk', 0) or \
+                (data.get('riskDistribution') or {}).get('high_700plus', 0)
+    patch_available = data.get('patchAvailable', False)
+    has_vulns = (risk_900 or 0) + (risk_high or 0) > 0
+    if has_vulns and patch_available is not False:
+        vuln_count = (risk_900 or 0) + (risk_high or 0)
+        gaps.append({
+            'gap': 'Patch automation',
+            'impact': f'{vuln_count} high-risk assets with available patches, no automated remediation confirmed',
+            'unprotected': vuln_count,
+            'module': 'Qualys Patch Management',
+            'action': 'Enable automated patch deployment for critical assets',
+            'unlock': {
+                'module': 'Qualys Patch Management',
+                'value': 'Auto-remediate vulns with one-click patch deployment',
+                'quickstart': 'Launch your first patch job → ask me: get_eliminate_status() to check patch deployment',
+            },
+        })
+
+    # 7. No compliance framework configured → Policy Compliance
+    compliance = data.get('compliance') or {}
+    comp_summary = compliance.get('summary') or {}
+    frameworks = comp_summary.get('frameworks', [])
+    comp_error = compliance.get('error', '')
+    if (not frameworks and not comp_error) or 'not licensed' in str(comp_error).lower():
+        gaps.append({
+            'gap': 'Compliance frameworks',
+            'impact': 'No compliance framework configured — regulatory risk unassessed',
+            'unprotected': total_assets,
+            'module': 'Qualys Policy Compliance',
+            'action': 'Configure compliance frameworks (CIS, PCI DSS, HIPAA, SOC 2)',
+            'unlock': {
+                'module': 'Qualys Policy Compliance',
+                'value': 'Continuous compliance monitoring against CIS, PCI, HIPAA, NIST frameworks',
+                'quickstart': 'Check compliance → ask me: get_compliance_posture() to assess current state',
+            },
+        })
+
+    # 8. Critical servers without FIM monitoring → FIM
+    fim_active = bool(coverage.get('fileIntegrityMonitoring')) if isinstance(coverage, dict) else False
+    if not fim_active and total_assets > 0:
+        gaps.append({
+            'gap': 'File integrity monitoring',
+            'impact': 'Critical file changes not monitored — unauthorized modifications may go undetected',
+            'unprotected': 0,
+            'module': 'Qualys FIM',
+            'action': 'Enable FIM on critical servers to detect unauthorized file changes',
+            'unlock': {
+                'module': 'Qualys FIM',
+                'value': 'Real-time detection of unauthorized file and registry changes on critical systems',
+                'quickstart': 'Monitor file changes → ask me: get_fim_events() to review activity',
+            },
+        })
+
+    return gaps
+
+
+def _build_next(data: dict, tool_name: str) -> dict:
+    """Build contextual _next block based on actual findings data.
+
+    Returns a dict with investigate_deeper and take_action lists.
+    """
+    investigate = []
+    actions = []
+
+    if not data:
+        return {'investigate_deeper': investigate, 'take_action': actions}
+
+    # --- CVE-related suggestions ---
+    cve = data.get('cve', '')
+    if cve:
+        if data.get('patchAvailable'):
+            investigate.append({
+                'question': f'What is the patch deployment status for {cve}?',
+                'tool': 'get_patch_status',
+                'params': {},
+            })
+            actions.append({'action': f'Deploy patches for {cve}', 'module': 'Qualys Patch Management'})
+        if data.get('ransomware'):
+            investigate.append({
+                'question': f'What is our full ransomware exposure beyond {cve}?',
+                'tool': 'get_etm_findings',
+                'params': {'qql': 'threatName:ransomware'},
+            })
+            actions.append({'action': 'Review ransomware defense posture', 'module': 'Qualys Multi-Vector EDR'})
+        if data.get('has_exploit'):
+            investigate.append({
+                'question': f'Which assets have confirmed {cve} findings?',
+                'tool': 'get_etm_findings',
+                'params': {'qql': f'vulnerabilities.vulnerability.cveIds:{cve}'},
+            })
+        asset_count = (data.get('summary') or {}).get('assetsWithSoftware', 0)
+        if asset_count:
+            investigate.append({
+                'question': f'What are the top affected assets for {cve}?',
+                'tool': 'investigate',
+                'params': {'topic': cve, 'depth': 'deep'},
+            })
+
+    # --- Risk / environment suggestions ---
+    top_assets = data.get('topRiskAssets') or []
+    if top_assets:
+        worst = top_assets[0]
+        aid = worst.get('assetId', '')
+        hostname = worst.get('hostname', '?')
+        investigate.append({
+            'question': f'What vulns are on the highest-risk asset ({hostname})?',
+            'tool': 'get_asset',
+            'params': {'asset_id': aid, 'detail': 'full'},
+        })
+
+    # Threat-related
+    threats = data.get('threats') or {}
+    if threats.get('ransomwareLinked', 0) > 0:
+        investigate.append({
+            'question': 'Deep-dive on ransomware exposure',
+            'tool': 'investigate',
+            'params': {'topic': 'ransomware', 'depth': 'standard'},
+        })
+        actions.append({'action': 'Investigate ransomware-linked vulnerabilities', 'module': 'Qualys VMDR'})
+    if threats.get('activelyExploited', 0) > 0:
+        investigate.append({
+            'question': 'Which actively exploited vulns affect us?',
+            'tool': 'search_vulns',
+            'params': {'threat_type': 'Active_Attacks'},
+        })
+
+    # TruRisk trend
+    trend = data.get('truriskTrend') or {}
+    if trend.get('direction') == 'worsening':
+        investigate.append({
+            'question': 'Why is our risk score increasing?',
+            'tool': 'investigate',
+            'params': {'topic': 'risk spike', 'depth': 'standard'},
+        })
+
+    # New critical vulns
+    new_vulns = data.get('newVulns') or {}
+    if new_vulns.get('critical', 0) > 0:
+        crit_vulns = new_vulns.get('criticalVulns') or []
+        if crit_vulns:
+            first_cve = (crit_vulns[0].get('cves') or [''])[0] if crit_vulns[0].get('cves') else ''
+            if first_cve:
+                investigate.append({
+                    'question': f'Investigate new critical vuln {first_cve}',
+                    'tool': 'investigate_cve',
+                    'params': {'cve': first_cve},
+                })
+
+    # EOL systems
+    eol = (data.get('environment') or {}).get('eolSystems', 0) or \
+          (data.get('summary') or {}).get('eolSystems', 0)
+    if eol:
+        actions.append({'action': f'Plan upgrades for {eol} EOL systems', 'module': 'Qualys CSAM'})
+
+    # ETM findings
+    etm_summary = data.get('summary') or {}
+    if etm_summary.get('totalFindings', 0) > 0:
+        patchable = etm_summary.get('patchable', 0)
+        if patchable:
+            actions.append({'action': f'Patch {patchable} remediable findings', 'module': 'Qualys Patch Management'})
+
+    # Investigation-level suggestions
+    if tool_name == 'investigate':
+        actions.append({'action': 'Generate a summary for management', 'module': 'summarize_investigation'})
+
+    # Deduplicate
+    seen_q = set()
+    deduped_investigate = []
+    for item in investigate[:5]:
+        q = item['question']
+        if q not in seen_q:
+            seen_q.add(q)
+            deduped_investigate.append(item)
+
+    seen_a = set()
+    deduped_actions = []
+    for item in actions[:5]:
+        a = item['action']
+        if a not in seen_a:
+            seen_a.add(a)
+            deduped_actions.append(item)
+
+    return {'investigate_deeper': deduped_investigate, 'take_action': deduped_actions}
+
+
+def _track_usage(tool_name: str, params: dict, result_summary: dict):
+    """Write usage log line to ~/.qualys-mcp/usage.jsonl.
+
+    Skips if QUALYS_MCP_NO_TRACKING=1 env var is set.
+    """
+    if os.environ.get('QUALYS_MCP_NO_TRACKING') == '1':
+        return
+    try:
+        log_dir = os.path.expanduser('~/.qualys-mcp')
+        os.makedirs(log_dir, exist_ok=True)
+        log_path = os.path.join(log_dir, 'usage.jsonl')
+        entry = {
+            'ts': datetime.now(timezone.utc).isoformat(),
+            'tool': tool_name,
+            'params': {k: v for k, v in params.items() if v} if params else {},
+            'gaps_found': result_summary.get('gaps_found', 0),
+            'next_suggestions': result_summary.get('next_suggestions', 0),
+        }
+        with open(log_path, 'a') as f:
+            f.write(json.dumps(entry) + '\n')
+    except Exception:
+        pass  # never let tracking break tool execution
+
+
 @mcp.tool()
 def get_weekly_priorities(limit: int = 10, sort_by: str = "trurisk", tag: str = "", asset_group: str = "") -> dict:
     """[Risk Management] Weekly priorities — top high-risk assets ranked by TruRisk, risk distribution across severity tiers, and container risks. @slow
@@ -1253,6 +1574,14 @@ def get_weekly_priorities(limit: int = 10, sort_by: str = "trurisk", tag: str = 
     if eol_priority:
         followups.append("EOL/EOS systems detected — get_tech_debt() for full inventory?")
     result['_followups'] = followups
+
+    # Growth engine: gap detection + next suggestions
+    gaps = _detect_gaps(result)
+    if gaps:
+        result['_gaps'] = gaps
+    result['_next'] = _build_next(result, 'get_weekly_priorities')
+    _track_usage('get_weekly_priorities', {'limit': limit, 'tag': tag, 'asset_group': asset_group},
+                 {'gaps_found': len(gaps), 'next_suggestions': len(result['_next'].get('investigate_deeper', []))})
 
     return _with_meta(result, 'topRiskAssets')
 
@@ -1459,6 +1788,11 @@ def investigate_cve(cve: str) -> dict:
     if result.get('has_exploit'):
         followups.append(f"{cve} has a known exploit — get_etm_findings(qql='vulnerabilities.vulnerability.cveIds:{cve}') for confirmed findings?")
     result['_followups'] = followups
+
+    # Growth engine: next suggestions
+    result['_next'] = _build_next(result, 'investigate_cve')
+    _track_usage('investigate_cve', {'cve': cve},
+                 {'gaps_found': 0, 'next_suggestions': len(result['_next'].get('investigate_deeper', []))})
 
     return _with_meta(result, 'allKbDetails')
 
@@ -1840,6 +2174,12 @@ def investigate(topic: str, depth: str = "standard", prior_context: str = "") ->
             'depth': depth,
         },
     }
+
+    # Growth engine: next suggestions
+    result['_next'] = _build_next(result, 'investigate')
+    _track_usage('investigate', {'topic': topic, 'depth': depth},
+                 {'gaps_found': 0, 'next_suggestions': len(result['_next'].get('investigate_deeper', []))})
+
     return compact(result)
 
 
@@ -2389,6 +2729,13 @@ def get_recommendations() -> dict:
         f'patch acceleration'
     )
 
+    # Growth engine: gap detection
+    gaps = _detect_gaps(result)
+    if gaps:
+        result['_gaps'] = gaps
+    _track_usage('get_recommendations', {},
+                 {'gaps_found': len(gaps), 'next_suggestions': 0})
+
     return _with_meta(result, 'recommendations')
 
 
@@ -2895,6 +3242,11 @@ def _format_etm_findings(all_findings, report_detail):
             } for m in misconfigs[:10]],
         }
 
+    # Growth engine: next suggestions for ETM results
+    result['_next'] = _build_next(result, 'get_etm_findings')
+    _track_usage('get_etm_findings', {},
+                 {'gaps_found': 0, 'next_suggestions': len(result['_next'].get('investigate_deeper', []))})
+
     return result
 
 
@@ -2954,6 +3306,12 @@ def get_morning_report(quick: bool = False) -> dict:
             ),
             '_meta': {'returned': 1, 'total': 1, 'truncated': False},
         }
+        # Growth engine: gap detection for quick snapshot
+        gaps = _detect_gaps(snap)
+        if gaps:
+            snap['_gaps'] = gaps
+        _track_usage('get_morning_report', {'quick': True},
+                     {'gaps_found': len(gaps), 'next_suggestions': 0})
         return compact(snap)
 
     result = {'report': 'Daily Security Briefing', 'environment': {},
@@ -3077,6 +3435,14 @@ def get_morning_report(quick: bool = False) -> dict:
         worst = top_assets[0]
         followups.append(f"Top risk asset: {worst.get('hostname', '?')} (TruRisk {worst.get('riskScore', '?')}) — get_asset('{worst.get('assetId', '')}', detail='full')?")
     result['_followups'] = followups
+
+    # Growth engine: gap detection + next suggestions
+    gaps = _detect_gaps(result)
+    if gaps:
+        result['_gaps'] = gaps
+    result['_next'] = _build_next(result, 'get_morning_report')
+    _track_usage('get_morning_report', {'quick': False},
+                 {'gaps_found': len(gaps), 'next_suggestions': len(result['_next'].get('investigate_deeper', []))})
 
     return _with_meta(result, 'topRiskAssets')
 
@@ -4228,7 +4594,11 @@ def get_risk_by_tag(tag: str, limit: int = 10) -> dict:
 @mcp.tool()
 def get_environment_summary() -> dict:
     """DEPRECATED: Use get_morning_report(quick=True) instead. Environment snapshot is now part of get_morning_report."""
-    return {'error': "get_environment_summary has been removed. Use get_morning_report(quick=True) instead.", 'replacement': 'get_morning_report'}
+    result = {'error': "get_environment_summary has been removed. Use get_morning_report(quick=True) instead.", 'replacement': 'get_morning_report'}
+    gaps = _detect_gaps(result)
+    if gaps:
+        result['_gaps'] = gaps
+    return result
 
 
 @mcp.tool()
@@ -5479,6 +5849,175 @@ def download_report(report_id: str) -> dict:
 def delete_report(report_id: str) -> dict:
     """DEPRECATED: Use reports(action='delete', report_id='...') instead."""
     return {'error': "delete_report has been removed. Use reports(action='delete', report_id='...') instead.", 'replacement': 'reports'}
+
+
+@mcp.tool()
+def summarize_investigation(findings: str, audience: str = "technical") -> str:
+    """[Reporting] Generate a narrative summary of an investigation for sharing with team or management.
+
+    USE WHEN: User wants to share investigation results — "write up these findings for my manager", "summarize for the exec team", "create a report from this investigation".
+    DO NOT USE WHEN: Running an actual investigation — use investigate() or other analysis tools first, then summarize.
+    PREFER INSTEAD: investigate() for running the investigation; get_morning_report() for daily briefing.
+
+    Parameters:
+        findings: the investigation findings text (JSON or free-text from a prior tool call)
+        audience: "technical" | "management" | "executive"
+            - technical: full findings with QIDs, CVEs, asset names
+            - management: risk score impact, affected systems count, remediation timeline
+            - executive: business risk in plain English, cost of remediation vs cost of breach
+
+    Returns: formatted narrative summary appropriate for the specified audience.
+
+    Performance: <1s (local formatting only, no API calls)."""
+    audience = (audience or 'technical').lower().strip()
+    if audience not in ('technical', 'management', 'executive'):
+        audience = 'technical'
+
+    # Try to parse findings as JSON for structured formatting
+    data = {}
+    try:
+        data = json.loads(findings)
+    except (json.JSONDecodeError, TypeError):
+        pass
+
+    sections = []
+
+    if audience == 'technical':
+        sections.append('# Security Investigation Report\n')
+        sections.append('## Scope')
+
+        if data:
+            topic = data.get('topic', data.get('cve', 'Security Investigation'))
+            risk = data.get('risk_level', 'unknown')
+            sections.append(f'**Investigation:** {topic}')
+            sections.append(f'**Risk Level:** {risk.upper()}\n')
+
+            # Key facts
+            facts = data.get('key_facts', [])
+            if facts:
+                sections.append('## Key Findings')
+                for f in facts:
+                    sections.append(f'- {f}')
+
+            # Detailed findings
+            inv_findings = data.get('findings', {})
+            if inv_findings:
+                sections.append('\n## Technical Details')
+                for key, val in inv_findings.items():
+                    if val and key != 'prior_investigation':
+                        sections.append(f'\n### {key.replace("_", " ").title()}')
+                        if isinstance(val, dict):
+                            summary = val.get('summary', '')
+                            if summary:
+                                sections.append(str(summary))
+                            for k, v in val.items():
+                                if k not in ('summary', '_meta', '_followups', '_next', '_gaps') and v:
+                                    sections.append(f'- **{k}:** {json.dumps(v) if isinstance(v, (list, dict)) else v}')
+                        else:
+                            sections.append(str(val)[:500])
+
+            # Recommended actions
+            actions = data.get('recommended_actions', [])
+            if actions:
+                sections.append('\n## Recommended Actions')
+                for i, a in enumerate(actions, 1):
+                    sections.append(f'{i}. {a}')
+
+            # CVE-specific details
+            if data.get('qids'):
+                sections.append(f'\n**QIDs:** {", ".join(str(q) for q in data["qids"][:10])}')
+            if data.get('severity'):
+                sections.append(f'**Severity:** {data["severity"]}/5')
+            if data.get('qds'):
+                sections.append(f'**QDS:** {data["qds"]}/100')
+        else:
+            sections.append(findings)
+
+    elif audience == 'management':
+        sections.append('# Security Risk Summary\n')
+
+        if data:
+            topic = data.get('topic', data.get('cve', 'Security Assessment'))
+            risk = data.get('risk_level', 'unknown')
+            sections.append(f'## {topic} — Risk Assessment\n')
+            sections.append(f'**Overall Risk:** {risk.upper()}\n')
+
+            # Impact summary
+            facts = data.get('key_facts', [])
+            if facts:
+                sections.append('### Impact')
+                for f in facts:
+                    sections.append(f'- {f}')
+
+            # Affected systems count
+            summary = data.get('summary', '')
+            if isinstance(summary, str) and summary:
+                sections.append(f'\n### Summary\n{summary}')
+            elif isinstance(summary, dict):
+                affected = summary.get('assetsWithSoftware', 0)
+                if affected:
+                    sections.append(f'\n**Affected systems:** {affected}')
+
+            # Remediation plan
+            actions = data.get('recommended_actions', [])
+            if actions:
+                sections.append('\n### Remediation Plan')
+                for i, a in enumerate(actions, 1):
+                    sections.append(f'{i}. {a}')
+                sections.append('\n**Estimated timeline:** Immediate action required for critical items; standard SLA for remaining.')
+        else:
+            sections.append('### Findings Summary\n')
+            sections.append(findings[:2000])
+
+    elif audience == 'executive':
+        sections.append('# Executive Security Brief\n')
+
+        if data:
+            topic = data.get('topic', data.get('cve', 'Security'))
+            risk = data.get('risk_level', 'unknown')
+
+            risk_labels = {
+                'critical': 'CRITICAL — Immediate business risk requiring urgent action',
+                'high': 'HIGH — Significant risk to operations, action needed this week',
+                'medium': 'MEDIUM — Moderate risk, scheduled remediation recommended',
+                'low': 'LOW — Minimal business impact, routine maintenance',
+            }
+            sections.append(f'**Topic:** {topic}')
+            sections.append(f'**Business Risk:** {risk_labels.get(risk, risk.upper())}\n')
+
+            # Business impact in plain English
+            facts = data.get('key_facts', [])
+            if facts:
+                sections.append('### What This Means')
+                for f in facts:
+                    sections.append(f'- {f}')
+
+            # Cost framing
+            actions = data.get('recommended_actions', [])
+            if actions:
+                sections.append('\n### What We Need To Do')
+                for a in actions[:3]:
+                    sections.append(f'- {a}')
+
+            sections.append('\n### Cost Perspective')
+            if risk in ('critical', 'high'):
+                sections.append('- **Cost of inaction:** Potential breach, regulatory fines, operational disruption')
+                sections.append('- **Cost of remediation:** Patch deployment and validation effort (days, not weeks)')
+                sections.append('- **Recommendation:** Approve immediate remediation to minimize exposure window')
+            else:
+                sections.append('- **Current exposure:** Within acceptable risk tolerance with planned remediation')
+                sections.append('- **Recommendation:** Continue standard remediation cycles')
+        else:
+            sections.append('### Brief\n')
+            # Summarize raw text at executive level
+            sections.append(findings[:1000])
+
+    result_text = '\n'.join(sections)
+
+    _track_usage('summarize_investigation', {'audience': audience},
+                 {'gaps_found': 0, 'next_suggestions': 0})
+
+    return result_text
 
 
 def _warmup_vmdr_cache():
