@@ -4,6 +4,21 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 
 ---
 
+## Investigation Chaining (meta-tool)
+
+1. ✅ Investigate CVE-2021-44228 (Log4Shell) completely — affected assets, patch status, exceptions
+2. ✅ Give me a full deep-dive on why our TruRisk score increased this week
+3. ✅ Investigate our ransomware exposure end-to-end
+4. ✅ Do a complete investigation of asset server-prod-01
+5. ✅ Tell me everything about CVE-2024-3400 and our exposure
+6. ✅ Why is our risk score high? Give me the full picture
+7. ✅ Investigate our compliance posture thoroughly
+8. ⚠️ Chain: investigate Log4Shell → then show patch status for affected assets
+9. ⚠️ Investigate this week's top vulnerability priorities in depth
+10. ⚠️ Give me a complete cloud security investigation
+
+---
+
 ## Vulnerability Management (VM) — 90 questions
 
 ### Daily operations

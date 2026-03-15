@@ -1237,6 +1237,23 @@ def get_weekly_priorities(limit: int = 10, sort_by: str = "trurisk", tag: str = 
         })
         result['summary']['containersAtRisk'] = len(at_risk)
 
+    # Data-driven followups
+    followups = []
+    top = result.get('topRiskAssets') or []
+    if top:
+        worst = top[0]
+        followups.append(f"Asset {worst.get('hostname', worst.get('assetId', '?'))} has TruRisk {worst.get('riskScore', '?')} — get_asset('{worst.get('assetId', '')}', detail='full') for full profile?")
+    crit_count = result.get('summary', {}).get('criticalRisk', 0) or result.get('summary', {}).get('highRisk', 0)
+    if crit_count:
+        followups.append(f"{crit_count} assets in critical/high risk tier — investigate top CVEs with investigate_cve()?")
+    containers_at_risk = result.get('summary', {}).get('containersAtRisk', 0)
+    if containers_at_risk:
+        followups.append(f"{containers_at_risk} containers running vulnerable images — get_image_vulns() for details?")
+    eol_priority = [p for p in result.get('priorities', []) if 'EOL' in p.get('title', '')]
+    if eol_priority:
+        followups.append("EOL/EOS systems detected — get_tech_debt() for full inventory?")
+    result['_followups'] = followups
+
     return _with_meta(result, 'topRiskAssets')
 
 
@@ -1428,7 +1445,402 @@ def investigate_cve(cve: str) -> dict:
                 }
                 result['summary']['assetsWithSoftware'] = best_count
 
+    # Data-driven followups
+    followups = []
+    asset_count = result.get('summary', {}).get('assetsWithSoftware', 0)
+    if asset_count:
+        followups.append(f"You have {asset_count} assets potentially affected by {cve} — investigate patch status with get_patch_status()?")
+    if result.get('ransomware'):
+        followups.append(f"{cve} is linked to ransomware — get_etm_findings(qql='threatName:ransomware') for full ransomware exposure?")
+    if result.get('patchAvailable'):
+        followups.append(f"Patch available for {cve} — get_patch_status() to see deployment coverage?")
+    elif result.get('qids'):
+        followups.append(f"No patch available for {cve} — get_vuln_exceptions() to check for compensating controls?")
+    if result.get('has_exploit'):
+        followups.append(f"{cve} has a known exploit — get_etm_findings(qql='vulnerabilities.vulnerability.cveIds:{cve}') for confirmed findings?")
+    result['_followups'] = followups
+
     return _with_meta(result, 'allKbDetails')
+
+
+@mcp.tool()
+def investigate(topic: str, depth: str = "standard", prior_context: str = "") -> dict:
+    """[Investigation] Deep-dive investigation on any security topic. @slow
+
+    USE WHEN: User wants a complete investigation — "tell me everything about Log4Shell",
+    "investigate this asset", "why is our risk score so high", "deep dive on ransomware exposure".
+    DO NOT USE FOR: simple single-tool queries. Use specific tools for focused lookups.
+
+    Automatically chains the right tools, correlates findings, and returns a unified report
+    with specific follow-up actions ranked by priority.
+
+    topic: CVE ID, asset hostname/IP, "risk spike", "ransomware", "compliance", or free-text
+    depth: "quick" (2 tools, ~15s) | "standard" (4 tools, ~45s) | "deep" (6+ tools, ~90s)
+    prior_context: summary from a previous investigate() call for chaining investigations
+    """
+    import re
+
+    depth = depth.lower() if depth else "standard"
+    if depth not in ("quick", "standard", "deep"):
+        depth = "standard"
+
+    findings = {}
+    tools_called = []
+
+    if prior_context:
+        findings['prior_investigation'] = prior_context
+
+    # --- Detect investigation type ---
+    topic_lower = topic.lower().strip()
+
+    def _detect_type():
+        if re.match(r'CVE-\d{4}-\d{4,}', topic.strip(), re.IGNORECASE):
+            return 'cve'
+        if topic_lower.startswith('asset:') or re.match(r'^\d{1,3}(\.\d{1,3}){3}$', topic.strip()):
+            return 'asset'
+        if any(kw in topic_lower for kw in ('risk', 'score', 'trurisk', 'why')):
+            return 'risk_spike'
+        if any(kw in topic_lower for kw in ('ransomware', 'ransom')):
+            return 'ransomware'
+        if any(kw in topic_lower for kw in ('compliance', 'audit', 'posture')):
+            return 'compliance'
+        # Check if it looks like a hostname
+        if '.' in topic.strip() or topic_lower.startswith('asset:'):
+            return 'asset'
+        return 'general'
+
+    inv_type = _detect_type()
+
+    def _safe_call(name, fn):
+        """Call a tool safely, catching exceptions."""
+        try:
+            result = fn()
+            tools_called.append(name)
+            return compact(result) if result else None
+        except Exception as e:
+            _log(f"investigate({topic}): {name} failed: {e}")
+            tools_called.append(f"{name}(failed)")
+            return None
+
+    # --- CVE investigation ---
+    if inv_type == 'cve':
+        cve_id = re.search(r'(CVE-\d{4}-\d{4,})', topic, re.IGNORECASE).group(1).upper()
+
+        # Quick: get_cve_details + investigate_cve
+        tasks = {
+            'cve_details': lambda: _safe_call('get_cve_details', lambda: get_cve_details.fn(cve_id)),
+            'cve_investigation': lambda: _safe_call('investigate_cve', lambda: investigate_cve.fn(cve_id)),
+        }
+        results = _run_concurrent(**tasks)
+        findings['cve_details'] = results.get('cve_details')
+        findings['cve_investigation'] = results.get('cve_investigation')
+
+        if depth in ('standard', 'deep'):
+            std_tasks = {
+                'patch_status': lambda: _safe_call('get_patch_status', lambda: get_patch_status.fn()),
+                'vuln_exceptions': lambda: _safe_call('get_vuln_exceptions', lambda: get_vuln_exceptions.fn()),
+            }
+            std_results = _run_concurrent(**std_tasks)
+            findings['patch_status'] = std_results.get('patch_status')
+            findings['vuln_exceptions'] = std_results.get('vuln_exceptions')
+
+        if depth == 'deep':
+            deep_tasks = {
+                'etm_findings': lambda: _safe_call('get_etm_findings',
+                    lambda: get_etm_findings.fn(qql=f'vulnerabilities.vulnerability.cveIds:{cve_id}')),
+                'weekly_priorities': lambda: _safe_call('get_weekly_priorities', lambda: get_weekly_priorities.fn()),
+            }
+            deep_results = _run_concurrent(**deep_tasks)
+            findings['etm_findings'] = deep_results.get('etm_findings')
+            findings['weekly_priorities'] = deep_results.get('weekly_priorities')
+
+    # --- Asset investigation ---
+    elif inv_type == 'asset':
+        asset_query = topic_lower.replace('asset:', '').strip()
+
+        # Quick: get_asset full
+        findings['asset'] = _safe_call('get_asset', lambda: get_asset.fn(asset_query, detail='full'))
+
+        if depth in ('standard', 'deep'):
+            findings['etm_findings'] = _safe_call('get_etm_findings', lambda: get_etm_findings.fn())
+
+        if depth == 'deep':
+            deep_tasks = {
+                'patch_status': lambda: _safe_call('get_patch_status', lambda: get_patch_status.fn()),
+                'vuln_exceptions': lambda: _safe_call('get_vuln_exceptions', lambda: get_vuln_exceptions.fn()),
+            }
+            deep_results = _run_concurrent(**deep_tasks)
+            findings['patch_status'] = deep_results.get('patch_status')
+            findings['vuln_exceptions'] = deep_results.get('vuln_exceptions')
+
+    # --- Risk spike investigation ---
+    elif inv_type == 'risk_spike':
+        tasks = {
+            'trurisk': lambda: _safe_call('get_trurisk_score', lambda: get_trurisk_score.fn()),
+            'weekly_priorities': lambda: _safe_call('get_weekly_priorities', lambda: get_weekly_priorities.fn()),
+        }
+        results = _run_concurrent(**tasks)
+        findings['trurisk'] = results.get('trurisk')
+        findings['weekly_priorities'] = results.get('weekly_priorities')
+
+        if depth in ('standard', 'deep'):
+            std_tasks = {
+                'search_vulns': lambda: _safe_call('search_vulns', lambda: search_vulns.fn()),
+                'morning_report': lambda: _safe_call('get_morning_report', lambda: get_morning_report.fn()),
+            }
+            std_results = _run_concurrent(**std_tasks)
+            findings['search_vulns'] = std_results.get('search_vulns')
+            findings['morning_report'] = std_results.get('morning_report')
+
+        if depth == 'deep':
+            # Investigate top CVEs from the results
+            priorities = findings.get('weekly_priorities') or {}
+            top_assets = (priorities.get('topRiskAssets') or [])[:3]
+            for i, asset in enumerate(top_assets):
+                asset_id = str(asset.get('assetId', ''))
+                if asset_id:
+                    findings[f'top_asset_{i}'] = _safe_call(
+                        f'get_asset({asset_id})',
+                        lambda aid=asset_id: get_asset.fn(aid, detail='full'))
+
+    # --- Ransomware investigation ---
+    elif inv_type == 'ransomware':
+        tasks = {
+            'etm_findings': lambda: _safe_call('get_etm_findings',
+                lambda: get_etm_findings.fn(qql='threatName:ransomware')),
+            'weekly_priorities': lambda: _safe_call('get_weekly_priorities', lambda: get_weekly_priorities.fn()),
+        }
+        results = _run_concurrent(**tasks)
+        findings['etm_findings'] = results.get('etm_findings')
+        findings['weekly_priorities'] = results.get('weekly_priorities')
+
+        if depth in ('standard', 'deep'):
+            std_tasks = {
+                'edr_events': lambda: _safe_call('get_edr_events', lambda: get_edr_events.fn()),
+                'patch_status': lambda: _safe_call('get_patch_status', lambda: get_patch_status.fn()),
+            }
+            std_results = _run_concurrent(**std_tasks)
+            findings['edr_events'] = std_results.get('edr_events')
+            findings['patch_status'] = std_results.get('patch_status')
+
+        if depth == 'deep':
+            # Investigate top ransomware CVEs from ETM findings
+            etm = findings.get('etm_findings') or {}
+            etm_list = etm.get('findings') or []
+            seen_cves = set()
+            for f in etm_list[:5]:
+                for cve_id in (f.get('cves') or []):
+                    if cve_id not in seen_cves and len(seen_cves) < 3:
+                        seen_cves.add(cve_id)
+                        findings[f'cve_{cve_id}'] = _safe_call(
+                            f'investigate_cve({cve_id})',
+                            lambda c=cve_id: investigate_cve.fn(c))
+
+    # --- Compliance investigation ---
+    elif inv_type == 'compliance':
+        tasks = {
+            'compliance': lambda: _safe_call('get_compliance_posture', lambda: get_compliance_posture.fn()),
+            'morning_report': lambda: _safe_call('get_morning_report', lambda: get_morning_report.fn(quick=True)),
+        }
+        results = _run_concurrent(**tasks)
+        findings['compliance'] = results.get('compliance')
+        findings['morning_report'] = results.get('morning_report')
+
+        if depth in ('standard', 'deep'):
+            std_tasks = {
+                'etm_findings': lambda: _safe_call('get_etm_findings', lambda: get_etm_findings.fn()),
+                'vuln_exceptions': lambda: _safe_call('get_vuln_exceptions', lambda: get_vuln_exceptions.fn()),
+            }
+            std_results = _run_concurrent(**std_tasks)
+            findings['etm_findings'] = std_results.get('etm_findings')
+            findings['vuln_exceptions'] = std_results.get('vuln_exceptions')
+
+        if depth == 'deep':
+            deep_tasks = {
+                'cloud_risk': lambda: _safe_call('get_cloud_risk', lambda: get_cloud_risk.fn()),
+                'expiring_certs': lambda: _safe_call('get_expiring_certs', lambda: get_expiring_certs.fn()),
+            }
+            deep_results = _run_concurrent(**deep_tasks)
+            findings['cloud_risk'] = deep_results.get('cloud_risk')
+            findings['expiring_certs'] = deep_results.get('expiring_certs')
+
+    # --- General / fallback investigation ---
+    else:
+        tasks = {
+            'morning_report': lambda: _safe_call('get_morning_report', lambda: get_morning_report.fn()),
+            'weekly_priorities': lambda: _safe_call('get_weekly_priorities', lambda: get_weekly_priorities.fn()),
+        }
+        results = _run_concurrent(**tasks)
+        findings['morning_report'] = results.get('morning_report')
+        findings['weekly_priorities'] = results.get('weekly_priorities')
+
+        if depth in ('standard', 'deep'):
+            findings['search_vulns'] = _safe_call('search_vulns', lambda: search_vulns.fn())
+
+        if depth == 'deep':
+            deep_tasks = {
+                'cloud_risk': lambda: _safe_call('get_cloud_risk', lambda: get_cloud_risk.fn()),
+                'compliance': lambda: _safe_call('get_compliance_posture', lambda: get_compliance_posture.fn()),
+            }
+            deep_results = _run_concurrent(**deep_tasks)
+            findings['cloud_risk'] = deep_results.get('cloud_risk')
+            findings['compliance'] = deep_results.get('compliance')
+
+    # --- Build summary and risk level ---
+    risk_level = 'low'
+    key_facts = []
+    recommended_actions = []
+    followups = []
+
+    if inv_type == 'cve':
+        cve_inv = findings.get('cve_investigation') or {}
+        sev = cve_inv.get('severity', 0)
+        qds = cve_inv.get('qds', 0)
+        asset_count = (cve_inv.get('summary') or {}).get('assetsWithSoftware', 0)
+        is_ransomware = cve_inv.get('ransomware', False)
+        has_patch = cve_inv.get('patchAvailable', False)
+
+        if sev >= 5 or qds >= 90 or is_ransomware:
+            risk_level = 'critical'
+        elif sev >= 4 or qds >= 70:
+            risk_level = 'high'
+        elif sev >= 3:
+            risk_level = 'medium'
+
+        title = cve_inv.get('title', topic)
+        key_facts.append(f"{topic}: {title}")
+        key_facts.append(f"Severity {sev}/5, QDS {qds}/100")
+        if asset_count:
+            key_facts.append(f"{asset_count} assets potentially affected")
+        if is_ransomware:
+            key_facts.append("Linked to ransomware campaigns")
+        if has_patch:
+            key_facts.append("Patch available")
+            recommended_actions.append("Deploy patch to affected assets immediately")
+        else:
+            recommended_actions.append("Apply compensating controls — no vendor patch available")
+        if asset_count:
+            recommended_actions.append(f"Review {asset_count} affected assets for exposure")
+        followups.append(f"investigate('{topic}', depth='deep') for full ETM findings" if depth != 'deep' else f"get_asset() on top affected assets for detailed profiles")
+
+    elif inv_type == 'risk_spike':
+        trurisk = findings.get('trurisk') or {}
+        trend = trurisk.get('trend') or {}
+        direction = trend.get('direction', 'stable')
+        delta = trend.get('delta', 0)
+        if direction == 'worsening' and abs(delta) > 10:
+            risk_level = 'high'
+        elif direction == 'worsening':
+            risk_level = 'medium'
+        key_facts.append(f"TruRisk trend: {direction} (delta {delta:+d})")
+        priorities = findings.get('weekly_priorities') or {}
+        top = (priorities.get('topRiskAssets') or [])[:3]
+        for a in top:
+            key_facts.append(f"Top risk: {a.get('hostname', '?')} (TruRisk {a.get('riskScore', '?')})")
+        recommended_actions.append("Focus remediation on top risk assets")
+        if direction == 'worsening':
+            recommended_actions.append("Investigate new vulnerability introductions this week")
+        followups.append("get_asset() on top risk assets for detailed breakdown")
+
+    elif inv_type == 'ransomware':
+        etm = findings.get('etm_findings') or {}
+        finding_count = len(etm.get('findings') or [])
+        risk_level = 'critical' if finding_count > 0 else 'medium'
+        key_facts.append(f"{finding_count} ransomware-linked findings in environment")
+        patch = findings.get('patch_status') or {}
+        if patch:
+            key_facts.append(f"Patch coverage: {patch.get('summary', {}).get('patchedPct', '?')}%")
+        recommended_actions.append("Prioritize patching ransomware-linked CVEs")
+        recommended_actions.append("Verify EDR coverage on high-risk assets")
+        followups.append("investigate_cve() on each ransomware CVE for asset-level impact")
+
+    elif inv_type == 'asset':
+        asset = findings.get('asset') or {}
+        risk_score = asset.get('riskScore', 0)
+        if risk_score >= 900:
+            risk_level = 'critical'
+        elif risk_score >= 700:
+            risk_level = 'high'
+        elif risk_score >= 400:
+            risk_level = 'medium'
+        key_facts.append(f"Asset TruRisk: {risk_score}")
+        key_facts.append(f"Hostname: {asset.get('hostname', '?')}, OS: {asset.get('os', '?')}")
+        vuln_count = len(asset.get('vulns', []))
+        if vuln_count:
+            key_facts.append(f"{vuln_count} vulnerabilities detected")
+        recommended_actions.append("Patch critical vulnerabilities on this asset")
+        followups.append("investigate_cve() on top CVEs affecting this asset")
+
+    elif inv_type == 'compliance':
+        comp = findings.get('compliance') or {}
+        summary = comp.get('summary') or {}
+        pass_pct = summary.get('pass_pct', 0)
+        failing = summary.get('failing', 0)
+        if pass_pct < 70:
+            risk_level = 'high'
+        elif pass_pct < 85:
+            risk_level = 'medium'
+        key_facts.append(f"Compliance pass rate: {pass_pct}%")
+        key_facts.append(f"{failing} controls failing")
+        frameworks = summary.get('frameworks', [])
+        if frameworks:
+            key_facts.append(f"Frameworks: {', '.join(frameworks[:5])}")
+        recommended_actions.append("Address top failing controls by asset impact")
+        if failing:
+            recommended_actions.append("Review vulnerability exceptions expiring soon")
+        followups.append("get_cloud_risk() for cloud-specific compliance")
+
+    else:
+        report = findings.get('morning_report') or {}
+        env = report.get('environment') or {}
+        high_risk = env.get('highRiskAssets', 0)
+        if high_risk > 50:
+            risk_level = 'high'
+        elif high_risk > 10:
+            risk_level = 'medium'
+        key_facts.append(f"{env.get('totalAssets', '?')} total assets, {high_risk} high-risk")
+        threats = report.get('threats') or {}
+        if threats.get('ransomwareLinked'):
+            key_facts.append(f"{threats['ransomwareLinked']} ransomware-linked vulns")
+        recommended_actions.append("Review morning report action items")
+        followups.append("investigate('ransomware') for ransomware deep-dive")
+        followups.append("investigate('compliance') for compliance posture")
+
+    # Build executive summary
+    summary_parts = [f"{inv_type.replace('_', ' ').title()} investigation on '{topic}' ({depth} depth)."]
+    if key_facts:
+        summary_parts.append(key_facts[0] + '.')
+    summary_parts.append(f"Risk level: {risk_level}.")
+    executive_summary = ' '.join(summary_parts)
+
+    # Ensure we have 3-5 followups
+    if len(followups) < 3:
+        if inv_type != 'cve':
+            followups.append(f"investigate('{topic}', depth='deep') for deeper analysis" if depth != 'deep' else "Review findings and prioritize actions")
+        followups.append("get_morning_report() for current daily briefing")
+        followups.append("get_weekly_priorities() for prioritized remediation list")
+    followups = followups[:5]
+
+    total_items = sum(1 for v in findings.values() if v is not None)
+    result = {
+        'topic': topic,
+        'depth': depth,
+        'investigation_type': inv_type,
+        'summary': executive_summary,
+        'findings': compact(findings),
+        'risk_level': risk_level,
+        'key_facts': key_facts[:5],
+        'recommended_actions': recommended_actions[:5],
+        '_followups': followups,
+        '_meta': {
+            'returned': total_items,
+            'total': total_items,
+            'truncated': False,
+            'tools_called': tools_called,
+            'depth': depth,
+        },
+    }
+    return compact(result)
 
 
 def get_security_posture(tag: str = "", asset_group: str = "") -> dict:
@@ -2644,6 +3056,28 @@ def get_morning_report(quick: bool = False) -> dict:
             'delta': round(delta),
         }
 
+    # Data-driven followups
+    followups = []
+    new_total = result.get('newVulns', {}).get('total', 0)
+    new_crit = result.get('newVulns', {}).get('critical', 0)
+    if new_crit:
+        followups.append(f"{new_crit} new critical vulnerabilities in last 24h — investigate top CVEs with investigate_cve()?")
+    ransomware_count = result.get('threats', {}).get('ransomwareLinked', 0)
+    if ransomware_count:
+        followups.append(f"{ransomware_count} ransomware-linked vulnerabilities detected — investigate('ransomware') for full exposure?")
+    trend = result.get('truriskTrend', {})
+    if trend.get('direction') == 'worsening':
+        delta = trend.get('delta', 0)
+        followups.append(f"TruRisk score changed {delta:+d} vs last week — investigate('risk spike') for drivers?")
+    eol = result.get('environment', {}).get('eolSystems', 0)
+    if eol:
+        followups.append(f"{eol} EOL systems in environment — get_tech_debt() for full inventory?")
+    top_assets = result.get('topRiskAssets', [])
+    if top_assets:
+        worst = top_assets[0]
+        followups.append(f"Top risk asset: {worst.get('hostname', '?')} (TruRisk {worst.get('riskScore', '?')}) — get_asset('{worst.get('assetId', '')}', detail='full')?")
+    result['_followups'] = followups
+
     return _with_meta(result, 'topRiskAssets')
 
 
@@ -2953,6 +3387,22 @@ def get_cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7)
         'total': total_threats + total_controls,
         'truncated': False,
     }
+
+    # Data-driven followups
+    followups = []
+    crit_threats = result['stats'].get('critical', 0)
+    high_threats = result['stats'].get('high', 0)
+    if crit_threats:
+        followups.append(f"{crit_threats} critical cloud threat detections — review threats list for immediate action?")
+    if high_threats:
+        followups.append(f"{high_threats} high-severity cloud findings — investigate affected resources?")
+    failed_controls = len(result.get('failedControls', []))
+    if failed_controls:
+        followups.append(f"{failed_controls} CIS benchmark controls failing — get_compliance_posture() for full compliance view?")
+    total_accounts = result['stats'].get('total', 0)
+    if total_accounts == 0:
+        followups.append("No cloud accounts connected — configure cloud connectors in Qualys TotalCloud?")
+    result['_followups'] = followups
 
     return compact(result)
 
@@ -4564,6 +5014,25 @@ def get_compliance_posture(framework: str = "", platform: str = "", limit: int =
 
         return compact(result)
 
+    def _add_compliance_followups(res):
+        """Add data-driven followups to compliance result."""
+        followups = []
+        summary = res.get('summary', {})
+        failing = summary.get('failing', 0)
+        pass_pct = summary.get('pass_pct', 0)
+        if failing:
+            crit_fails = [c for c in res.get('topFailingControls', []) if c.get('severity') in ('CRITICAL', 'HIGH', 'URGENT')]
+            if crit_fails:
+                followups.append(f"{len(crit_fails)} critical/high severity controls failing — prioritize remediation?")
+            followups.append(f"{failing} controls failing ({pass_pct}% pass rate) — get_etm_findings() for related vulnerabilities?")
+        if pass_pct < 80 and pass_pct > 0:
+            followups.append(f"Pass rate {pass_pct}% is below 80% threshold — review topFailingControls for quick wins?")
+        frameworks = summary.get('frameworks', [])
+        if frameworks:
+            followups.append(f"Frameworks assessed: {', '.join(frameworks[:5])} — filter by framework for detailed view?")
+        res['_followups'] = followups
+        return res
+
     # --- Strategy 1: PC posture info endpoint ---
     _log("Compliance posture: trying posture/info endpoint...")
     data = api_get(f"{BASE_URL}/api/2.0/fo/compliance/posture/info/?action=list", timeout=30)
@@ -4573,7 +5042,7 @@ def get_compliance_posture(framework: str = "", platform: str = "", limit: int =
             parsed = _parse_controls(root)
             if parsed:
                 parsed['source'] = 'pc_posture'
-                return parsed
+                return _add_compliance_followups(parsed)
         except ET.ParseError:
             _log("Compliance posture: posture/info returned non-XML")
 
@@ -4586,7 +5055,7 @@ def get_compliance_posture(framework: str = "", platform: str = "", limit: int =
             parsed2 = _parse_controls(root2)
             if parsed2:
                 parsed2['source'] = 'pc_control_list'
-                return parsed2
+                return _add_compliance_followups(parsed2)
         except ET.ParseError:
             _log("Compliance posture: control list returned non-XML")
 
@@ -4619,7 +5088,7 @@ def get_compliance_posture(framework: str = "", platform: str = "", limit: int =
             ]
             result['source'] = 'cloud_compliance_fallback'
             result['note'] = 'Data from cloud compliance evaluations (TotalCloud). Enable Policy Compliance module for on-prem/endpoint posture.'
-            return _with_meta(result, 'topFailingControls')
+            return _add_compliance_followups(_with_meta(result, 'topFailingControls'))
     except Exception as e:
         _log(f"Compliance posture: cloud fallback failed: {e}")
 
@@ -4627,6 +5096,7 @@ def get_compliance_posture(framework: str = "", platform: str = "", limit: int =
     result = _empty_result()
     result['error'] = 'PC module not licensed or no compliance data available'
     result['suggestion'] = 'Enable the Qualys Policy Compliance (PC) module, or use get_cloud_risk() for cloud CIS compliance.'
+    result['_followups'] = []
     return _with_meta(result, 'topFailingControls')
 
 
