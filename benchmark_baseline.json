@@ -1,20 +1,20 @@
 {
-  "timestamp": "2026-03-15T07:15:31.016695",
+  "timestamp": "2026-03-15T20:40:56.308412",
   "results": [
     {
       "tool": "get_security_posture",
       "description": "Security posture (CSAM concurrent)",
-      "cold_s": 14.2,
-      "warm_s": 13.35,
+      "cold_s": 18.09,
+      "warm_s": 17.66,
       "runs": 2,
-      "result_size_bytes": 207,
+      "result_size_bytes": 208,
       "errors": []
     },
     {
       "tool": "get_weekly_priorities",
       "description": "Weekly priorities (9x parallel CSAM)",
-      "cold_s": 4.1,
-      "warm_s": 3.9,
+      "cold_s": 4.06,
+      "warm_s": 4.1,
       "runs": 2,
       "result_size_bytes": 938,
       "errors": []
@@ -22,8 +22,8 @@
     {
       "tool": "get_patch_status",
       "description": "Patch status",
-      "cold_s": 0.72,
-      "warm_s": 0.75,
+      "cold_s": 0.79,
+      "warm_s": 0.78,
       "runs": 2,
       "result_size_bytes": 218,
       "errors": []
@@ -31,8 +31,8 @@
     {
       "tool": "get_tech_debt",
       "description": "Tech debt (paginated CSAM)",
-      "cold_s": 0.25,
-      "warm_s": 0.25,
+      "cold_s": 0.29,
+      "warm_s": 0.26,
       "runs": 2,
       "result_size_bytes": 101,
       "errors": []
