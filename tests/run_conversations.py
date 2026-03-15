@@ -52,8 +52,10 @@ VALID_TOOLS = {
     "get_weekly_priorities",
     "get_image_vulns",
     "get_cloud_risk",
+    "investigate",
     "investigate_cve",
     "search_vulns",
+    "summarize_investigation",
 }
 
 
