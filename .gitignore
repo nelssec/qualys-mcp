@@ -25,3 +25,19 @@ __pycache__/
 
 # Eval results
 eval_results/
+
+# Build artifacts
+dist/
+*.egg-info/
+__pycache__/
+*.pyc
+*.pyo
+
+# Dev/internal
+devclaw/
+discovery/
+
+# Local test outputs
+benchmark_results.json
+eval_results/
+!eval_results/.gitkeep
