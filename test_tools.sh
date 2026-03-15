@@ -141,6 +141,33 @@ if [ "$FILTER" = "all" ] || [ "$FILTER" = "conversations" ]; then
   python3 "$SCRIPT_DIR/tests/run_conversations.py"
 fi
 
+if [ "$FILTER" = "all" ] || [ "$FILTER" = "benchmark" ]; then
+  echo ""
+  echo "--- Benchmark Smoke Test ---"
+  if [ -z "${QUALYS_USERNAME:-}" ]; then
+    echo "  [SKIP] benchmark smoke test — QUALYS_USERNAME not set"
+  else
+    export VMDR_MOCK_FIXTURES=1
+    python3 "$SCRIPT_DIR/benchmark.py" --quick --json /tmp/bench_smoke.json
+    python3 -c "
+import json, sys
+with open('/tmp/bench_smoke.json') as f:
+    data = json.load(f)
+failed = []
+for r in data['results']:
+    cold = r.get('cold_s', 0)
+    print(f\"  {r['tool']}: cold={cold}s\")
+    if cold > 10:
+        failed.append(r['tool'])
+if failed:
+    print(f'FAIL: tools exceeded 10s cold threshold: {\", \".join(failed)}')
+    sys.exit(1)
+else:
+    print('  All fast tools under 10s cold — OK')
+"
+  fi
+fi
+
 echo ""
 echo "=== Summary ==="
 echo "Results saved to: $RESULTS_DIR/"

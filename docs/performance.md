@@ -62,7 +62,43 @@
 
 ---
 
-## 3. Performance Targets
+## 3. Actual Measured Baselines
+
+Benchmark run: **2026-03-15T07:15:31** via `python benchmark.py --quick --json benchmark_baseline.json`
+
+Only fast (CSAM-heavy) tools were measured. Tools requiring `asset_id` or `image_id`
+were not benchmarked (no test IDs available in this environment).
+
+| Tool | Cold (s) | Warm (s) | Cold Target | Warm Target | Status |
+|------|----------|----------|-------------|-------------|--------|
+| `get_security_posture` | 14.20 | 13.35 | < 5s | < 1s | 🐢 **MISS** — warm ≈ cold, cache not working |
+| `get_weekly_priorities` | 4.10 | 3.90 | < 5s | < 1s | ⚠️ cold OK, warm MISS |
+| `get_patch_status` | 0.72 | 0.75 | < 5s | < 1s | ✅ PASS |
+| `get_tech_debt` | 0.25 | 0.25 | < 5s | < 1s | ✅ PASS |
+
+### Anomalies
+
+- **`get_security_posture`**: warm=13.35s vs target <1s is a clear regression.
+  Warm latency is nearly identical to cold (14.20s), indicating the response cache
+  is not being hit between runs. Likely cause: cache key mismatch or cache cleared
+  between invocations.
+
+### How to Update Baselines
+
+Re-run the benchmark and overwrite the baseline file:
+
+```bash
+python benchmark.py --json benchmark_baseline.json          # all tools
+python benchmark.py --quick --json benchmark_baseline.json  # fast tools only
+```
+
+The JSON output includes timestamps and per-tool cold/warm latencies that can be
+compared against this table. Commit updated `benchmark_baseline.json` when baselines
+change materially.
+
+---
+
+## 4. Performance Targets
 
 | Query Type | Cold Target | Warm Target | Current Status |
 |------------|-------------|-------------|----------------|
@@ -81,11 +117,11 @@
 
 ---
 
-## 4. Improvement Plan
+## 5. Improvement Plan
 
 ### Phase 1: Cache Fixes (~1 day, 3–5x speedup for repeat queries)
 
-#### 4.1 Fix Detection Cache Key
+#### 5.1 Fix Detection Cache Key
 **Problem:** `cache_key = f"{severity}_{limit}_{qds_min}"` causes cache misses.
 **Fix:** Remove `limit` from cache key; always fetch max, slice at return time.
 
@@ -100,7 +136,7 @@ cache_key = f"detections_{severity}_{days}_{qds_min}"
 
 **Impact:** Tools that call `get_detections` with different `limit` values now share cached data.
 
-#### 4.2 Add KB_CACHE TTL
+#### 5.2 Add KB_CACHE TTL
 **Problem:** KB_CACHE grows unbounded, can return 24h+ stale data.
 
 ```python
@@ -123,7 +159,7 @@ def _kb_cache_set(qid, data):
 
 **Impact:** Prevents serving stale vulnerability data after Qualys KB updates.
 
-#### 4.3 Add WAS Findings Cache
+#### 5.3 Add WAS Findings Cache
 **Problem:** `get_webapp_vulns` re-fetches on every call.
 
 ```python
@@ -148,7 +184,7 @@ def get_was_findings(limit=100, severity=None):
 
 **Impact:** Repeat WAS queries become instant (<0.1s).
 
-#### 4.4 Cache ETM Report Result
+#### 5.4 Cache ETM Report Result
 **Problem:** `get_etm_findings` blocks up to 5 minutes waiting for a new report.
 
 ```python
@@ -173,7 +209,7 @@ def _get_cached_etm_report():
 
 **Impact:** Repeated ETM queries go from 5–10s to <0.5s. Initial call still async.
 
-#### 4.5 Add Scanner List Cache
+#### 5.5 Add Scanner List Cache
 ```python
 SCANNER_CACHE = None
 SCANNER_CACHE_TIME = None
@@ -192,7 +228,7 @@ def get_scanner_list():
 
 ### Phase 2: Concurrency Fixes (~1 day, 2–3x speedup for cloud tools)
 
-#### 4.5 Parallelize `get_cloud_risk`
+#### 5.6 Parallelize `get_cloud_risk`
 
 Replace sequential provider loop with `_run_concurrent`:
 
@@ -210,16 +246,16 @@ conn_results = _run_concurrent(
 )
 ```
 
-#### 4.6 Parallelize `get_recommendations`
+#### 5.7 Parallelize `get_recommendations`
 Same pattern as `get_cloud_risk` — sequential cloud loops become parallel.
 
 ### Phase 3: Advanced Features (~2 days)
 
-#### 4.7 Request Deduplication (`_get_or_fetch`)
+#### 5.8 Request Deduplication (`_get_or_fetch`)
 Prevents two simultaneous tool calls from making duplicate expensive requests.
 See `docs/architecture.md §3.2` for implementation.
 
-#### 4.8 ETM Async Pattern
+#### 5.9 ETM Async Pattern
 For uncached reports, return immediately with a `status: 'creating'` response
 instead of blocking for 5 minutes.
 
@@ -233,12 +269,12 @@ instead of blocking for 5 minutes.
 }
 ```
 
-#### 4.9 Background Pre-fetch
+#### 5.10 Background Pre-fetch
 Fire cache warming on startup. See `docs/architecture.md §3.5`.
 
 ---
 
-## 5. Benchmark Script
+## 6. Benchmark Script
 
 `benchmark.py` — measures actual latency for every tool call.
 
@@ -381,7 +417,7 @@ investigate_cve                    7.5       0.8          ✅
 
 ---
 
-## 6. VMDR Classic vs ETM — Decision Guide
+## 7. VMDR Classic vs ETM — Decision Guide
 
 | Scenario | Use VMDR | Use ETM |
 |----------|----------|---------|
@@ -396,7 +432,7 @@ investigate_cve                    7.5       0.8          ✅
 
 ---
 
-## 7. Quick Wins Summary
+## 8. Quick Wins Summary
 
 | Change | Lines of Code | Speedup |
 |--------|---------------|---------|
@@ -411,7 +447,7 @@ investigate_cve                    7.5       0.8          ✅
 
 ---
 
-## 8. Implemented Changes (Issue #21)
+## 9. Implemented Changes (Issue #21)
 
 ### Phase 1: Cache Fixes — Implemented
 
