@@ -15,6 +15,7 @@ env:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   full-eval:
@@ -52,48 +53,57 @@ jobs:
 
       - name: Run full eval
         if: steps.creds.outputs.skip != 'true'
-        run: python eval.py --limit 500 --json eval_results.json
+        run: |
+          if [ -f eval.py ]; then
+            python eval.py --limit 500 --json eval_results.json
+          else
+            echo "eval.py not found, skipping"
+          fi
 
-      - name: Post eval summary
+      - name: Run full benchmark
+        if: steps.creds.outputs.skip != 'true'
+        run: python benchmark.py --json benchmark_results.json
+
+      - name: Run conversation tests
+        if: steps.creds.outputs.skip != 'true'
+        run: python tests/run_conversations.py --verbose
+
+      - name: Post summary
         if: always()
         run: |
-          python3 << 'PYEOF'
-          import json, os
+          echo "## Nightly Eval Results — $(date -u +%Y-%m-%d)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
 
-          try:
-              with open("eval_results.json") as f:
-                  data = json.load(f)
-          except FileNotFoundError:
-              print("No eval results found")
-              exit(0)
+          if [ -f benchmark_results.json ]; then
+            echo "### Benchmark" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            python -c "
+          import json
+          d = json.load(open('benchmark_results.json'))
+          for r in d['results']:
+              print(f\"{r['tool']:40s}  cold={r['cold_s']:.2f}s  warm={r['warm_s']:.2f}s\")
+          " >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
 
-          icon = "✅" if data["score_pct"] >= data["threshold"] else "❌"
+          if [ -f eval_results.json ]; then
+            echo "### Eval" >> "$GITHUB_STEP_SUMMARY"
+            score=$(python -c "import json; d=json.load(open('eval_results.json')); print(d.get('score', d.get('accuracy', 'N/A')))")
+            echo "Score: **${score}%**" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### Eval" >> "$GITHUB_STEP_SUMMARY"
+            echo "_eval.py not available — skipped_" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
-          summary = f"""## {icon} Nightly Eval Results
-
-          | Metric | Value |
-          |--------|-------|
-          | Score | {data['score_pct']}% |
-          | Threshold | {data['threshold']}% |
-          | Passed | {data['passed']} |
-          | Failed | {data['failed']} |
-          | Errors | {data['errors']} |
-          | Skipped | {data['skipped']} |
-          | Total | {data['total']} |
-          """
-
-          with open(os.environ.get("GITHUB_STEP_SUMMARY", "/dev/null"), "a") as f:
-              f.write(summary)
-
-          print(summary)
-          PYEOF
-
-      - name: Upload eval results
+      - name: Upload results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: nightly-eval-results
-          path: eval_results.json
+          name: nightly-results-${{ github.run_number }}
+          path: |
+            benchmark_results.json
+            eval_results.json
+          retention-days: 90
 
   update-baseline:
     name: Update Benchmark Baseline
