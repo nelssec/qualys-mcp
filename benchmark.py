@@ -223,6 +223,7 @@ def main():
     parser.add_argument("--csv", help="Save results to CSV file")
     parser.add_argument("--json", help="Save results as JSON file")
     parser.add_argument("--runs", type=int, default=2, help="Number of runs per tool (default: 2)")
+    parser.add_argument("--delay", type=float, default=2, help="Seconds to wait between tool calls (default: 2)")
     args = parser.parse_args()
 
     # Check env
@@ -264,6 +265,9 @@ def main():
         cold_str = f"{r['cold_s']:.2f}s"
         warm_str = f"{r['warm_s']:.2f}s" if r['warm_s'] is not None else "—"
         print(f"\r  ✓  {tool_name:<35} cold={cold_str:<8} warm={warm_str}")
+
+        if args.delay > 0:
+            time.sleep(args.delay)
 
     print_results(results)
 
