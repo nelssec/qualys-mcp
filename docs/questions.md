@@ -647,6 +647,17 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 499. ❌ Show me all scheduled scans and their next run time.
 500. ❌ Which scans have never completed successfully?
 
+## Growth Engine — 5 questions
+
+### Next actions and gap detection
+501. ❌ When I get my morning report, does it include suggested next investigation steps in a _next block?
+502. ❌ Does the morning report detect coverage gaps like missing EDR, FIM, or cloud posture and show them in a _gaps field?
+503. ❌ Summarize these investigation findings for an executive audience: {"topic":"CVE-2024-3400","risk_level":"critical","key_facts":["Severity 5/5","100 assets affected"],"recommended_actions":["Deploy patch immediately"]}
+
+### Audience-specific summaries
+504. ❌ Summarize this investigation for a technical audience with full QID and CVE details: {"cve":"CVE-2021-44228","qids":[376160],"severity":5,"qds":95,"ransomware":true}
+505. ❌ Does calling get_morning_report write a usage log entry to ~/.qualys-mcp/usage.jsonl when QUALYS_MCP_NO_TRACKING is not set?
+
 ---
 
 ## Coverage Summary
