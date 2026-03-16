@@ -17,13 +17,18 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
       "env": {
         "QUALYS_USERNAME": "your-username",
         "QUALYS_PASSWORD": "your-password",
-        "QUALYS_BASE_URL": "qualysapi.qualys.com",
-        "QUALYS_GATEWAY_URL": "gateway.qg1.apps.qualys.com"
+        "QUALYS_POD": "US2"
       }
     }
   }
 }
 ```
+
+Set `QUALYS_POD` to your platform POD — the server derives the correct API and gateway URLs automatically.
+
+**Supported pods:** `US1` `US2` `US3` `US4` `EU1` `EU2` `EU3` `IN1` `CA1` `AE1` `UK1` `AU1` `KSA1`
+
+> **Advanced:** If you need to override the auto-derived URLs, set `QUALYS_BASE_URL` and `QUALYS_GATEWAY_URL` explicitly instead of `QUALYS_POD`. Explicit URLs take priority.
 
 Requires [uv](https://docs.astral.sh/uv/): `brew install uv` or `curl -LsSf https://astral.sh/uv/install.sh | sh`
 

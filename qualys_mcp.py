@@ -76,8 +76,59 @@ def normalize_url(url):
         url = f"https://{url}"
     return url
 
-BASE_URL = normalize_url(os.environ.get('QUALYS_BASE_URL', ''))
-GATEWAY_URL = normalize_url(os.environ.get('QUALYS_GATEWAY_URL', ''))
+# ---------------------------------------------------------------------------
+# POD-based URL resolution
+# Maps Qualys POD identifiers to (API base URL suffix, gateway URL suffix).
+# Reference: https://www.qualys.com/platform-identification/
+# ---------------------------------------------------------------------------
+POD_MAP = {
+    'US1': ('qualysapi.qualys.com',       'gateway.qg1.apps.qualys.com'),
+    'US2': ('qualysapi.qg2.apps.qualys.com', 'gateway.qg2.apps.qualys.com'),
+    'US3': ('qualysapi.qg3.apps.qualys.com', 'gateway.qg3.apps.qualys.com'),
+    'US4': ('qualysapi.qg4.apps.qualys.com', 'gateway.qg4.apps.qualys.com'),
+    'EU1': ('qualysapi.qualys.eu',         'gateway.qg1.apps.qualys.eu'),
+    'EU2': ('qualysapi.qg2.apps.qualys.eu', 'gateway.qg2.apps.qualys.eu'),
+    'EU3': ('qualysapi.qg3.apps.qualys.eu', 'gateway.qg3.apps.qualys.eu'),
+    'IN1': ('qualysapi.qg1.apps.qualys.in', 'gateway.qg1.apps.qualys.in'),
+    'CA1': ('qualysapi.qg1.apps.qualys.ca', 'gateway.qg1.apps.qualys.ca'),
+    'AE1': ('qualysapi.qg1.apps.qualys.ae', 'gateway.qg1.apps.qualys.ae'),
+    'UK1': ('qualysapi.qg1.apps.qualys.co.uk', 'gateway.qg1.apps.qualys.co.uk'),
+    'AU1': ('qualysapi.qg1.apps.qualys.com.au', 'gateway.qg1.apps.qualys.com.au'),
+    'KSA1': ('qualysapi.qg1.apps.qualys.sa', 'gateway.qg1.apps.qualys.sa'),
+}
+
+
+def resolve_platform(pod):
+    """Return (base_url, gateway_url) for a given POD identifier."""
+    key = pod.strip().upper()
+    if key not in POD_MAP:
+        valid = ', '.join(sorted(POD_MAP))
+        raise ValueError(f"Unknown QUALYS_POD '{pod}'. Valid pods: {valid}")
+    base, gw = POD_MAP[key]
+    return f"https://{base}", f"https://{gw}"
+
+
+# URL resolution priority:
+#   1. Explicit QUALYS_BASE_URL / QUALYS_GATEWAY_URL env vars
+#   2. QUALYS_POD env var  (e.g. US1, EU2, IN1)
+#   3. Error with guidance
+_explicit_base = os.environ.get('QUALYS_BASE_URL', '').strip()
+_explicit_gw   = os.environ.get('QUALYS_GATEWAY_URL', '').strip()
+_pod_env       = os.environ.get('QUALYS_POD', '').strip()
+
+if _explicit_base or _explicit_gw:
+    BASE_URL    = normalize_url(_explicit_base)
+    GATEWAY_URL = normalize_url(_explicit_gw)
+    _resolved_pod = None
+elif _pod_env:
+    BASE_URL, GATEWAY_URL = resolve_platform(_pod_env)
+    _resolved_pod = _pod_env.upper()
+else:
+    raise EnvironmentError(
+        "Qualys platform not configured. "
+        "Set QUALYS_POD (e.g. QUALYS_POD=US2) or provide explicit "
+        "QUALYS_BASE_URL and QUALYS_GATEWAY_URL environment variables."
+    )
 BASIC_AUTH = base64.b64encode(f"{USERNAME}:{PASSWORD}".encode()).decode()
 BEARER_TOKEN = None
 BEARER_TOKEN_TIME = None
@@ -6045,6 +6096,11 @@ def _warmup_vmdr_cache():
 
 
 def main():
+    # Log resolved platform at startup
+    if _resolved_pod:
+        _log(f"Platform: POD={_resolved_pod}  BASE_URL={BASE_URL}  GATEWAY_URL={GATEWAY_URL}")
+    else:
+        _log(f"Platform: explicit URLs  BASE_URL={BASE_URL}  GATEWAY_URL={GATEWAY_URL}")
     # Spawn background daemon thread to warm VMDR detection cache
     warmup = Thread(target=_warmup_vmdr_cache, daemon=True, name="vmdr-cache-warmup")
     warmup.start()
