@@ -1,11 +1,30 @@
 #!/usr/bin/env python3
 """
-Qualys MCP Eval Harness
+Qualys MCP Eval Harness — Multi-layered Quality Scoring
 
-Runs a set of question/answer pairs against the MCP server and scores responses.
+Scores MCP tool responses using a weighted combination of three layers:
+
+1. **Schema/Threshold Validation** (50% weight) — validates that responses
+   contain expected fields with meaningful values (non-null, correct types,
+   numeric ranges, non-empty lists).
+
+2. **Multi-keyword AND Logic** (30% weight) — requires a configurable fraction
+   of expected keywords to appear (default >=60%), not just any single keyword.
+
+3. **Error Detection** (20% weight) — checks for error indicators in the
+   response ("error", "failed", "exception", "not found", "unauthorized").
+   Error-free responses earn the full 20%.
+
+Overall score per eval = schema_weight + keyword_weight + error_weight.
+
+Scoring modes (--scoring-mode):
+  - combined (default): all three layers weighted as above
+  - schema: only schema validation (pass/fail)
+  - keywords: only keyword matching with threshold (legacy-compatible)
 
 Usage:
-    python eval.py                    # Run all evals
+    python eval.py                    # Run all evals (combined scoring)
+    python eval.py --scoring-mode schema  # Schema-only scoring
     python eval.py --quick            # Run quick subset
     python eval.py --limit 50         # Limit to N questions
     python eval.py --json results.json  # Save results as JSON
@@ -80,11 +99,31 @@ EVAL_SCHEMAS = {
     "get_etm_findings": {
         "non_empty": ["_root"],
     },
+    "get_scanner_health": {
+        "non_empty": ["_root"],
+    },
+    "get_recommendations": {
+        "list_fields": ["_root_or_items"],
+    },
+    "get_eliminate_status": {
+        "non_empty": ["_root"],
+    },
+    "get_threat_intel": {
+        "non_empty": ["_root"],
+    },
+    "investigate_cve": {
+        "non_empty": ["_root"],
+    },
     "get_asset_risk": {
         "required_fields": ["trurisk_score"],
         "numeric_ranges": {"trurisk_score": (0, 1000)},
     },
 }
+
+# ---------------------------------------------------------------------------
+# Error indicators
+# ---------------------------------------------------------------------------
+ERROR_INDICATORS = ["error", "failed", "exception", "not found", "unauthorized"]
 
 
 # Each eval question: (description, tool_name, kwargs, expected_keywords, optional)
@@ -353,6 +392,15 @@ def validate_schema(tool_name, result):
 # Multi-keyword scoring
 # ---------------------------------------------------------------------------
 
+def detect_errors(result_str):
+    """
+    Check for error indicators in the response.
+    Returns (has_errors: bool, matched_indicators: list[str]).
+    """
+    matched = [ind for ind in ERROR_INDICATORS if ind in result_str]
+    return len(matched) > 0, matched
+
+
 def score_keywords(result_str, expected_keywords, threshold):
     """
     Score keyword matches. Returns (matched, total, score_frac, passed).
@@ -411,7 +459,8 @@ def judge_with_claude(question, tool_name, result_str, model="claude-3-5-haiku-2
 # ---------------------------------------------------------------------------
 
 def run_eval(question, tool_name, kwargs, expected_keywords, optional=False,
-             keyword_threshold=0.6, use_judge=False, judge_model="claude-3-5-haiku-20241022"):
+             keyword_threshold=0.6, use_judge=False, judge_model="claude-3-5-haiku-20241022",
+             scoring_mode="combined"):
     """Run a single eval question and return the result."""
     # Skip optional questions when required env vars are missing
     if optional:
@@ -457,6 +506,9 @@ def run_eval(question, tool_name, kwargs, expected_keywords, optional=False,
         result_str, expected_keywords, keyword_threshold
     )
 
+    # Error detection
+    has_errors, error_indicators = detect_errors(result_str)
+
     # Claude-as-judge (optional)
     judge_score = None
     judge_reason = ""
@@ -465,8 +517,27 @@ def run_eval(question, tool_name, kwargs, expected_keywords, optional=False,
             question, tool_name, result_str, model=judge_model
         )
 
-    # Overall pass: schema passes OR keywords meet threshold
-    passed = schema_pass or kw_pass
+    # Weighted scoring
+    schema_frac = (schema_passed / schema_total) if schema_total > 0 else 1.0
+    error_frac = 0.0 if has_errors else 1.0
+
+    if scoring_mode == "schema":
+        passed = schema_pass
+        weighted_score = 1.0 if schema_pass else 0.0
+    elif scoring_mode == "keywords":
+        passed = kw_pass
+        weighted_score = kw_score
+    else:  # combined
+        # Schema 50%, Keywords 30%, Error-free 20%
+        weighted_score = (schema_frac * 0.5) + (kw_score * 0.3) + (error_frac * 0.2)
+        passed = weighted_score >= 0.5
+
+    score_breakdown = {
+        "schema": round(schema_frac, 2),
+        "keywords": round(kw_score, 2),
+        "error_free": round(error_frac, 2),
+        "weighted": round(weighted_score, 2),
+    }
 
     return {
         "question": question,
@@ -478,6 +549,9 @@ def run_eval(question, tool_name, kwargs, expected_keywords, optional=False,
         "keyword_matched": kw_matched,
         "keyword_score": f"{len(kw_matched)}/{kw_total}",
         "keyword_pass": kw_pass,
+        "has_errors": has_errors,
+        "error_indicators": error_indicators,
+        "score_breakdown": score_breakdown,
         "judge_score": judge_score,
         "judge_reason": judge_reason,
         "result_size": len(result_str),
@@ -492,8 +566,8 @@ def print_results(results, score_pct, threshold, judge_enabled=False):
     """Print a summary table of eval results."""
     print()
     hdr_judge = "  Judge" if judge_enabled else ""
-    print(f"{'#':<4} {'Status':<8} {'Tool':<28} {'Schema':<8} {'Keywords':<10}{hdr_judge}  {'Time':>7}  Question")
-    print("─" * (100 + (8 if judge_enabled else 0)))
+    print(f"{'#':<4} {'Status':<8} {'Tool':<28} {'Schema':<8} {'Keywords':<10} {'Errors':<8}{hdr_judge}  {'Score':>5}  {'Time':>7}  Question")
+    print("─" * (110 + (8 if judge_enabled else 0)))
 
     for i, r in enumerate(results, 1):
         status = r["status"]
@@ -507,21 +581,26 @@ def print_results(results, score_pct, threshold, judge_enabled=False):
             icon = "💥"
 
         elapsed = f"{r.get('elapsed_s', 0):.1f}s" if "elapsed_s" in r else "—"
-        question = r["question"][:40]
+        question = r["question"][:38]
 
         schema_col = "—"
         kw_col = "—"
+        err_col = "—"
+        score_col = "—"
         judge_col = ""
         if status not in ("skipped", "error"):
             schema_col = "✓" if r.get("schema_pass") else "✗"
             kw_col = r.get("keyword_score", "—")
+            err_col = "✗" if r.get("has_errors") else "✓"
+            breakdown = r.get("score_breakdown", {})
+            score_col = f"{breakdown.get('weighted', 0):.0%}" if breakdown else "—"
             if judge_enabled:
                 js = r.get("judge_score")
                 judge_col = f"  {js}/10" if js is not None else "  —"
 
-        print(f"{i:<4} {icon:<8} {r['tool']:<28} {schema_col:<8} {kw_col:<10}{judge_col}  {elapsed:>7}  {question}")
+        print(f"{i:<4} {icon:<8} {r['tool']:<28} {schema_col:<8} {kw_col:<10} {err_col:<8}{judge_col}  {score_col:>5}  {elapsed:>7}  {question}")
 
-    print("─" * (100 + (8 if judge_enabled else 0)))
+    print("─" * (110 + (8 if judge_enabled else 0)))
     total = len(results)
     passed = sum(1 for r in results if r["status"] == "pass")
     failed = sum(1 for r in results if r["status"] == "fail")
@@ -530,6 +609,17 @@ def print_results(results, score_pct, threshold, judge_enabled=False):
 
     print(f"\nResults: {passed} passed, {failed} failed, {errors} errors, {skipped} skipped")
     print(f"Score: {score_pct:.1f}% (threshold: {threshold}%)")
+
+    # Show schema detail failures
+    detail_failures = [r for r in results if r.get("schema_details") and
+                       r["status"] not in ("skipped", "error") and
+                       any(d != "no schema defined — auto-pass" for d in r.get("schema_details", []))]
+    if detail_failures:
+        print("\nSchema failures:")
+        for r in detail_failures:
+            for d in r["schema_details"]:
+                if d != "no schema defined — auto-pass":
+                    print(f"  {r['tool']}: {d}")
 
     if score_pct >= threshold:
         print("✅ PASSED")
@@ -549,6 +639,11 @@ def main():
     parser.add_argument(
         "--judge-model", default="claude-3-5-haiku-20241022",
         help="Model for Claude-as-judge (default: claude-3-5-haiku-20241022)",
+    )
+    parser.add_argument(
+        "--scoring-mode", choices=["combined", "schema", "keywords"],
+        default="combined",
+        help="Scoring mode: combined (default), schema, or keywords",
     )
     args = parser.parse_args()
 
@@ -573,7 +668,8 @@ def main():
         questions = questions[: args.limit]
 
     print(f"Qualys MCP Eval — {len(questions)} questions, threshold {threshold}%")
-    print(f"Keyword threshold: {keyword_threshold:.0%} | Judge: {'on' if use_judge else 'off'}")
+    scoring_mode = args.scoring_mode
+    print(f"Scoring: {scoring_mode} | Keyword threshold: {keyword_threshold:.0%} | Judge: {'on' if use_judge else 'off'}")
     base = os.environ.get("QUALYS_BASE_URL", "?")
     host = base.split("/")[2] if "/" in base else base
     print(f"Server: {host}")
@@ -588,6 +684,7 @@ def main():
             keyword_threshold=keyword_threshold,
             use_judge=use_judge,
             judge_model=args.judge_model,
+            scoring_mode=scoring_mode,
         )
         results.append(r)
         icon = "✓" if r["status"] == "pass" else ("⏭" if r["status"] == "skipped" else "✗")
@@ -609,6 +706,7 @@ def main():
             "timestamp": datetime.now().isoformat(),
             "score_pct": round(score_pct, 1),
             "threshold": threshold,
+            "scoring_mode": scoring_mode,
             "keyword_threshold": keyword_threshold,
             "judge_enabled": use_judge,
             "total": len(results),
