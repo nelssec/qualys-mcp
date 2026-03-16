@@ -199,7 +199,7 @@ RETRY_STATUS = {429, 503, 502}
 MAX_RETRIES = 4
 
 
-def api_get(url, gateway=False, timeout=30):
+def api_get(url, gateway=False, timeout=30, not_found_ok=False):
     for attempt in range(MAX_RETRIES):
         req = Request(url)
         if gateway:
@@ -224,6 +224,8 @@ def api_get(url, gateway=False, timeout=30):
                 _log(f"Retry {attempt + 1}/{MAX_RETRIES} after {e.code} for {url.split('?')[0]} (wait {delay:.1f}s)")
                 time.sleep(delay)
                 continue
+            if e.code == 404 and not_found_ok:
+                return None  # 404 means resource not configured — treat as empty, not an error
             _log(f"API error {e.code}: {url.split('?')[0]}")
             return None
         except URLError as e:
@@ -686,10 +688,11 @@ def is_eol_stage(stage):
 
 def _paginate_json(base_url, limit, data_key='data', count_key='count',
                     page_param='pageNumber', size_param='pageSize',
-                    count_only=False, gateway=True, fetch_all=True):
+                    count_only=False, gateway=True, fetch_all=True, not_found_ok=False):
     """Generic paginated fetch for JSON APIs. Returns list or int (count_only).
     When fetch_all=True (default), fetches all pages up to MAX_PAGES (0=unlimited).
-    When fetch_all=False, respects the limit parameter strictly."""
+    When fetch_all=False, respects the limit parameter strictly.
+    When not_found_ok=True, a 404 response is treated as empty rather than logged as an error."""
     page_size = min(limit, 100)
     results = []
     page = 1
@@ -709,7 +712,7 @@ def _paginate_json(base_url, limit, data_key='data', count_key='count',
         if not fetch_all and len(results) >= limit:
             break
         url = f"{base_url}{sep}{size_param}={page_size}&{page_param}={page}"
-        data = api_get(url, gateway=gateway)
+        data = api_get(url, gateway=gateway, not_found_ok=not_found_ok)
         try:
             parsed = json.loads(data) if data else {}
         except json.JSONDecodeError:
@@ -749,8 +752,9 @@ def get_containers(limit=100, count_only=False):
 
 def get_connectors(provider='aws', limit=50):
     url = f"{GATEWAY_URL}/cloudview-api/rest/v1/{provider}/connectors"
+    # 404 = no connectors configured for this provider — valid state, return empty list
     return _paginate_json(url, limit, data_key='content', count_key='totalElements',
-                          page_param='pageNo', size_param='pageSize')
+                          page_param='pageNo', size_param='pageSize', not_found_ok=True)
 
 
 def get_evaluations(account_id, provider='aws', limit=500):
