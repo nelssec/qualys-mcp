@@ -93,7 +93,18 @@ jobs:
           cache: pip
       - name: Install dependencies
         run: pip install -e .
+      - name: Check credentials
+        id: creds
+        run: |
+          if [ -z "$QUALYS_USERNAME" ]; then
+            echo "⚠️ No credentials — skipping conversation tests"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Run conversation tests
+        if: steps.creds.outputs.skip != 'true'
         run: python tests/run_conversations.py --verbose
 
   benchmark:
@@ -111,10 +122,22 @@ jobs:
       - name: Install dependencies
         run: pip install -e . 2>/dev/null || pip install mcp httpx
 
+      - name: Check credentials
+        id: creds
+        run: |
+          if [ -z "$QUALYS_USERNAME" ]; then
+            echo "⚠️ No credentials — skipping live benchmark"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Run quick benchmark
+        if: steps.creds.outputs.skip != 'true'
         run: python benchmark.py --quick --json benchmark_results.json
 
       - name: Compare against baseline
+        if: steps.creds.outputs.skip != 'true'
         run: python scripts/compare_benchmark.py benchmark_baseline.json benchmark_results.json
 
       - name: Upload benchmark results
