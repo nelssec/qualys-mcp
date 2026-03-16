@@ -530,11 +530,14 @@ GET /cdr-api/rest/v1/findings/?startAt=ISO&endAt=ISO&{params}
 
 ### Cloud Connector/Evaluation Endpoints
 ```
-GET /cloudview-api/rest/v1/{provider}/connectors?pageSize=50
-GET /cloudview-api/rest/v1/{provider}/evaluations/{account_id}?pageSize=500
+GET {BASE_URL}/cloudview-api/rest/v1/{provider}/connectors?pageSize=50
+GET {BASE_URL}/cloudview-api/rest/v1/{provider}/evaluations/{account_id}?pageSize=500
 ```
 
 Providers: `aws`, `azure`, `gcp`
+
+> **Note:** CloudView connector and evaluation endpoints require `BASE_URL` with basic
+> auth — they do not work through `GATEWAY_URL` with JWT (GCP/Azure return 404).
 
 ### Common CDR Examples
 
