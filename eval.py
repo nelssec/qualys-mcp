@@ -420,6 +420,7 @@ def main():
             "timestamp": datetime.now().isoformat(),
             "score_pct": round(score_pct, 1),
             "threshold": threshold,
+            "keyword_match_threshold": KEYWORD_MATCH_THRESHOLD,
             "total": len(results),
             "passed": sum(1 for r in results if r["status"] == "pass"),
             "failed": sum(1 for r in results if r["status"] == "fail"),
