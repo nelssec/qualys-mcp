@@ -99,9 +99,9 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 63. ✅ When was each asset last scanned?
 64. ⚠️ Which assets haven't been scanned in the last 30 days?
 65. ⚠️ What's the scan coverage for my cloud assets?
-66. ❌ Show me running and queued scans right now.
-67. ❌ What scans failed in the last 24 hours?
-68. ❌ How long did yesterday's scan take?
+66. ✅ Show me running and queued scans right now.
+67. ✅ What scans failed in the last 24 hours?
+68. ✅ How long did yesterday's scan take?
 69. ❌ What's the scan schedule for the Production network?
 70. ❌ Which scan options profiles are being used and by whom?
 
@@ -110,12 +110,12 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 72. ✅ Which assets are missing critical patches?
 73. ✅ What are the top 5 patches that would reduce the most risk?
 74. ✅ Which assets have the most outstanding vulnerabilities?
-75. ⚠️ Show me all accepted risk (exception) vulnerabilities.
-76. ⚠️ What vulnerabilities have been marked as false positives?
-77. ❌ How many vulnerabilities have active exceptions/waivers?
-78. ❌ Which exceptions are about to expire?
-79. ❌ What's our false positive rate?
-80. ❌ Show me all vulnerabilities in "Ignored" state.
+75. ✅ Show me all accepted risk (exception) vulnerabilities.
+76. ✅ What vulnerabilities have been marked as false positives?
+77. ✅ How many vulnerabilities have active exceptions/waivers?
+78. ✅ Which exceptions are about to expire?
+79. ⚠️ What's our false positive rate?
+80. ⚠️ Show me all vulnerabilities in "Ignored" state.
 
 ### Reporting
 81. ⚠️ Generate a vulnerability summary report for my CISO.
@@ -369,21 +369,21 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 ## Web Application Security (WAS / TAS) — 50 questions
 
 ### WAS findings
-281. ❌ What web application vulnerabilities were found this week?
-282. ❌ Show me all OWASP Top 10 findings across our apps.
-283. ❌ Which web apps have the most critical vulnerabilities?
-284. ❌ Are any of our web applications vulnerable to SQL injection?
-285. ❌ Show me all XSS vulnerabilities across our app portfolio.
-286. ❌ What authentication flaws were detected in our web apps?
-287. ❌ Which web apps have unpatched Critical vulnerabilities?
-288. ❌ Show me all WAS findings for app "customer-portal".
-289. ❌ What API security issues were detected?
-290. ❌ Are there any CSRF vulnerabilities in our web apps?
-291. ❌ Show me all sensitive data exposure findings.
-292. ❌ Which web apps have broken access control issues?
-293. ❌ What security misconfigurations were found in our web apps?
-294. ❌ Show me all new WAS findings from the last scan.
-295. ❌ Which web applications are most at risk?
+281. ✅ What web application vulnerabilities were found this week?
+282. ✅ Show me all OWASP Top 10 findings across our apps.
+283. ✅ Which web apps have the most critical vulnerabilities?
+284. ✅ Are any of our web applications vulnerable to SQL injection?
+285. ✅ Show me all XSS vulnerabilities across our app portfolio.
+286. ⚠️ What authentication flaws were detected in our web apps?
+287. ✅ Which web apps have unpatched Critical vulnerabilities?
+288. ✅ Show me all WAS findings for app "customer-portal".
+289. ⚠️ What API security issues were detected?
+290. ⚠️ Are there any CSRF vulnerabilities in our web apps?
+291. ⚠️ Show me all sensitive data exposure findings.
+292. ⚠️ Which web apps have broken access control issues?
+293. ⚠️ What security misconfigurations were found in our web apps?
+294. ✅ Show me all new WAS findings from the last scan.
+295. ⚠️ Which web applications are most at risk?
 
 ### Scan management
 296. ❌ When was each web application last scanned?
@@ -398,11 +398,11 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 305. ❌ Are there web applications in production not being scanned?
 
 ### DAST findings
-306. ❌ What OWASP A01 broken access control findings do we have?
-307. ❌ Show me all cryptographic failures (OWASP A02).
-308. ❌ Which apps have injection vulnerabilities (OWASP A03)?
-309. ❌ Are any apps running vulnerable components (OWASP A06)?
-310. ❌ What server-side request forgery (SSRF) vulnerabilities exist?
+306. ⚠️ What OWASP A01 broken access control findings do we have?
+307. ⚠️ Show me all cryptographic failures (OWASP A02).
+308. ⚠️ Which apps have injection vulnerabilities (OWASP A03)?
+309. ⚠️ Are any apps running vulnerable components (OWASP A06)?
+310. ⚠️ What server-side request forgery (SSRF) vulnerabilities exist?
 
 ### API security
 311. ❌ Which APIs are exposed without authentication?
@@ -435,42 +435,42 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 ## Endpoint / EDR — 35 questions
 
 ### EDR detections
-331. ❌ What malware was detected on endpoints this week?
-332. ❌ Show me all ransomware detections in the last 30 days.
-333. ❌ Which endpoints have active threat detections?
-334. ❌ Are any hosts showing signs of C2 communication?
-335. ❌ What suspicious process executions were detected?
-336. ❌ Show me all high severity EDR alerts.
-337. ❌ Which endpoints have had the most security events?
-338. ❌ Are there any lateral movement indicators on our network?
-339. ❌ What credential theft attempts were detected?
-340. ❌ Show me all privilege escalation events in the last 7 days.
-341. ❌ Which user accounts are involved in suspicious activity?
-342. ❌ Show me all EDR events for host "DESKTOP-ABC123".
-343. ❌ What persistence mechanisms have been detected?
-344. ❌ Are any endpoints showing signs of cryptominer activity?
+331. ✅ What malware was detected on endpoints this week?
+332. ✅ Show me all ransomware detections in the last 30 days.
+333. ✅ Which endpoints have active threat detections?
+334. ✅ Are any hosts showing signs of C2 communication?
+335. ✅ What suspicious process executions were detected?
+336. ✅ Show me all high severity EDR alerts.
+337. ✅ Which endpoints have had the most security events?
+338. ✅ Are there any lateral movement indicators on our network?
+339. ⚠️ What credential theft attempts were detected?
+340. ⚠️ Show me all privilege escalation events in the last 7 days.
+341. ⚠️ Which user accounts are involved in suspicious activity?
+342. ✅ Show me all EDR events for host "DESKTOP-ABC123".
+343. ⚠️ What persistence mechanisms have been detected?
+344. ⚠️ Are any endpoints showing signs of cryptominer activity?
 345. ❌ What's the EDR detection trend over the past month?
 
 ### File Integrity Monitoring (FIM)
-346. ❌ What file changes were detected in the last 24 hours?
-347. ❌ Which critical system files were modified?
-348. ❌ Show me all FIM events on production servers.
-349. ❌ Were any configuration files changed outside maintenance windows?
-350. ❌ Which hosts have the most file integrity events?
-351. ❌ Show me all FIM events for /etc/passwd and /etc/shadow.
-352. ❌ Are there unauthorized changes to Windows registry keys?
-353. ❌ What FIM events occurred on weekend/off-hours?
-354. ❌ Show me all FIM events involving executables.
-355. ❌ Which FIM events are confirmed as suspicious?
-356. ❌ What new files were created in system directories?
-357. ❌ Show me FIM events filtered by path or file type.
+346. ✅ What file changes were detected in the last 24 hours?
+347. ✅ Which critical system files were modified?
+348. ✅ Show me all FIM events on production servers.
+349. ⚠️ Were any configuration files changed outside maintenance windows?
+350. ✅ Which hosts have the most file integrity events?
+351. ✅ Show me all FIM events for /etc/passwd and /etc/shadow.
+352. ⚠️ Are there unauthorized changes to Windows registry keys?
+353. ⚠️ What FIM events occurred on weekend/off-hours?
+354. ⚠️ Show me all FIM events involving executables.
+355. ⚠️ Which FIM events are confirmed as suspicious?
+356. ⚠️ What new files were created in system directories?
+357. ✅ Show me FIM events filtered by path or file type.
 358. ❌ Which servers have FIM monitoring enabled?
 359. ❌ What's the FIM event volume trend?
 360. ❌ Show me FIM events correlated with vulnerability detections.
 361. ❌ Are there any FIM events matching known malware hashes?
 362. ❌ What FIM events involve known attack paths?
-363. ❌ Show me all FIM events by user account.
-364. ❌ Which FIM monitored paths have the most activity?
+363. ⚠️ Show me all FIM events by user account.
+364. ⚠️ Which FIM monitored paths have the most activity?
 365. ❌ What's the FIM policy coverage across our endpoint fleet?
 
 ---
@@ -478,37 +478,37 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 ## Certificates / CertView — 30 questions
 
 ### Expiry monitoring
-366. ❌ Which SSL/TLS certificates expire in the next 30 days?
-367. ❌ Show me all certificates expiring this month.
-368. ❌ Which certificates expire in the next 90 days?
-369. ❌ Are any certificates already expired?
-370. ❌ Which production systems have expiring certificates?
-371. ❌ Show me all wildcard certificates and their expiry dates.
-372. ❌ Which certificate authorities issued our certificates?
-373. ❌ Are there any self-signed certificates in production?
-374. ❌ Show me all certificates by domain.
+366. ✅ Which SSL/TLS certificates expire in the next 30 days?
+367. ✅ Show me all certificates expiring this month.
+368. ✅ Which certificates expire in the next 90 days?
+369. ✅ Are any certificates already expired?
+370. ✅ Which production systems have expiring certificates?
+371. ⚠️ Show me all wildcard certificates and their expiry dates.
+372. ⚠️ Which certificate authorities issued our certificates?
+373. ✅ Are there any self-signed certificates in production?
+374. ⚠️ Show me all certificates by domain.
 375. ❌ Which certificates were renewed this month?
 
 ### Weak ciphers and configuration
-376. ❌ Which servers are using weak cipher suites (e.g., RC4, DES)?
-377. ❌ Are any servers still using TLS 1.0 or 1.1?
-378. ❌ Show me all servers with SSL vulnerabilities (POODLE, BEAST, etc.).
-379. ❌ Which certificates use weak key algorithms (RSA < 2048)?
+376. ✅ Which servers are using weak cipher suites (e.g., RC4, DES)?
+377. ✅ Are any servers still using TLS 1.0 or 1.1?
+378. ⚠️ Show me all servers with SSL vulnerabilities (POODLE, BEAST, etc.).
+379. ✅ Which certificates use weak key algorithms (RSA < 2048)?
 380. ❌ Are any servers missing HSTS headers?
-381. ❌ Which servers have certificate chain issues?
-382. ❌ Show me all certificates with SHA-1 signatures.
-383. ❌ Are any certificates from untrusted CAs?
+381. ⚠️ Which servers have certificate chain issues?
+382. ✅ Show me all certificates with SHA-1 signatures.
+383. ⚠️ Are any certificates from untrusted CAs?
 384. ❌ Which servers support insecure renegotiation?
-385. ❌ Show me all TLS configuration issues across our web servers.
+385. ✅ Show me all TLS configuration issues across our web servers.
 
 ### Certificate inventory
-386. ❌ How many SSL certificates do we have in total?
-387. ❌ Show me the certificate inventory for our web application portfolio.
-388. ❌ Which domains have multiple certificates?
+386. ✅ How many SSL certificates do we have in total?
+387. ⚠️ Show me the certificate inventory for our web application portfolio.
+388. ⚠️ Which domains have multiple certificates?
 389. ❌ Are there any duplicate certificates?
-390. ❌ Show me all certificates sorted by expiry date.
-391. ❌ Which internal systems have valid certificates?
-392. ❌ Show me certificates by issuing CA.
+390. ✅ Show me all certificates sorted by expiry date.
+391. ⚠️ Which internal systems have valid certificates?
+392. ⚠️ Show me certificates by issuing CA.
 393. ❌ How many certificates were issued in the last 90 days?
 394. ❌ Which certificates are about to hit their maximum validity?
 395. ❌ Show me certificates with mismatched hostnames.
@@ -524,14 +524,14 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 399. ✅ Show me all Windows Server 2012 R2 systems (EOL).
 400. ✅ What's the breakdown of my assets by OS type?
 401. ⚠️ How many assets have been added in the last 30 days?
-402. ⚠️ Which assets are in the "Production" tag group?
+402. ✅ Which assets are in the "Production" tag group?
 403. ⚠️ Show me all assets with no vulnerability scans.
-404. ❌ What asset tags do we have configured?
-405. ❌ Show me all assets without any tags assigned.
+404. ✅ What asset tags do we have configured?
+405. ⚠️ Show me all assets without any tags assigned.
 406. ❌ How many assets are in each business unit?
 407. ❌ Which assets are classified as critical/high business impact?
-408. ❌ Show me all assets discovered in the last 7 days.
-409. ❌ What cloud assets are in our inventory?
+408. ⚠️ Show me all assets discovered in the last 7 days.
+409. ⚠️ What cloud assets are in our inventory?
 410. ❌ How does our asset count compare to last quarter?
 
 ### EOL and tech debt
@@ -547,15 +547,15 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 420. ❌ Show me a plan to migrate off EOL systems by priority.
 
 ### Asset search and filtering
-421. ❌ Find all assets with hostname containing "prod".
-422. ❌ Show me all assets in the 10.0.0.0/8 subnet.
-423. ❌ Which assets have a specific software installed?
-424. ❌ Find assets by owner or business unit tag.
-425. ❌ Show me assets that are internet-facing.
-426. ❌ Which assets haven't been seen in 30+ days?
-427. ❌ Show me all virtual machines.
-428. ❌ Find assets by criticality score.
-429. ❌ Which assets are in our DMZ?
+421. ✅ Find all assets with hostname containing "prod".
+422. ⚠️ Show me all assets in the 10.0.0.0/8 subnet.
+423. ✅ Which assets have a specific software installed?
+424. ⚠️ Find assets by owner or business unit tag.
+425. ⚠️ Show me assets that are internet-facing.
+426. ✅ Which assets haven't been seen in 30+ days?
+427. ⚠️ Show me all virtual machines.
+428. ⚠️ Find assets by criticality score.
+429. ⚠️ Which assets are in our DMZ?
 430. ❌ Show me all assets with a specific port open.
 
 ### Asset lifecycle
@@ -570,17 +570,17 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 ## Compliance — 45 questions
 
 ### Policy compliance
-436. ❌ What's our CIS Benchmark compliance score?
-437. ❌ Show me all failing CIS controls for Windows Server.
-438. ❌ What's our policy compliance rate for Linux systems?
-439. ❌ Which systems are failing the most compliance checks?
-440. ❌ What's our PCI-DSS compliance status?
-441. ❌ Show me all failing PCI-DSS controls.
-442. ❌ What's our HIPAA technical control compliance rate?
-443. ❌ Show me compliance failures by severity.
-444. ❌ What's our SOC 2 relevant control pass rate?
-445. ❌ Which systems fail the NIST 800-53 controls?
-446. ❌ Show me our ISO 27001 compliance gaps.
+436. ✅ What's our CIS Benchmark compliance score?
+437. ✅ Show me all failing CIS controls for Windows Server.
+438. ✅ What's our policy compliance rate for Linux systems?
+439. ✅ Which systems are failing the most compliance checks?
+440. ✅ What's our PCI-DSS compliance status?
+441. ✅ Show me all failing PCI-DSS controls.
+442. ⚠️ What's our HIPAA technical control compliance rate?
+443. ✅ Show me compliance failures by severity.
+444. ⚠️ What's our SOC 2 relevant control pass rate?
+445. ⚠️ Which systems fail the NIST 800-53 controls?
+446. ⚠️ Show me our ISO 27001 compliance gaps.
 447. ❌ What FedRAMP controls are we failing?
 448. ❌ Show me DISA STIG compliance for our network devices.
 449. ❌ What's our compliance pass rate trend over the last quarter?
@@ -631,32 +631,32 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 483. ✅ When did each scanner last check in?
 484. ✅ Which scanners have outdated vulnerability signatures?
 485. ✅ What's the scan load on each scanner appliance?
-486. ⚠️ Which scanners have failed scans?
-487. ❌ Show me all running scans right now.
-488. ❌ What scans are queued?
-489. ❌ Show me scan history for the last 7 days.
+486. ✅ Which scanners have failed scans?
+487. ✅ Show me all running scans right now.
+488. ✅ What scans are queued?
+489. ✅ Show me scan history for the last 7 days.
 490. ❌ Which networks have no scan coverage?
 491. ❌ What's the scan duration trend?
-492. ❌ Show me all external vs internal scans.
+492. ⚠️ Show me all external vs internal scans.
 493. ❌ Which scan option profiles are used most?
-494. ❌ What scan targets are configured?
+494. ⚠️ What scan targets are configured?
 495. ❌ Which scans ran after hours?
 496. ❌ Show me authenticated vs unauthenticated scan results.
-497. ❌ Which scanners are close to capacity?
+497. ⚠️ Which scanners are close to capacity?
 498. ❌ What's the scan frequency for each asset group?
 499. ❌ Show me all scheduled scans and their next run time.
-500. ❌ Which scans have never completed successfully?
+500. ⚠️ Which scans have never completed successfully?
 
 ## Growth Engine — 5 questions
 
 ### Next actions and gap detection
-501. ❌ When I get my morning report, does it include suggested next investigation steps in a _next block?
-502. ❌ Does the morning report detect coverage gaps like missing EDR, FIM, or cloud posture and show them in a _gaps field?
-503. ❌ Summarize these investigation findings for an executive audience: {"topic":"CVE-2024-3400","risk_level":"critical","key_facts":["Severity 5/5","100 assets affected"],"recommended_actions":["Deploy patch immediately"]}
+501. ✅ When I get my morning report, does it include suggested next investigation steps in a _next block?
+502. ✅ Does the morning report detect coverage gaps like missing EDR, FIM, or cloud posture and show them in a _gaps field?
+503. ✅ Summarize these investigation findings for an executive audience: {"topic":"CVE-2024-3400","risk_level":"critical","key_facts":["Severity 5/5","100 assets affected"],"recommended_actions":["Deploy patch immediately"]}
 
 ### Audience-specific summaries
-504. ❌ Summarize this investigation for a technical audience with full QID and CVE details: {"cve":"CVE-2021-44228","qids":[376160],"severity":5,"qds":95,"ransomware":true}
-505. ❌ Does calling get_morning_report write a usage log entry to ~/.qualys-mcp/usage.jsonl when QUALYS_MCP_NO_TRACKING is not set?
+504. ✅ Summarize this investigation for a technical audience with full QID and CVE details: {"cve":"CVE-2021-44228","qids":[376160],"severity":5,"qds":95,"ransomware":true}
+505. ⚠️ Does calling get_morning_report write a usage log entry to ~/.qualys-mcp/usage.jsonl when QUALYS_MCP_NO_TRACKING is not set?
 
 ---
 
@@ -664,17 +664,19 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 
 | Category | Total | ✅ Full | ⚠️ Partial | ❌ Gap | Coverage % |
 |----------|-------|---------|-----------|--------|------------|
-| Vulnerability Management | 90 | 32 | 14 | 44 | 53% |
-| Patch Management | 50 | 4 | 4 | 42 | 16% |
-| TruRisk Eliminate | 30 | 8 | 3 | 19 | 37% |
-| Cloud Security | 70 | 12 | 8 | 50 | 29% |
-| Container Security | 40 | 6 | 4 | 30 | 25% |
-| Web Application Security | 50 | 0 | 0 | 50 | 0% |
-| Endpoint / EDR | 35 | 0 | 0 | 35 | 0% |
-| Certificates / CertView | 30 | 0 | 0 | 30 | 0% |
-| Asset Management | 40 | 9 | 5 | 26 | 35% |
-| Compliance | 45 | 0 | 0 | 45 | 0% |
-| Scanner / Infrastructure | 20 | 5 | 1 | 14 | 30% |
-| **Total** | **500** | **76** | **39** | **385** | **23%** |
+| Investigation Chaining | 10 | 7 | 3 | 0 | 85% |
+| Vulnerability Management | 90 | 38 | 14 | 38 | 50% |
+| Patch Management | 50 | 7 | 6 | 37 | 20% |
+| TruRisk Eliminate | 30 | 8 | 4 | 18 | 33% |
+| Cloud Security | 70 | 14 | 8 | 48 | 26% |
+| Container Security | 40 | 6 | 4 | 30 | 20% |
+| Web Application Security | 50 | 10 | 9 | 31 | 29% |
+| Endpoint / EDR + FIM | 35 | 14 | 12 | 9 | 57% |
+| Certificates / CertView | 30 | 13 | 8 | 9 | 57% |
+| Asset Management | 40 | 14 | 10 | 16 | 48% |
+| Compliance | 45 | 7 | 4 | 34 | 20% |
+| Scanner / Infrastructure | 20 | 9 | 4 | 7 | 55% |
+| Growth Engine | 5 | 4 | 1 | 0 | 90% |
+| **Total** | **515** | **151** | **87** | **277** | **38%** |
 
-> **Key finding:** 77% of realistic customer questions cannot be fully answered by the current 19 tools. The largest gaps are WAS (0%), Compliance (0%), EDR (0%), and Certificates (0%) — all modules with existing internal helpers ready to expose.
+> **Updated v2.15:** Coverage increased from 23% (76 ✅) to 38% (151 ✅) with 29 active tools. Former zero-coverage modules now have tools: WAS (29%), EDR+FIM (57%), Certificates (57%), Compliance (20%). Remaining gaps are primarily trend analysis, granular PM job queries, cloud resource-type specifics, and K8s runtime. See `docs/gaps.md` for detailed gap analysis.
