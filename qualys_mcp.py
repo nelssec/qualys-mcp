@@ -59,6 +59,16 @@ def short_date(dt_str):
     return dt_str
 
 
+def safe_int(val, default=0):
+    """Parse int from string, returning default for empty/invalid values."""
+    if not val or not val.strip():
+        return default
+    try:
+        return int(val.strip())
+    except (ValueError, TypeError):
+        return default
+
+
 def short_host(hostname):
     """Truncate FQDN to first label."""
     if hostname and "." in hostname:
@@ -316,8 +326,8 @@ def _parse_detections_xml(data):
                         pass
                 dets.append({
                     'host_id': hid, 'ip': ip, 'hostname': hostname,
-                    'qid': int(d.findtext('QID', '0')),
-                    'severity': int(d.findtext('SEVERITY', '0')),
+                    'qid': safe_int(d.findtext('QID', '0')),
+                    'severity': safe_int(d.findtext('SEVERITY', '0')),
                     'status': d.findtext('STATUS', ''),
                     'qds': qds,
                     'first_found': d.findtext('FIRST_FOUND_DATETIME', ''),
@@ -405,8 +415,8 @@ def get_host_detections(host_id, severity=4, days=30):
                     except ValueError:
                         pass
                 dets.append({
-                    'qid': int(d.findtext('QID', '0')),
-                    'severity': int(d.findtext('SEVERITY', '0')),
+                    'qid': safe_int(d.findtext('QID', '0')),
+                    'severity': safe_int(d.findtext('SEVERITY', '0')),
                     'status': d.findtext('STATUS', ''),
                     'qds': qds,
                     'first_found': d.findtext('FIRST_FOUND_DATETIME', ''),
@@ -454,7 +464,7 @@ def get_qds_for_qids(qids):
             batch_qds = {}
             for host in root.findall('.//HOST'):
                 for d in host.findall('.//DETECTION'):
-                    qid = int(d.findtext('QID', '0'))
+                    qid = safe_int(d.findtext('QID', '0'))
                     qds_el = d.find('QDS')
                     if qds_el is not None and qds_el.text:
                         try:
@@ -478,7 +488,7 @@ def get_qds_for_qids(qids):
 
 def parse_vuln_xml(v):
     """Parse a VULN XML element into a dict"""
-    qid = int(v.findtext('QID', '0'))
+    qid = safe_int(v.findtext('QID', '0'))
     # Extract QDS (Qualys Detection Score) — 1-100 numeric score
     qds_el = v.find('QDS')
     qds = 0
@@ -522,7 +532,7 @@ def parse_vuln_xml(v):
     return {
         'qid': qid,
         'title': v.findtext('TITLE', ''),
-        'severity': int(v.findtext('SEVERITY_LEVEL', '0')),
+        'severity': safe_int(v.findtext('SEVERITY_LEVEL', '0')),
         'qds': qds,
         'qds_factors': qds_factors,
         'cvss_v3': cvss_v3_base,
@@ -604,7 +614,7 @@ def get_cve_qids(cve):
             if qid:
                 parsed = parse_vuln_xml(v)
                 KB_CACHE[parsed['qid']] = parsed  # Cache while we have it
-                result.append(int(qid))
+                result.append(safe_int(qid))
         return result
     except ET.ParseError:
         return []
@@ -620,6 +630,39 @@ def _scope_filters(base_filters, tag='', asset_group=''):
     return filters or None
 
 
+def _csam_request(url, body, timeout=30):
+    """POST to a CSAM endpoint with retry logic for 429/503/502."""
+    token = get_bearer_token()
+    for attempt in range(MAX_RETRIES):
+        req = Request(url, data=body.encode(), method='POST')
+        req.add_header('Authorization', f'Bearer {token}' if token else f'Basic {BASIC_AUTH}')
+        req.add_header('Content-Type', 'application/json')
+        req.add_header('Accept', 'application/json')
+        req.add_header('X-Requested-With', 'qualys-mcp')
+        try:
+            with _open(req, timeout=timeout) as resp:
+                return json.loads(resp.read())
+        except HTTPError as e:
+            if e.code in RETRY_STATUS and attempt < MAX_RETRIES - 1:
+                retry_after = e.headers.get('Retry-After') if e.headers else None
+                if retry_after:
+                    try:
+                        delay = float(retry_after)
+                    except ValueError:
+                        delay = 2 ** attempt + random.uniform(0, 1)
+                else:
+                    delay = 2 ** attempt + random.uniform(0, 1)
+                _log(f"CSAM retry {attempt + 1}/{MAX_RETRIES} after {e.code} (wait {delay:.1f}s)")
+                time.sleep(delay)
+                continue
+            _log(f"csam_search error: HTTP Error {e.code}: {e.reason}")
+            return None
+        except Exception as e:
+            _log(f"csam_search error: {e}")
+            return None
+    return None
+
+
 def csam_count(filters=None):
     """Count assets with optional structured filters. Fast (~0.2s).
     filters: list of {"field": "...", "operator": "...", "value": "..."} dicts
@@ -629,21 +672,14 @@ def csam_count(filters=None):
         cached = _CSAM_COUNT_CACHE.get(cache_key)
         if cached and (time.time() - cached[1]) < _CSAM_COUNT_CACHE_TTL:
             return cached[0]
-        token = get_bearer_token()
         url = f"{GATEWAY_URL}/rest/2.0/count/am/asset"
-        body = json.dumps({"filters": filters}) if filters else "{}"
-        req = Request(url, data=body.encode(), method='POST')
-        req.add_header('Authorization', f'Bearer {token}' if token else f'Basic {BASIC_AUTH}')
-        req.add_header('Content-Type', 'application/json')
-        req.add_header('Accept', 'application/json')
-        req.add_header('X-Requested-With', 'qualys-mcp')
-        try:
-            with _open(req, timeout=30) as resp:
-                count = json.loads(resp.read()).get('count', 0)
-                _CSAM_COUNT_CACHE[cache_key] = (count, time.time())
-                return count
-        except Exception:
-            return 0
+        body = json.dumps({"filters": filters or []})
+        data = _csam_request(url, body)
+        if data is not None:
+            count = data.get('count', 0)
+            _CSAM_COUNT_CACHE[cache_key] = (count, time.time())
+            return count
+        return 0
 
 
 def csam_search(filters=None, limit=100, fields=None, fetch_all=True):
@@ -653,7 +689,6 @@ def csam_search(filters=None, limit=100, fields=None, fetch_all=True):
     When fetch_all=True (default), paginates using lastSeenAssetId cursor until all pages exhausted.
     """
     with _CSAM_SEM:
-        token = get_bearer_token()
         # Always include tags so every asset response has tags[]
         if fields:
             if 'tags' not in fields:
@@ -661,7 +696,7 @@ def csam_search(filters=None, limit=100, fields=None, fetch_all=True):
         else:
             fields = "tags"
         page_size = min(limit, 100) if not fetch_all else 100
-        body = json.dumps({"filters": filters}) if filters else "{}"
+        body = json.dumps({"filters": filters or []})
         all_assets = []
         last_id = None
         max_page_cap = MAX_PAGES if MAX_PAGES > 0 else 0  # 0 = unlimited
@@ -677,25 +712,17 @@ def csam_search(filters=None, limit=100, fields=None, fetch_all=True):
                 url += f"&includeFields={fields}"
             if last_id:
                 url += f"&lastSeenAssetId={last_id}"
-            req = Request(url, data=body.encode(), method='POST')
-            req.add_header('Authorization', f'Bearer {token}' if token else f'Basic {BASIC_AUTH}')
-            req.add_header('Content-Type', 'application/json')
-            req.add_header('Accept', 'application/json')
-            req.add_header('X-Requested-With', 'qualys-mcp')
-            try:
-                with _open(req, timeout=30) as resp:
-                    data = json.loads(resp.read())
-                    assets = data.get('assetListData', {}).get('asset', [])
-                    if not assets:
-                        break
-                    all_assets.extend(assets)
-                    pages += 1
-                    if not data.get('hasMore'):
-                        break
-                    last_id = assets[-1].get('assetId')
-            except Exception as e:
-                _log(f"csam_search error: {e}")
+            data = _csam_request(url, body)
+            if data is None:
                 break
+            assets = data.get('assetListData', {}).get('asset', [])
+            if not assets:
+                break
+            all_assets.extend(assets)
+            pages += 1
+            if not data.get('hasMore'):
+                break
+            last_id = assets[-1].get('assetId')
         if pages > 1:
             _log(f"CSAM search: fetched {len(all_assets)} assets across {pages} pages")
         if not fetch_all:
@@ -897,9 +924,9 @@ def get_was_findings(limit=100, severity=None, days=None, app_name=None):
                 for f in root.findall('.//Finding'):
                     findings.append({
                         'id': f.findtext('id', ''),
-                        'qid': int(f.findtext('qid', '0')),
+                        'qid': safe_int(f.findtext('qid', '0')),
                         'name': f.findtext('name', ''),
-                        'severity': int(f.findtext('severity', '0')),
+                        'severity': safe_int(f.findtext('severity', '0')),
                         'url': f.findtext('url', ''),
                         'webAppId': f.findtext('webApp/id', ''),
                         'webAppName': f.findtext('webApp/name', ''),
@@ -1028,10 +1055,10 @@ def get_scanner_list():
                 'status': s.findtext('STATUS', ''),
                 'type': s.findtext('TYPE', ''),
                 'model': s.findtext('MODEL_NUMBER', ''),
-                'runningScanCount': int(s.findtext('RUNNING_SCAN_COUNT', '0')),
-                'runningSlices': int(s.findtext('RUNNING_SLICES_COUNT', '0')),
-                'maxCapacity': int(s.findtext('MAX_CAPACITY_UNITS', '0')),
-                'heartbeatsMissed': int(s.findtext('HEARTBEATS_MISSED', '0')),
+                'runningScanCount': safe_int(s.findtext('RUNNING_SCAN_COUNT', '0')),
+                'runningSlices': safe_int(s.findtext('RUNNING_SLICES_COUNT', '0')),
+                'maxCapacity': safe_int(s.findtext('MAX_CAPACITY_UNITS', '0')),
+                'heartbeatsMissed': safe_int(s.findtext('HEARTBEATS_MISSED', '0')),
                 'softwareVersion': s.findtext('SOFTWARE_VERSION', ''),
                 'vulnsigsVersion': s.findtext('VULNSIGS_VERSION', ''),
                 'vulnsigsLatest': s.findtext('VULNSIGS_LATEST', ''),
@@ -5194,7 +5221,7 @@ def get_asset_inventory(query: str = "", tag: str = "", os: str = "", days_since
 
     f = filters if filters else None
     data = _run_concurrent(
-        assets=lambda: csam_search(filters=f, limit=limit,
+        assets=lambda: csam_search(filters=f, limit=limit, fetch_all=False,
                                    fields="operatingSystem,hardware,tags,vulnerabilities,tagList,truRisk,truRiskScoreFactors"),
         total=lambda: csam_count(filters=f),
     )
@@ -5743,9 +5770,21 @@ def reports(action: str, report_id: str = "", template_id: str = "", asset_group
                          '_meta': {'returned': len(report_list), 'total': len(report_list), 'truncated': False}})
 
     elif action == 'templates':
+        # Qualys report template API may require POST
         data = api_get(f"{BASE_URL}/api/2.0/fo/report/template/?action=list", timeout=30)
         if not data:
-            return compact({'error': 'Failed to fetch report templates', 'templates': [], '_meta': {'returned': 0, 'total': 0, 'truncated': False}})
+            # Retry with POST — some Qualys subscriptions require POST for this endpoint
+            try:
+                tpl_url = f"{BASE_URL}/api/2.0/fo/report/template/?action=list"
+                tpl_req = Request(tpl_url, data=b'', method='POST')
+                tpl_req.add_header('Authorization', f'Basic {BASIC_AUTH}')
+                tpl_req.add_header('X-Requested-With', 'qualys-mcp')
+                with _open(tpl_req, timeout=30) as resp:
+                    data = resp.read()
+            except Exception:
+                pass
+        if not data:
+            return compact({'error': 'Failed to fetch report templates (API returned no data — check subscription permissions for /fo/report/template/)', 'templates': [], '_meta': {'returned': 0, 'total': 0, 'truncated': False}})
         templates = []
         try:
             root = ET.fromstring(data)
