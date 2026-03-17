@@ -1,0 +1,217 @@
+{
+  "timestamp": "2026-03-17T19:37:52Z",
+  "pod": "US2",
+  "summary": {
+    "total": 34,
+    "ok": 29,
+    "error": 5,
+    "empty": 0,
+    "total_latency_s": 272.22
+  },
+  "results": [
+    {
+      "tool": "cache_status",
+      "status": "ok",
+      "latency": 0.0,
+      "notes": "total=1 returned=1"
+    },
+    {
+      "tool": "get_scanner_health",
+      "status": "ok",
+      "latency": 9.42,
+      "notes": "total=17 returned=17"
+    },
+    {
+      "tool": "get_scan_status",
+      "status": "ok",
+      "latency": 1.89,
+      "notes": "total=68 returned=50"
+    },
+    {
+      "tool": "get_morning_report",
+      "status": "ok",
+      "latency": 1.25,
+      "notes": "total=1 returned=1"
+    },
+    {
+      "tool": "get_weekly_priorities",
+      "status": "ok",
+      "latency": 4.91,
+      "notes": "total=0 returned=0"
+    },
+    {
+      "tool": "search_vulns",
+      "status": "ok",
+      "latency": 61.12,
+      "notes": "total=3366 returned=10"
+    },
+    {
+      "tool": "get_cve_details",
+      "status": "ok",
+      "latency": 60.07,
+      "notes": "total=1 returned=1"
+    },
+    {
+      "tool": "get_qid_details",
+      "status": "ok",
+      "latency": 48.22,
+      "notes": "total=1 returned=1"
+    },
+    {
+      "tool": "get_etm_findings",
+      "status": "ok",
+      "latency": 7.09,
+      "notes": "['reportStatus', 'reportId', 'reportName', 'findings', 'totalFindings']"
+    },
+    {
+      "tool": "get_patch_status",
+      "status": "ok",
+      "latency": 0.82,
+      "notes": "total=0 returned=0"
+    },
+    {
+      "tool": "get_eliminate_status",
+      "status": "ok",
+      "latency": 1.04,
+      "notes": "total=1 returned=1"
+    },
+    {
+      "tool": "get_recommendations",
+      "status": "ok",
+      "latency": 36.98,
+      "notes": "total=6 returned=6"
+    },
+    {
+      "tool": "get_asset_inventory",
+      "status": "ok",
+      "latency": 0.3,
+      "notes": "total=0 returned=0"
+    },
+    {
+      "tool": "get_tech_debt",
+      "status": "ok",
+      "latency": 0.34,
+      "notes": "total=0 returned=0"
+    },
+    {
+      "tool": "get_cloud_risk",
+      "status": "ok",
+      "latency": 0.7,
+      "notes": "total=0 returned=0"
+    },
+    {
+      "tool": "get_webapp_vulns",
+      "status": "ok",
+      "latency": 4.04,
+      "notes": "total=0 returned=0"
+    },
+    {
+      "tool": "get_expiring_certs",
+      "status": "ok",
+      "latency": 0.21,
+      "notes": "total=0 returned=0"
+    },
+    {
+      "tool": "get_vuln_exceptions",
+      "status": "ok",
+      "latency": 0.19,
+      "notes": "total=0 returned=0"
+    },
+    {
+      "tool": "get_compliance_posture",
+      "status": "error",
+      "latency": 12.6,
+      "notes": "PC module not licensed or no compliance data available"
+    },
+    {
+      "tool": "get_trurisk_score",
+      "status": "ok",
+      "latency": 0.82,
+      "notes": "total=0 returned=0"
+    },
+    {
+      "tool": "get_edr_events",
+      "status": "ok",
+      "latency": 0.3,
+      "notes": "total=0 returned=0"
+    },
+    {
+      "tool": "get_fim_events",
+      "status": "ok",
+      "latency": 0.21,
+      "notes": "total=0 returned=0"
+    },
+    {
+      "tool": "reports_list",
+      "status": "ok",
+      "latency": 4.7,
+      "notes": "total=115 returned=115"
+    },
+    {
+      "tool": "reports_templates",
+      "status": "error",
+      "latency": 0.2,
+      "notes": "Failed to fetch report templates"
+    },
+    {
+      "tool": "get_asset_inventory_tags",
+      "status": "ok",
+      "latency": 0.32,
+      "notes": "total=0 returned=0"
+    },
+    {
+      "tool": "get_asset_inventory_groups",
+      "status": "ok",
+      "latency": 0.22,
+      "notes": "total=0 returned=0"
+    },
+    {
+      "tool": "get_asset_summary",
+      "status": "error",
+      "latency": 0.0,
+      "notes": "no asset_id from phase 1"
+    },
+    {
+      "tool": "get_asset_full",
+      "status": "error",
+      "latency": 0.0,
+      "notes": "no asset_id from phase 1"
+    },
+    {
+      "tool": "get_risk_by_tag",
+      "status": "error",
+      "latency": 0.0,
+      "notes": "no tag found in phase 1"
+    },
+    {
+      "tool": "get_image_vulns",
+      "status": "ok",
+      "latency": 0.3,
+      "notes": "total=0 returned=0"
+    },
+    {
+      "tool": "investigate_cve",
+      "status": "ok",
+      "latency": 7.28,
+      "notes": "total=11 returned=11"
+    },
+    {
+      "tool": "investigate",
+      "status": "ok",
+      "latency": 5.11,
+      "notes": "total=2 returned=2"
+    },
+    {
+      "tool": "summarize_investigation",
+      "status": "ok",
+      "latency": 0.0,
+      "notes": ""
+    },
+    {
+      "tool": "reports_status",
+      "status": "ok",
+      "latency": 1.57,
+      "notes": "total=1 returned=1"
+    }
+  ]
+}
