@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Threat Intelligence Tools | Qualys MCP Server</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+  <script src="../js/nav.js" defer></script>
+</head>
+<body>
+  <header class="header">
+    <a href="../index.html" class="header-logo">
+      <svg width="80" height="22" viewBox="0 0 80 22" fill="white">
+        <text x="0" y="16" font-family="Arial, sans-serif" font-size="14" font-weight="bold">QUALYS</text>
+      </svg>
+    </a>
+    <div class="header-divider"></div>
+    <span class="header-product">MCP Server Documentation</span>
+    <nav class="header-nav">
+      <a href="../getting-started/index.html">Getting Started</a>
+      <a href="../tools/index.html">Tools</a>
+      <a href="../examples/index.html">Examples</a>
+      <a href="https://github.com/nelssec/qualys-mcp" target="_blank">GitHub</a>
+    </nav>
+  </header>
+  <div class="layout">
+    <aside class="sidebar"></aside>
+    <main class="main-content">
+      <div class="content">
+        <div class="breadcrumb">
+          <a href="../index.html">Home</a>
+          <span>&rsaquo;</span>
+          <a href="index.html">Tools</a>
+          <span>&rsaquo;</span>
+          <span>Threat Intelligence</span>
+        </div>
+
+        <h1>Threat Intelligence Tools</h1>
+        <p class="lead">Real-time threat indicators for ransomware, active exploits, CISA KEV, and more. Filter vulnerabilities by threat category to prioritize what matters most.</p>
+
+        <!-- ───────────────── get_threat_intel ───────────────── -->
+
+        <h2 id="get_threat_intel"><code>get_threat_intel</code></h2>
+        <p>Search the Qualys Knowledge Base for newly published vulnerabilities filtered by Real-Time Threat Indicators (RTI). This tool surfaces vulnerabilities that carry specific threat characteristics &mdash; ransomware linkage, active exploitation, public exploit code, and more &mdash; so you can focus remediation on the threats that matter most.</p>
+        <p>The <code>threat_type</code> parameter accepts any of the <strong>12 RTI categories</strong> below. When omitted, all threat-tagged vulnerabilities are returned.</p>
+
+        <h3 id="rti-categories">RTI Categories</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><code>Ransomware</code></td><td>Vulnerabilities associated with known ransomware campaigns</td></tr>
+            <tr><td><code>Malware</code></td><td>Vulnerabilities exploited by malware families</td></tr>
+            <tr><td><code>Active_Attacks</code></td><td>Currently being exploited in the wild</td></tr>
+            <tr><td><code>Exploit_Public</code></td><td>Public exploit code available (Metasploit, PoC, etc.)</td></tr>
+            <tr><td><code>Easy_Exploit</code></td><td>Low complexity exploitation</td></tr>
+            <tr><td><code>Wormable</code></td><td>Can propagate without user interaction</td></tr>
+            <tr><td><code>Cisa_Known_Exploited_Vulns</code></td><td>On the CISA Known Exploited Vulnerabilities catalog</td></tr>
+            <tr><td><code>Denial_of_Service</code></td><td>Can cause service disruption</td></tr>
+            <tr><td><code>Privilege_Escalation</code></td><td>Allows elevation of privileges</td></tr>
+            <tr><td><code>Remote_Code_Execution</code></td><td>Allows remote code execution</td></tr>
+            <tr><td><code>Predicted_High_Risk</code></td><td>ML-predicted high risk based on vulnerability characteristics</td></tr>
+            <tr><td><code>Unauthenticated_Exploitation</code></td><td>Exploitable without credentials</td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="get_threat_intel-parameters">Parameters</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Parameter</th>
+              <th>Type</th>
+              <th>Default</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>threat_type</code></td>
+              <td><code>str</code></td>
+              <td><code>""</code></td>
+              <td>RTI category to filter by (see table above). Empty string returns all threat-tagged vulns.</td>
+            </tr>
+            <tr>
+              <td><code>days</code></td>
+              <td><code>int</code></td>
+              <td><code>30</code></td>
+              <td>How far back to search for published vulnerabilities.</td>
+            </tr>
+            <tr>
+              <td><code>limit</code></td>
+              <td><code>int</code></td>
+              <td><code>200</code></td>
+              <td>Maximum number of vulnerabilities to return.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 id="get_threat_intel-examples">Example Questions</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Natural Language Question</th>
+              <th>Tool Call</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>"Are there any new ransomware-linked vulnerabilities?"</td>
+              <td><code>get_threat_intel(threat_type="Ransomware", days=30)</code></td>
+            </tr>
+            <tr>
+              <td>"What vulnerabilities are being actively exploited right now?"</td>
+              <td><code>get_threat_intel(threat_type="Active_Attacks", days=7)</code></td>
+            </tr>
+            <tr>
+              <td>"Show me CISA KEV additions from the past week"</td>
+              <td><code>get_threat_intel(threat_type="Cisa_Known_Exploited_Vulns", days=7)</code></td>
+            </tr>
+            <tr>
+              <td>"Any wormable vulnerabilities published recently?"</td>
+              <td><code>get_threat_intel(threat_type="Wormable", days=14)</code></td>
+            </tr>
+            <tr>
+              <td>"Show me vulns with public exploit code"</td>
+              <td><code>get_threat_intel(threat_type="Exploit_Public", days=30)</code></td>
+            </tr>
+            <tr>
+              <td>"Are there easy-to-exploit vulnerabilities this month?"</td>
+              <td><code>get_threat_intel(threat_type="Easy_Exploit", days=30)</code></td>
+            </tr>
+            <tr>
+              <td>"What remote code execution vulns were published this week?"</td>
+              <td><code>get_threat_intel(threat_type="Remote_Code_Execution", days=7)</code></td>
+            </tr>
+            <tr>
+              <td>"Show me all threat-tagged vulnerabilities from the last 60 days"</td>
+              <td><code>get_threat_intel(days=60, limit=200)</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- ───────────────── get_cdr_findings ───────────────── -->
+
+        <h2 id="get_cdr_findings"><code>get_cdr_findings</code></h2>
+        <p>Cloud Detection &amp; Response findings from TotalCloud. Detects malware, command-and-control (C2) activity, crypto-miners, lateral movement, and other threats in cloud workloads across AWS, Azure, and GCP.</p>
+
+        <h3 id="get_cdr_findings-parameters">Parameters</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Parameter</th>
+              <th>Type</th>
+              <th>Default</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>days</code></td>
+              <td><code>int</code></td>
+              <td><code>7</code></td>
+              <td>Look-back window in days.</td>
+            </tr>
+            <tr>
+              <td><code>severity</code></td>
+              <td><code>str</code></td>
+              <td><code>""</code></td>
+              <td>Filter by severity &mdash; CRITICAL, HIGH, MEDIUM, LOW. Empty returns all.</td>
+            </tr>
+            <tr>
+              <td><code>cloud_provider</code></td>
+              <td><code>str</code></td>
+              <td><code>""</code></td>
+              <td>Filter by cloud provider &mdash; AWS, Azure, GCP. Empty returns all.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 id="get_cdr_findings-examples">Examples</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Natural Language Question</th>
+              <th>Tool Call</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>"What cloud threats were detected this week?"</td>
+              <td><code>get_cdr_findings(days=7)</code></td>
+            </tr>
+            <tr>
+              <td>"Show me critical AWS CDR findings"</td>
+              <td><code>get_cdr_findings(severity="CRITICAL", cloud_provider="AWS")</code></td>
+            </tr>
+            <tr>
+              <td>"Are there crypto-mining activities in our cloud?"</td>
+              <td><code>get_cdr_findings(days=30)</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- ───────────────── get_edr_events ───────────────── -->
+
+        <h2 id="get_edr_events"><code>get_edr_events</code></h2>
+        <p>Endpoint Detection and Response events &mdash; malware detections, ransomware behavior, C2 callbacks, process injection, lateral movement, and suspicious process executions. Filter by severity, category, or specific host for targeted investigation.</p>
+
+        <h3 id="get_edr_events-parameters">Parameters</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Parameter</th>
+              <th>Type</th>
+              <th>Default</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>days</code></td>
+              <td><code>int</code></td>
+              <td><code>7</code></td>
+              <td>Look-back window in days.</td>
+            </tr>
+            <tr>
+              <td><code>severity</code></td>
+              <td><code>str</code></td>
+              <td><code>""</code></td>
+              <td>Filter by severity &mdash; CRITICAL, HIGH, MEDIUM, LOW. Empty returns all.</td>
+            </tr>
+            <tr>
+              <td><code>category</code></td>
+              <td><code>str</code></td>
+              <td><code>""</code></td>
+              <td>Filter by event category substring (e.g. <code>Malware</code>, <code>C2</code>, <code>LateralMovement</code>).</td>
+            </tr>
+            <tr>
+              <td><code>host</code></td>
+              <td><code>str</code></td>
+              <td><code>""</code></td>
+              <td>Filter by hostname substring.</td>
+            </tr>
+            <tr>
+              <td><code>limit</code></td>
+              <td><code>int</code></td>
+              <td><code>50</code></td>
+              <td>Maximum events to return.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 id="get_edr_events-output">Expected Output Shape</h3>
+        <pre><code>{
+  "summary": {
+    "total": 42,
+    "critical": 3,
+    "high": 12,
+    "medium": 18,
+    "low": 9,
+    "affectedHosts": 7
+  },
+  "byCategory": {
+    "Malware": 15,
+    "C2": 8,
+    "SuspiciousProcess": 19
+  },
+  "topHosts": [
+    { "hostname": "web-prod-01", "eventCount": 12 }
+  ],
+  "events": [
+    {
+      "id": "evt-001",
+      "severity": "CRITICAL",
+      "category": "Malware",
+      "name": "Trojan.GenericKD",
+      "hostname": "web-prod-01",
+      "ip": "10.0.1.25",
+      "user": "svc-app",
+      "process": "powershell.exe",
+      "timestamp": "2026-03-15T08:23:41Z"
+    }
+  ]
+}</code></pre>
+
+        <h3 id="get_edr_events-examples">Examples</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Natural Language Question</th>
+              <th>Tool Call</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>"What malware was detected this week?"</td>
+              <td><code>get_edr_events(days=7)</code></td>
+            </tr>
+            <tr>
+              <td>"Show me critical endpoint threats"</td>
+              <td><code>get_edr_events(severity="CRITICAL")</code></td>
+            </tr>
+            <tr>
+              <td>"Are any hosts showing ransomware behavior?"</td>
+              <td><code>get_edr_events(category="ransomware", days=30)</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- ───────────────── get_fim_events ───────────────── -->
+
+        <h2 id="get_fim_events"><code>get_fim_events</code></h2>
+        <p>File Integrity Monitoring events &mdash; unauthorized file changes, critical system file modifications, registry changes, and suspicious path activity. Includes off-hours flagging for change activity outside normal business windows.</p>
+
+        <h3 id="get_fim_events-parameters">Parameters</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Parameter</th>
+              <th>Type</th>
+              <th>Default</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>days</code></td>
+              <td><code>int</code></td>
+              <td><code>1</code></td>
+              <td>Look-back window in days.</td>
+            </tr>
+            <tr>
+              <td><code>severity</code></td>
+              <td><code>str</code></td>
+              <td><code>""</code></td>
+              <td>Filter by severity &mdash; CRITICAL, HIGH, MEDIUM, LOW. Empty returns all.</td>
+            </tr>
+            <tr>
+              <td><code>host</code></td>
+              <td><code>str</code></td>
+              <td><code>""</code></td>
+              <td>Filter by hostname substring.</td>
+            </tr>
+            <tr>
+              <td><code>path</code></td>
+              <td><code>str</code></td>
+              <td><code>""</code></td>
+              <td>Filter by file path prefix (e.g. <code>/etc/</code>, <code>C:\Windows\System32</code>).</td>
+            </tr>
+            <tr>
+              <td><code>limit</code></td>
+              <td><code>int</code></td>
+              <td><code>100</code></td>
+              <td>Maximum events to return.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 id="get_fim_events-output">Expected Output Shape</h3>
+        <pre><code>{
+  "summary": {
+    "total": 28,
+    "critical": 2,
+    "high": 5,
+    "affectedHosts": 4,
+    "modified": 20,
+    "created": 5,
+    "deleted": 3
+  },
+  "topHosts": [
+    { "hostname": "db-prod-03", "eventCount": 9 }
+  ],
+  "criticalChanges": [
+    {
+      "path": "/etc/passwd",
+      "hostname": "db-prod-03",
+      "action": "MODIFIED",
+      "timestamp": "2026-03-15T03:14:22Z",
+      "offHours": true
+    }
+  ],
+  "events": [
+    {
+      "action": "MODIFIED",
+      "path": "/etc/sudoers",
+      "hostname": "db-prod-03",
+      "timestamp": "2026-03-15T03:14:22Z",
+      "severity": "CRITICAL",
+      "user": "root",
+      "offHours": true
+    }
+  ]
+}</code></pre>
+
+        <h3 id="get_fim_events-examples">Examples</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Natural Language Question</th>
+              <th>Tool Call</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>"What file changes happened today?"</td>
+              <td><code>get_fim_events(days=1)</code></td>
+            </tr>
+            <tr>
+              <td>"Were /etc/passwd or sudoers modified?"</td>
+              <td><code>get_fim_events(path="/etc/passwd")</code></td>
+            </tr>
+            <tr>
+              <td>"Show me FIM events on production servers"</td>
+              <td><code>get_fim_events(host="prod")</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="page-nav">
+          <a href="vulnerability-management.html">
+            <span>&larr; Previous</span>
+            <strong>Vulnerability Management</strong>
+          </a>
+          <a href="asset-management.html" style="text-align: right;">
+            <span>Next &rarr;</span>
+            <strong>Asset Management</strong>
+          </a>
+        </div>
+
+        <footer class="footer">
+          <div class="footer-content">
+            <div>MIT License - Copyright (c) 2026 Andrew Nelson</div>
+            <div class="footer-links">
+              <a href="https://github.com/nelssec/qualys-mcp">GitHub</a>
+              <a href="https://pypi.org/project/qualys-mcp/">PyPI</a>
+            </div>
+          </div>
+        </footer>
+      </div>
+      <aside class="toc">
+        <div class="toc-title">On this page</div>
+        <ul>
+          <li><a href="#get_threat_intel">get_threat_intel</a></li>
+          <li><a href="#rti-categories">RTI Categories</a></li>
+          <li><a href="#get_threat_intel-examples">Examples</a></li>
+          <li><a href="#get_cdr_findings">get_cdr_findings</a></li>
+          <li><a href="#get_edr_events">get_edr_events</a></li>
+          <li><a href="#get_edr_events-output">EDR Output Shape</a></li>
+          <li><a href="#get_fim_events">get_fim_events</a></li>
+          <li><a href="#get_fim_events-output">FIM Output Shape</a></li>
+        </ul>
+      </aside>
+    </main>
+  </div>
+</body>
+</html>
