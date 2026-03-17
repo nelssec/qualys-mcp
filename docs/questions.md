@@ -665,18 +665,18 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 | Category | Total | ✅ Full | ⚠️ Partial | ❌ Gap | Coverage % |
 |----------|-------|---------|-----------|--------|------------|
 | Investigation Chaining | 10 | 7 | 3 | 0 | 85% |
-| Vulnerability Management | 90 | 38 | 14 | 38 | 50% |
-| Patch Management | 50 | 7 | 6 | 37 | 20% |
+| Vulnerability Management | 90 | 58 | 14 | 18 | 72% |
+| Patch Management | 50 | 7 | 5 | 38 | 19% |
 | TruRisk Eliminate | 30 | 8 | 4 | 18 | 33% |
-| Cloud Security | 70 | 14 | 8 | 48 | 26% |
-| Container Security | 40 | 6 | 4 | 30 | 20% |
-| Web Application Security | 50 | 10 | 9 | 31 | 29% |
-| Endpoint / EDR + FIM | 35 | 14 | 12 | 9 | 57% |
-| Certificates / CertView | 30 | 13 | 8 | 9 | 57% |
-| Asset Management | 40 | 14 | 10 | 16 | 48% |
+| Cloud Security | 70 | 14 | 9 | 47 | 26% |
+| Container Security | 40 | 6 | 6 | 28 | 22% |
+| Web Application Security | 50 | 8 | 12 | 30 | 28% |
+| Endpoint / EDR + FIM | 35 | 15 | 13 | 7 | 61% |
+| Certificates / CertView | 30 | 13 | 10 | 7 | 60% |
+| Asset Management | 40 | 14 | 13 | 13 | 51% |
 | Compliance | 45 | 7 | 4 | 34 | 20% |
 | Scanner / Infrastructure | 20 | 9 | 4 | 7 | 55% |
 | Growth Engine | 5 | 4 | 1 | 0 | 90% |
-| **Total** | **515** | **151** | **87** | **277** | **38%** |
+| **Total** | **515** | **170** | **98** | **247** | **43%** |
 
-> **Updated v2.15:** Coverage increased from 23% (76 ✅) to 38% (151 ✅) with 29 active tools. Former zero-coverage modules now have tools: WAS (29%), EDR+FIM (57%), Certificates (57%), Compliance (20%). Remaining gaps are primarily trend analysis, granular PM job queries, cloud resource-type specifics, and K8s runtime. See `docs/gaps.md` for detailed gap analysis.
+> **Updated v2.15:** Coverage increased from 23% (76 ✅) to 43% (170 ✅) with 29 active tools. Strongest categories: Investigation (85%), Growth Engine (90%), VM (72%), EDR+FIM (61%), Certificates (60%). Remaining gaps are primarily trend analysis, granular PM job queries, cloud resource-type specifics, and K8s runtime. See `docs/gaps.md` for detailed gap analysis.
