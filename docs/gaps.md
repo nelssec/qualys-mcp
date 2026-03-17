@@ -1,591 +1,238 @@
-# Qualys MCP — Gap Analysis & New Tool Designs
+# Qualys MCP — Tool Coverage & Gap Analysis
 
-This document maps coverage gaps to new tool designs. Tools are ordered by priority (highest impact / most common questions first).
-
----
-
-## Priority 1: Zero-Coverage Modules (Immediate)
-
-These modules have **zero MCP coverage** today despite having internal helpers ready to expose. They answer entire question categories.
+Updated: 2026-03-17 | v2.15 | 29 active tools | 14 deprecated stubs | 515 customer questions
 
 ---
 
-### Tool: `get_webapp_vulns`
+## Active Tool → Question Coverage Map
 
-**Priority:** 🔴 Critical — WAS affects 50/500 questions (10%), all currently uncovered.
+### Investigation & Reporting
 
-**Questions it answers:**
-- "What web application vulnerabilities were found this week?"
-- "Show me all OWASP Top 10 findings across our apps."
-- "Are any of our web apps vulnerable to SQL injection?"
-- "Which web apps have the most critical vulnerabilities?"
-- "Show me all XSS vulnerabilities across our app portfolio."
+| Tool | Covers | Notes |
+|------|--------|-------|
+| `investigate` | Q1–7, Q8–10 (partial) | Deep-dive on any security topic; chains other tools internally |
+| `investigate_cve` | Q11–20 | CVE → QID → KB → asset inventory pipeline |
+| `summarize_investigation` | Q503–504 | Narrative summaries for exec or technical audiences |
+| `get_morning_report` | Q2–3, Q82–84, Q501–502 | Morning briefing with quick mode; includes `_gaps` and `_next` |
+| `reports` | Q81, Q86 | Unified report ops: list, templates, generate, status, download, delete |
 
-**Description:**
-Web application vulnerabilities from Qualys WAS/TotalAppSec. Shows active findings across your web application portfolio with OWASP category mapping, severity breakdown, and affected app details.
+### Vulnerability Management
 
-**Parameters:**
-```python
-severity: int = 0           # Filter: 4=Critical, 3=High, 2=Medium, 1=Low, 0=all
-days: int = 30              # Findings detected within N days (0=all active)
-app_name: str = ""          # Filter to a specific web application name
-owasp_category: str = ""    # Filter by OWASP category (e.g., "A03" for injection)
-limit: int = 50             # Max results
-```
+| Tool | Covers | Notes |
+|------|--------|-------|
+| `search_vulns` | Q1, Q5–9, Q27, Q41–50 | KB search: new vulns, RTI filtering, software-specific lookups |
+| `get_cve_details` | Q16, Q19–20 | Bulk CVE lookup (1–20 CVEs at once) |
+| `get_qid_details` | Q21–27 | Direct QID lookup: severity, QDS, patches, threat intel, CVEs |
+| `get_etm_findings` | Q31–32 | Confirmed vuln/misconfig findings from VMDR, TotalCloud, third-party |
+| `get_vuln_exceptions` | Q75–80 (partial) | Exceptions, waivers, false positives, expiry tracking |
+| `get_trurisk_score` | Q51–56 | Org-level TruRisk with trending, top assets, top QIDs, tag breakdown |
+| `get_weekly_priorities` | Q4, Q83 | Top high-risk assets ranked by TruRisk, severity tiers |
 
-**API endpoint:** `POST /qps/rest/3.0/search/was/finding`
-XML body with filters for status=ACTIVE, severity, date range, webApp name
+### Asset Management
 
-**Returns:**
-```json
-{
-  "summary": {"total": 42, "critical": 5, "high": 15, "medium": 18, "low": 4},
-  "byApp": [{"appName": "customer-portal", "critical": 3, "high": 7}],
-  "byCategory": {"SQL Injection": 2, "XSS": 12, "CSRF": 3},
-  "owaspTop10": {"A01-BrokenAccessControl": 5, "A03-Injection": 2},
-  "findings": [
-    {
-      "id": "12345",
-      "qid": 150001,
-      "name": "Cross-Site Scripting",
-      "severity": 3,
-      "url": "https://app.example.com/search",
-      "webAppName": "customer-portal",
-      "status": "ACTIVE",
-      "detectedDate": "2024-01-15",
-      "cves": ["CVE-2024-1234"]
-    }
-  ]
-}
-```
+| Tool | Covers | Notes |
+|------|--------|-------|
+| `get_asset` | Single-asset queries | Risk profile, OS, software, EOL, detections (summary or full) |
+| `get_asset_inventory` | Q396–410 (partial), Q421–430 (partial) | Search by OS, tag, keyword, EOL, staleness; list_tags/list_groups |
+| `get_tech_debt` | Q397–399, Q411–416 | EOL/EOS systems sorted by criticality and risk |
+| `get_risk_by_tag` | Q55, Q58–59 | Aggregate risk for a tag group: TruRisk tiers, top assets, EOL |
 
-**Implementation notes:** Internal `get_was_findings()` helper already exists and calls the correct endpoint. Wrap it with aggregation, OWASP mapping, and the MCP `@mcp.tool()` decorator.
+### Patch Management & TruRisk Eliminate
 
----
+| Tool | Covers | Notes |
+|------|--------|-------|
+| `get_patch_status` | Q71–74, Q91–93, Q101–103 | TruRisk by severity tier, top unpatched assets |
+| `get_eliminate_status` | Q141–151 (partial) | PM jobs, MTG jobs, patch catalog size, managed asset counts |
 
-### Tool: `get_expiring_certs`
+### Cloud Security
 
-**Priority:** 🔴 Critical — Cert expiry is one of the most common operational questions. 30/500 questions (6%), all uncovered. Expired certs cause outages.
+| Tool | Covers | Notes |
+|------|--------|-------|
+| `get_cloud_risk` | Q171–198 (partial) | CSPM posture + CDR threats; CIS benchmark failures; connector health |
 
-**Questions it answers:**
-- "Which SSL/TLS certificates expire in the next 30 days?"
-- "Are any certificates already expired?"
-- "Which servers are using weak cipher suites?"
-- "Are any servers still using TLS 1.0?"
-- "Show me all self-signed certificates in production."
-- "Which certificates have SHA-1 signatures?"
+### Web Application Security
 
-**Description:**
-SSL/TLS certificate inventory and expiry monitoring from Qualys CertView. Shows certificates expiring soon, expired certs, weak ciphers, insecure TLS versions, and configuration issues.
+| Tool | Covers | Notes |
+|------|--------|-------|
+| `get_webapp_vulns` | Q281–295 (partial), Q306–310 (partial) | WAS findings: severity, OWASP categories, per-app breakdown |
 
-**Parameters:**
-```python
-days: int = 90              # Show certs expiring within N days (0=all certs)
-include_expired: bool = True # Include already-expired certs
-weak_only: bool = False      # Show only certs with weak config
-limit: int = 100
-```
+### Endpoint Security
 
-**API endpoint:** `GET /certview/v1/certificates?pageSize={limit}&filter=validTo:<{future_date}`
+| Tool | Covers | Notes |
+|------|--------|-------|
+| `get_edr_events` | Q331–344 (most) | Malware, ransomware, C2, lateral movement, process injection |
+| `get_fim_events` | Q346–357 (most), Q363–364 | File changes, critical modifications, path/host filtering |
 
-**Returns:**
-```json
-{
-  "summary": {
-    "total": 156,
-    "expired": 3,
-    "expiring30Days": 8,
-    "expiring90Days": 22,
-    "weakCiphers": 5,
-    "tls10or11": 12,
-    "selfSigned": 7
-  },
-  "expiringSoon": [
-    {
-      "subject": "*.example.com",
-      "issuer": "Let's Encrypt",
-      "expiryDate": "2024-02-15",
-      "daysRemaining": 12,
-      "host": "api.example.com",
-      "port": 443,
-      "grade": "A",
-      "issues": []
-    }
-  ],
-  "issues": [
-    {
-      "host": "legacy.example.com",
-      "issue": "TLS 1.0 enabled",
-      "severity": "HIGH"
-    }
-  ]
-}
-```
+### Certificates
 
-**Implementation notes:** Internal `get_certificates()` helper exists. Internal `get_expiring_certs()` stub exists but not exposed. Enrich with config issue detection.
+| Tool | Covers | Notes |
+|------|--------|-------|
+| `get_expiring_certs` | Q366–373 (most), Q376–379, Q382, Q385–392 (partial) | Expiry monitoring, weak ciphers, TLS 1.0/1.1, self-signed, SHA-1 |
+
+### Compliance
+
+| Tool | Covers | Notes |
+|------|--------|-------|
+| `get_compliance_posture` | Q436–446 (partial) | Pass/fail by framework: CIS, PCI-DSS, HIPAA, NIST, SOC2, ISO27001 |
+
+### Scanner & Infrastructure
+
+| Tool | Covers | Notes |
+|------|--------|-------|
+| `get_scanner_health` | Q481–485 | Scanner online/offline, scan load, vuln signature currency |
+| `get_scan_status` | Q486–489 | Running, queued, failed scans with duration and target info |
+
+### Container Security
+
+| Tool | Covers | Notes |
+|------|--------|-------|
+| `get_image_vulns` | Q241–249 (partial) | Image-level vuln severity breakdown with fix versions |
+
+### Other
+
+| Tool | Covers | Notes |
+|------|--------|-------|
+| `get_recommendations` | Q85 | Program recommendations; identifies coverage gaps across modules |
+| `cache_status` | — | Operational: cache stats and flush (not question-facing) |
 
 ---
 
-### Tool: `get_edr_events`
+## Coverage Summary by Category
 
-**Priority:** 🔴 High — EDR detections are critical security operations data. 35/500 questions (7%), all uncovered. Part of the same workflow as vulnerability management.
+Counts derived from per-question annotations in `docs/questions.md`:
 
-**Questions it answers:**
-- "What malware was detected on endpoints this week?"
-- "Show me all ransomware detections."
-- "Which endpoints have active threat detections?"
-- "Are any hosts showing signs of C2 communication?"
-- "What suspicious process executions were detected?"
+| Category | Total | ✅ | ⚠️ | ❌ | Coverage |
+|----------|------:|---:|---:|---:|---------:|
+| Investigation Chaining | 10 | 7 | 3 | 0 | 85% |
+| Vulnerability Management | 90 | 58 | 14 | 18 | 72% |
+| Patch Management | 50 | 7 | 5 | 38 | 19% |
+| TruRisk Eliminate | 30 | 8 | 4 | 18 | 33% |
+| Cloud Security | 70 | 14 | 9 | 47 | 26% |
+| Container Security | 40 | 6 | 6 | 28 | 22% |
+| Web Application Security | 50 | 8 | 12 | 30 | 28% |
+| Endpoint / EDR + FIM | 35 | 15 | 13 | 7 | 61% |
+| Certificates / CertView | 30 | 13 | 10 | 7 | 60% |
+| Asset Management | 40 | 14 | 13 | 13 | 51% |
+| Compliance | 45 | 7 | 4 | 34 | 20% |
+| Scanner / Infrastructure | 20 | 9 | 4 | 7 | 55% |
+| Growth Engine | 5 | 4 | 1 | 0 | 90% |
+| **Total** | **515** | **170** | **98** | **247** | **43%** |
 
-**Description:**
-Endpoint Detection and Response events from Qualys Multi-Vector EDR. Shows active threat detections including malware, ransomware, C2 callbacks, suspicious processes, and behavioral anomalies.
+Coverage % = (✅ + ⚠️ × 0.5) / Total
 
-**Parameters:**
-```python
-days: int = 7               # Events in the last N days
-severity: str = ""          # CRITICAL, HIGH, MEDIUM, LOW
-category: str = ""          # malware, ransomware, c2, lateral_movement, etc.
-host: str = ""              # Filter to specific hostname or IP
-limit: int = 50
-```
+Previous assessment (pre-v2.15): 76 ✅ / 39 ⚠️ / 385 ❌ (23%)
+Current (v2.15): **170 ✅ / 98 ⚠️ / 247 ❌ (43%)**
 
-**API endpoint:** `GET /edr/v1/events?pageSize={limit}&filter=severity:{severity}`
-
-**Returns:**
-```json
-{
-  "summary": {
-    "total": 23,
-    "critical": 2,
-    "high": 8,
-    "medium": 13,
-    "affectedHosts": 7
-  },
-  "byCategory": {"Malware": 5, "Suspicious Process": 12, "C2": 1},
-  "events": [
-    {
-      "id": "evt-123",
-      "severity": "CRITICAL",
-      "category": "Malware",
-      "name": "Emotet Trojan",
-      "hostname": "DESKTOP-ABC123",
-      "ip": "10.0.1.45",
-      "user": "jsmith",
-      "timestamp": "2024-01-20T14:23:00Z",
-      "status": "ACTIVE",
-      "details": "Malicious file detected in C:\\Users\\..."
-    }
-  ]
-}
-```
-
-**Implementation notes:** Internal `get_edr_events()` helper exists. Needs wrapping with aggregation and the `@mcp.tool()` decorator.
+Coverage nearly doubled since the last gap analysis. The biggest gains came from Vulnerability Management (50% → 72%), Endpoint/EDR+FIM (→ 61%), Certificates (→ 60%), and Asset Management (→ 51%).
 
 ---
 
-### Tool: `get_fim_events`
+## Remaining Gaps
 
-**Priority:** 🔴 High — FIM is a core compliance control for PCI-DSS, SOX, HIPAA. 35 questions in EDR/FIM category, all uncovered.
+### Gap 1: Trend & Historical Analysis (~40 questions)
 
-**Questions it answers:**
-- "What file changes were detected in the last 24 hours?"
-- "Which critical system files were modified?"
-- "Were any configuration files changed outside maintenance windows?"
-- "Show me all FIM events on production servers."
-- "Are there unauthorized changes to Windows registry keys?"
+**Affected questions:** Q34–40, Q57, Q60, Q87–90, Q131–140, Q183, Q202, Q224, Q249, Q329–330, Q345, Q359, Q449, Q474, Q491
 
-**Description:**
-File Integrity Monitoring events from Qualys FIM. Shows file and registry changes, filtered by criticality, time window, and host. Essential for compliance (PCI-DSS 10.5, SOX change management).
+**What's missing:** Week-over-week and month-over-month trend data — vulnerability trends over 90 days, remediation rates over time, TruRisk change month-over-month.
 
-**Parameters:**
-```python
-days: int = 1               # Events in the last N days
-severity: str = ""          # HIGH, MEDIUM, LOW
-host: str = ""              # Filter to hostname or IP
-path: str = ""              # Filter by file path (prefix match)
-limit: int = 100
-```
+**Why it's hard:** The Qualys VMDR API does not provide historical snapshot endpoints. Trends would need to be computed from detection firstFound/lastFixed dates or from periodic snapshots stored externally.
 
-**API endpoint:** `GET /fim/v2/events?filter=dateTime:[{start}...{end}]&pageSize={limit}`
+**Recommendation:** A `get_vuln_trends` tool could approximate trends from current detection data with date filtering. Moderate effort — would cover ~40 questions.
 
-**Returns:**
-```json
-{
-  "summary": {
-    "total": 847,
-    "critical": 12,
-    "high": 45,
-    "affectedHosts": 23,
-    "newFiles": 156,
-    "modified": 634,
-    "deleted": 57
-  },
-  "topHosts": [{"hostname": "prod-db-01", "eventCount": 234}],
-  "criticalChanges": [
-    {
-      "id": "fim-789",
-      "hostname": "prod-web-01",
-      "path": "/etc/passwd",
-      "action": "MODIFIED",
-      "timestamp": "2024-01-20T03:45:00Z",
-      "user": "root",
-      "severity": "HIGH",
-      "expected": false
-    }
-  ]
-}
-```
+### Gap 2: Detailed Patch Management (~30 questions)
 
-**Implementation notes:** Internal `get_fim_events()` helper exists. Needs wrapping with aggregation logic.
+**Affected questions:** Q96–100, Q106–130
 
----
+**What's missing:** Individual patch job queries (by ID), specific KB patch lookups, patch scheduling, maintenance windows, rollback history, per-vendor patch breakdowns.
 
-### Tool: `get_compliance_posture`
+**Why it's hard:** The Qualys PM API provides job-level data, but mapping individual patches to assets requires deep PM API integration. Many of these questions assume a patch-management-centric workflow that goes beyond the current Eliminate-focused approach.
 
-**Priority:** 🔴 High — 45/500 questions (9%) around compliance, all uncovered. Qualys has a full Policy Compliance module but zero MCP exposure.
+**Recommendation:** Extend `get_eliminate_status` with a `job_id` parameter for per-job detail and a `vendor` filter. Covers ~10 more questions with minimal effort. The remaining 20 (maintenance windows, exclusions, scheduling) require PM API features not yet explored.
 
-**Questions it answers:**
-- "What's our CIS Benchmark compliance score?"
-- "Show me all failing CIS controls for Windows Server."
-- "What's our PCI-DSS compliance status?"
-- "Which systems are failing the most compliance checks?"
-- "Show me compliance failures by severity."
+### Gap 3: Cloud-Specific Resource Queries (~25 questions)
 
-**Description:**
-Policy Compliance posture from Qualys PC module. Shows pass/fail rates by framework (CIS, PCI-DSS, HIPAA, NIST, SOC2), top failing controls, and non-compliant assets.
+**Affected questions:** Q201–215, Q226–240
 
-**Parameters:**
-```python
-framework: str = ""         # CIS, PCI-DSS, HIPAA, NIST, SOC2, ISO27001 (empty=all)
-platform: str = ""          # Windows, Linux, Network, Database (empty=all)
-limit: int = 20             # Top N failing controls
-```
+**What's missing:** Queries about specific cloud resource types (Lambda functions, RDS instances, S3 buckets by name), per-account connector listing, cloud asset inventory by provider.
 
-**API endpoint:** Qualys PC v2 API — `GET /api/2.0/fo/compliance/posture/info/` or VM `/api/2.0/fo/compliance/control/`
+**Why it's hard:** `get_cloud_risk` provides aggregate posture and CDR findings but doesn't support resource-type-specific queries. The TotalCloud API has granular resource endpoints that aren't yet wrapped.
 
-**Returns:**
-```json
-{
-  "summary": {
-    "totalControls": 450,
-    "passing": 312,
-    "failing": 138,
-    "passRate": 69.3,
-    "affectedAssets": 145,
-    "frameworks": ["CIS", "PCI-DSS", "NIST-800-53"]
-  },
-  "topFailingControls": [
-    {
-      "controlId": "CIS-1.1.1",
-      "title": "Ensure mounting of cramfs filesystems is disabled",
-      "framework": "CIS Linux Benchmark",
-      "failingAssets": 87,
-      "severity": "HIGH"
-    }
-  ],
-  "byFramework": {
-    "CIS": {"passRate": 72.1, "failing": 45},
-    "PCI-DSS": {"passRate": 81.5, "failing": 22}
-  }
-}
-```
+**Recommendation:** A `get_cloud_resources` tool with `resource_type` and `provider` params could cover ~15 of these. Low-medium effort.
 
-**API research needed:** PC module API differs from VM API; may use `/api/2.0/fo/report/` with compliance report type, or dedicated PC API. Needs endpoint verification.
+### Gap 4: Kubernetes & Container Runtime (~20 questions)
+
+**Affected questions:** Q256–275
+
+**What's missing:** K8s cluster inventory, namespace-level vuln breakdown, RBAC analysis, pod-level queries, container runtime inventory.
+
+**Why it's hard:** Qualys Container Security API provides image scanning but K8s runtime data requires the Qualys K8s sensor and separate API endpoints not yet integrated.
+
+**Recommendation:** A `get_container_runtime` tool could surface running containers and basic K8s data. Medium effort — covers ~10 questions.
+
+### Gap 5: WAS Scan Management & Remediation (~20 questions)
+
+**Affected questions:** Q296–305, Q316–325
+
+**What's missing:** WAS scan status, scan scheduling, per-app scan history, web vuln remediation tracking, web vuln aging analysis.
+
+**Why it's hard:** `get_webapp_vulns` covers findings but not the scan management side. The WAS API has separate endpoints for web app inventory and scan management.
+
+**Recommendation:** Extend `get_webapp_vulns` with a `scan_status=True` parameter or add a `get_webapp_scans` tool. Low effort — covers ~10 questions.
+
+### Gap 6: Granular Compliance Controls (~30 questions)
+
+**Affected questions:** Q447–470
+
+**What's missing:** Framework-specific deep dives (FedRAMP, DISA STIG, CMMC, Essential 8), individual control queries, compliance-to-CVE mapping.
+
+**Why it's hard:** `get_compliance_posture` provides top-level pass/fail rates but the Qualys PC module has hundreds of controls across dozens of frameworks.
+
+**Recommendation:** Extend `get_compliance_posture` with a `control_id` parameter for single-control lookup. Low effort — covers ~5 more questions. Full framework coverage depends on customer licensing.
+
+### Gap 7: SLA & Business-Unit Segmentation (~15 questions)
+
+**Affected questions:** Q30, Q33, Q38–39, Q58, Q87–88, Q90, Q132, Q134, Q406–407, Q417
+
+**What's missing:** SLA-based queries ("What's past SLA?"), business-unit breakdowns, department-level metrics.
+
+**Why it's hard:** SLA definitions are customer-specific and not stored in Qualys APIs. Business-unit segmentation requires tag-based grouping that varies per customer.
+
+**Recommendation:** No new tool needed. `get_risk_by_tag` and `get_asset_inventory` approximate business-unit queries when customers use tags consistently. SLA tracking is out of scope.
 
 ---
 
-## Priority 2: High-Impact Extensions
+## Deprecated Tool Stubs (14)
+
+These return error messages redirecting users to the consolidated replacement:
+
+| Deprecated | Replacement |
+|------------|-------------|
+| `get_cdr_findings` | `get_cloud_risk(include_threats=True)` |
+| `get_asset_risk` | `get_asset(detail='summary')` |
+| `get_asset_full_profile` | `get_asset(detail='full')` |
+| `get_environment_summary` | `get_morning_report(quick=True)` |
+| `get_pm_status` | `get_eliminate_status()` |
+| `get_tags` | `get_asset_inventory(list_tags=True)` |
+| `get_asset_groups` | `get_asset_inventory(list_groups=True)` |
+| `get_assets_by_tag` | `get_asset_inventory(tag='...')` |
+| `list_reports` | `reports(action='list')` |
+| `list_report_templates` | `reports(action='templates')` |
+| `generate_report` | `reports(action='generate')` |
+| `get_report_status` | `reports(action='status')` |
+| `download_report` | `reports(action='download')` |
+| `delete_report` | `reports(action='delete')` |
 
 ---
 
-### Tool: `get_scan_status`
-
-**Priority:** 🟡 High — Scanner/scan management is 20 questions, with 14 uncovered. Operators constantly need to check scan status.
-
-**Questions it answers:**
-- "Show me all running scans right now."
-- "What scans are queued?"
-- "Show me scan history for the last 7 days."
-- "What scans failed in the last 24 hours?"
-- "Show me the scan schedule."
-
-**Description:**
-VM scan status and history — running, queued, completed, and failed scans. Shows what's happening with your vulnerability scans right now.
-
-**Parameters:**
-```python
-state: str = "Running,Paused,Queued,Error"  # Scan states to include
-days: int = 7                                # History window
-limit: int = 50
-```
-
-**API endpoint:** `GET /api/2.0/fo/scan/?action=list&state={state}&show_status=1`
-
-**Returns:**
-```json
-{
-  "active": [
-    {
-      "ref": "scan/123456789.12345",
-      "title": "Weekly Internal Scan",
-      "state": "Running",
-      "type": "API",
-      "target": "10.0.0.0/8",
-      "launched": "2024-01-20T08:00:00Z",
-      "duration": "01:23:45",
-      "scanner": "Internal Scanner 1",
-      "progress": 67
-    }
-  ],
-  "recent": [...],
-  "summary": {
-    "running": 2,
-    "queued": 1,
-    "errors": 3,
-    "completedToday": 8
-  }
-}
-```
-
-**Implementation notes:** Internal `get_scan_list()` helper exists. Needs wrapping + aggregation.
-
----
-
-### Tool: `get_pm_status` -- CONSOLIDATED
-
-**Status:** REMOVED -- use `get_eliminate_status()` instead.
-
-Patch Management functionality has been consolidated into `get_eliminate_status()`, which combines TruRisk Eliminate mitigation/patch data with PM deployment job status and patch coverage.
-
----
-
-### Tool: `get_asset_inventory`
-
-**Priority:** 🟡 Medium — Asset search/filtering is 35+ uncovered questions. CSAM provides rich asset data not currently surfaced.
-
-**Questions it answers:**
-- "Find all assets with hostname containing 'prod'."
-- "Show me all assets in the 10.0.0.0/8 subnet."
-- "Which assets have a specific software installed?"
-- "Show me all assets without any tags assigned."
-- "Which assets haven't been seen in 30+ days."
-
-**Description:**
-Asset inventory search and filtering using CSAM. Find assets by hostname, IP, software, tag, OS, or last seen date.
-
-**Parameters:**
-```python
-query: str = ""             # Free text: hostname, IP, OS, software name
-tag: str = ""               # Asset tag filter
-os: str = ""                # OS filter (Windows, Linux, macOS)
-days_since_seen: int = 0    # Assets not seen in N days
-eol_only: bool = False      # Show only EOL assets
-limit: int = 50
-```
-
-**API endpoints:**
-- `POST /qps/rest/2.0/search/am/asset` — CSAM search with QQL
-- `GET /qps/rest/2.0/count/am/asset` — count
-
-**Returns:**
-```json
-{
-  "total": 1247,
-  "assets": [
-    {
-      "id": "123456",
-      "name": "prod-web-01",
-      "ip": "10.0.1.10",
-      "os": "Ubuntu 22.04",
-      "lastSeen": "2024-01-20T08:00:00Z",
-      "tags": ["Production", "Web"],
-      "truRiskScore": 750,
-      "openVulns": 12,
-      "criticalVulns": 2,
-      "eol": false
-    }
-  ],
-  "summary": {
-    "byOS": {"Windows": 450, "Linux": 389, "macOS": 87},
-    "byTag": {"Production": 234, "DMZ": 45}
-  }
-}
-```
-
----
-
-### Tool: `get_vuln_trends`
-
-**Priority:** 🟡 Medium — Trend/reporting questions account for 20+ gaps. Executives and security managers need week-over-week and month-over-month data.
-
-**Questions it answers:**
-- "How has our Critical vulnerability count changed month over month?"
-- "Show me a trend: new vulns detected vs closed over 30 days."
-- "What's our remediation rate for the past quarter?"
-- "Show me TruRisk trend for the past 90 days."
-- "Which teams have the highest average vulnerability age?"
-
-**Description:**
-Vulnerability trend analysis — counts over time, open vs closed, remediation velocity, TruRisk score history. Draws from detection date data to compute trends.
-
-**Parameters:**
-```python
-days: int = 30              # Trend window
-severity: int = 0           # 0=all, 4=Critical, 3=High
-group_by: str = "week"      # day, week, month
-```
-
-**Returns:**
-```json
-{
-  "period": "30 days",
-  "trend": [
-    {
-      "period": "2024-01-01",
-      "newDetections": 45,
-      "closed": 38,
-      "openCritical": 23,
-      "openHigh": 87,
-      "truRiskScore": 743
-    }
-  ],
-  "summary": {
-    "netChange": +7,
-    "remediationRate": 84.4,
-    "avgAgeOpen": 18.5,
-    "criticalTrend": "improving"
-  }
-}
-```
-
-**Implementation notes:** Requires computing from `get_detections()` with date filtering. May need to be approximate since VMDR API doesn't provide historical snapshots natively — compute from current detections with firstFound/lastFixed dates.
-
----
-
-### Tool: `get_vuln_exceptions`
-
-**Priority:** 🟡 Medium — Exception management is ~10 uncovered questions. Common in regulated environments.
-
-**Questions it answers:**
-- "Which exceptions are about to expire?"
-- "How many vulnerabilities have active exceptions/waivers?"
-- "Show me all accepted risk vulnerabilities."
-- "What vulnerabilities have been marked as false positives?"
-- "Which exceptions expire this month?"
-
-**Description:**
-Vulnerability exception status — active waivers, false positives, ignored findings, and approaching expiry. Helps manage exception lifecycle.
-
-**Parameters:**
-```python
-status: str = "Active"      # Active, Expired, Pending
-type: str = ""              # Accepted, FalsePositive, Exception
-days_to_expiry: int = 30    # Show exceptions expiring within N days
-limit: int = 50
-```
-
-**API endpoint:** `GET /api/2.0/fo/exception/vuln/?action=list&status={status}`
-
-**Returns:**
-```json
-{
-  "summary": {
-    "total": 134,
-    "active": 112,
-    "expiringSoon": 8,
-    "expired": 22,
-    "byType": {"Accepted": 45, "FalsePositive": 67}
-  },
-  "expiringSoon": [
-    {
-      "id": "exc-123",
-      "qid": 91360,
-      "title": "OpenSSL vuln",
-      "expiryDate": "2024-02-10",
-      "assetCount": 12,
-      "reason": "Compensating control in place",
-      "approvedBy": "security-team"
-    }
-  ]
-}
-```
-
----
-
-## Priority 3: Valuable Extensions
-
----
-
-### Tool: `get_cloud_inventory`
-
-Answers cloud account/connector questions (15 gaps). Shows all connected AWS/Azure/GCP accounts, connector health, and coverage stats.
-
-**Parameters:** `provider: str = ""` (aws/azure/gcp/empty=all)
-
-**API endpoints:** `get_connectors()` + evaluation metadata
-
----
-
-### Tool: `get_cloud_compliance`
-
-Answers CIS cloud benchmark compliance questions (10 gaps). Shows compliance by framework/account with control-level detail.
-
-**Parameters:** `framework: str = "CIS"`, `provider: str = ""`, `account_id: str = ""`
-
-**API endpoints:** `get_evaluations()` enriched with control metadata
-
----
-
-### Tool: `get_container_inventory`
-
-Answers container runtime inventory questions (10 gaps). Shows running containers, their images, hosts, and vulnerability status.
-
-**Parameters:** `limit: int = 50`, `vuln_only: bool = False`
-
-**API endpoints:** `/container-security/v2/containers` or existing `get_containers()` helper
-
----
-
-### Tool: `get_webapp_inventory`
-
-Answers WAS scan coverage questions (10 gaps). Lists web applications in scope, last scan date, and scan health.
-
-**Parameters:** `limit: int = 50`
-
-**API endpoints:** `GET /qps/rest/3.0/search/was/webapp` — lists configured web applications
-
----
-
-## Gap Summary by Tool
-
-| New Tool | Questions Answered | Priority | API Ready? |
-|----------|-------------------|----------|------------|
-| `get_webapp_vulns` | 50 | 🔴 Critical | ✅ Helper exists |
-| `get_expiring_certs` | 30 | 🔴 Critical | ✅ Helper exists |
-| `get_edr_events` | 35 | 🔴 High | ✅ Helper exists |
-| `get_fim_events` | 35 | 🔴 High | ✅ Helper exists |
-| `get_compliance_posture` | 45 | 🔴 High | ⚠️ PC API research needed |
-| `get_scan_status` | 14 | 🟡 High | ✅ Helper exists |
-| ~~`get_pm_status`~~ | 42 | CONSOLIDATED | Use `get_eliminate_status()` |
-| `get_asset_inventory` | 35 | 🟡 Medium | ✅ CSAM API works |
-| `get_vuln_trends` | 20 | 🟡 Medium | ⚠️ Computed from detections |
-| `get_vuln_exceptions` | 10 | 🟡 Medium | ⚠️ Exceptions API |
-| `get_cloud_inventory` | 15 | 🟢 Low | ✅ Connectors API |
-| `get_cloud_compliance` | 10 | 🟢 Low | ✅ Evaluations API |
-| `get_container_inventory` | 10 | 🟢 Low | ✅ Container API |
-| `get_webapp_inventory` | 10 | 🟢 Low | ✅ WAS API |
-
-**Total new coverage:** ~361 additional questions (~72% improvement, from 23% to 95%+)
-
----
-
-## Partially-Covered Tools — Enhancement Suggestions
-
-| Tool | Current Gap | Enhancement |
-|------|-------------|-------------|
-| `get_asset` | Only single-asset lookup | Add bulk mode for list of IDs |
-| `get_cloud_risk` | Only first cloud account | Iterate all accounts |
-| `get_scanner_health` | No scan history | Link to `get_scan_status` |
-| `get_security_posture` | No WAS/compliance data | Add WAS and PC summary once tools exist |
-| `get_morning_report` | No FIM/EDR/certs | Add summaries once new tools are live |
-| `get_recommendations` | Cloud-only compliance | Add PC compliance gaps once tool exists |
+## Potential New Tools (Priority Order)
+
+| Tool | Est. Questions | Effort | Notes |
+|------|---------------|--------|-------|
+| `get_vuln_trends` | ~40 | Medium | Computed from detection dates; no native historical API |
+| `get_cloud_resources` | ~15 | Low-Med | Resource-type-specific cloud queries via TotalCloud API |
+| `get_container_runtime` | ~10 | Medium | Running containers, K8s cluster/namespace inventory |
+| `get_webapp_scans` | ~10 | Low | WAS scan management and scheduling |
+| Extend `get_eliminate_status` | ~10 | Low | Add `job_id` for per-job detail, `vendor` filter |
+| Extend `get_compliance_posture` | ~5 | Low | Add `control_id` for single-control lookup |
+
+Building all of these would bring total coverage from 43% to approximately 60%. The remaining 40% consists of highly granular queries (individual patch KBs, K8s RBAC, cloud resource-type specifics, SLA tracking) that require either deep API integration or customer-specific configuration.
