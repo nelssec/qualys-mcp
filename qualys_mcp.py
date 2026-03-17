@@ -8,8 +8,6 @@ import ssl
 import time
 import random
 import base64
-import random
-import time
 import threading
 from urllib.request import Request, urlopen
 from urllib.parse import urlencode, quote
@@ -124,11 +122,10 @@ elif _pod_env:
     BASE_URL, GATEWAY_URL = resolve_platform(_pod_env)
     _resolved_pod = _pod_env.upper()
 else:
-    raise EnvironmentError(
-        "Qualys platform not configured. "
-        "Set QUALYS_POD (e.g. QUALYS_POD=US2) or provide explicit "
-        "QUALYS_BASE_URL and QUALYS_GATEWAY_URL environment variables."
-    )
+    # Defer error to main() so the module can be imported for tests/tooling
+    BASE_URL    = ''
+    GATEWAY_URL = ''
+    _resolved_pod = None
 BASIC_AUTH = base64.b64encode(f"{USERNAME}:{PASSWORD}".encode()).decode()
 BEARER_TOKEN = None
 BEARER_TOKEN_TIME = None
@@ -244,10 +241,6 @@ def get_bearer_token():
             AUTH_ERROR = str(e)
             _log(f"Auth error: {e}")
             return None
-
-
-RETRY_STATUS = {429, 503, 502}
-MAX_RETRIES = 4
 
 
 def api_get(url, gateway=False, timeout=30, not_found_ok=False):
@@ -1198,9 +1191,12 @@ def _detect_gaps(data: dict) -> list[dict]:
 
     gaps = []
 
+    # Normalize: some callers set 'summary' as a string description, not a dict
+    _summary = data.get('summary') if isinstance(data.get('summary'), dict) else {}
+
     # 1. Assets unscanned >7 days → VMDR
     total_assets = (data.get('environment') or {}).get('totalAssets', 0) or \
-                   (data.get('summary') or {}).get('totalAssets', 0) or \
+                   _summary.get('totalAssets', 0) or \
                    data.get('assetsTotal', 0) or data.get('totalAssets', 0)
     health = (data.get('environment') or {}).get('healthScore', 100)
     # Estimate unscanned from health penalty — if health < 80, coverage likely has gaps
@@ -1293,9 +1289,9 @@ def _detect_gaps(data: dict) -> list[dict]:
         })
 
     # 6. Patches available but no active patch job → Patch Management
-    risk_900 = (data.get('summary') or {}).get('criticalRisk', 0) or \
+    risk_900 = _summary.get('criticalRisk', 0) or \
                (data.get('riskDistribution') or {}).get('critical_900plus', 0)
-    risk_high = (data.get('summary') or {}).get('highRisk', 0) or \
+    risk_high = _summary.get('highRisk', 0) or \
                 (data.get('riskDistribution') or {}).get('high_700plus', 0)
     patch_available = data.get('patchAvailable', False)
     has_vulns = (risk_900 or 0) + (risk_high or 0) > 0
@@ -1363,6 +1359,9 @@ def _build_next(data: dict, tool_name: str) -> dict:
     if not data:
         return {'investigate_deeper': investigate, 'take_action': actions}
 
+    # Normalize: some callers set 'summary' as a string description, not a dict
+    _summary = data.get('summary') if isinstance(data.get('summary'), dict) else {}
+
     # --- CVE-related suggestions ---
     cve = data.get('cve', '')
     if cve:
@@ -1386,7 +1385,7 @@ def _build_next(data: dict, tool_name: str) -> dict:
                 'tool': 'get_etm_findings',
                 'params': {'qql': f'vulnerabilities.vulnerability.cveIds:{cve}'},
             })
-        asset_count = (data.get('summary') or {}).get('assetsWithSoftware', 0)
+        asset_count = _summary.get('assetsWithSoftware', 0)
         if asset_count:
             investigate.append({
                 'question': f'What are the top affected assets for {cve}?',
@@ -1446,14 +1445,13 @@ def _build_next(data: dict, tool_name: str) -> dict:
 
     # EOL systems
     eol = (data.get('environment') or {}).get('eolSystems', 0) or \
-          (data.get('summary') or {}).get('eolSystems', 0)
+          _summary.get('eolSystems', 0)
     if eol:
         actions.append({'action': f'Plan upgrades for {eol} EOL systems', 'module': 'Qualys CSAM'})
 
     # ETM findings
-    etm_summary = data.get('summary') or {}
-    if etm_summary.get('totalFindings', 0) > 0:
-        patchable = etm_summary.get('patchable', 0)
+    if _summary.get('totalFindings', 0) > 0:
+        patchable = _summary.get('patchable', 0)
         if patchable:
             actions.append({'action': f'Patch {patchable} remediable findings', 'module': 'Qualys Patch Management'})
 
@@ -6096,6 +6094,12 @@ def _warmup_vmdr_cache():
 
 
 def main():
+    if not BASE_URL:
+        raise EnvironmentError(
+            "Qualys platform not configured. "
+            "Set QUALYS_POD (e.g. QUALYS_POD=US2) or provide explicit "
+            "QUALYS_BASE_URL and QUALYS_GATEWAY_URL environment variables."
+        )
     # Log resolved platform at startup
     if _resolved_pod:
         _log(f"Platform: POD={_resolved_pod}  BASE_URL={BASE_URL}  GATEWAY_URL={GATEWAY_URL}")
