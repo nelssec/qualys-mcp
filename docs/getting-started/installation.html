@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Installation | Qualys MCP Server</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+  <script src="../js/nav.js" defer></script>
+</head>
+<body>
+  <header class="header">
+    <a href="../index.html" class="header-logo">
+      <svg width="80" height="22" viewBox="0 0 80 22" fill="white">
+        <text x="0" y="16" font-family="Arial, sans-serif" font-size="14" font-weight="bold">QUALYS</text>
+      </svg>
+    </a>
+    <div class="header-divider"></div>
+    <span class="header-product">MCP Server Documentation</span>
+    <nav class="header-nav">
+      <a href="../getting-started/index.html">Getting Started</a>
+      <a href="../tools/index.html">Tools</a>
+      <a href="../examples/index.html">Examples</a>
+      <a href="https://github.com/nelssec/qualys-mcp" target="_blank">GitHub</a>
+    </nav>
+  </header>
+  <div class="layout">
+    <aside class="sidebar"></aside>
+    <main class="main-content">
+      <div class="content">
+        <div class="breadcrumb">
+          <a href="../index.html">Home</a>
+          <span>&rsaquo;</span>
+          <a href="index.html">Getting Started</a>
+          <span>&rsaquo;</span>
+          <span>Installation</span>
+        </div>
+
+        <h1>Installation</h1>
+        <p class="lead">Three ways to install Qualys MCP Server: uvx (recommended, zero-install), pip, or from source.</p>
+
+        <h2 id="option-1-uvx">Option 1: uvx (Recommended)</h2>
+        <p>The easiest way to use Qualys MCP Server is with <a href="https://docs.astral.sh/uv/">uvx</a>. It runs the package directly without installing anything permanently &mdash; uvx handles the virtual environment and dependencies automatically.</p>
+        <p>Add this to your Claude Desktop configuration file (<code>~/Library/Application Support/Claude/claude_desktop_config.json</code>):</p>
+        <pre><code>{
+  "mcpServers": {
+    "qualys": {
+      "command": "uvx",
+      "args": ["qualys-mcp"],
+      "env": {
+        "QUALYS_USERNAME": "your-username",
+        "QUALYS_PASSWORD": "your-password",
+        "QUALYS_POD": "US2"
+      }
+    }
+  }
+}</code></pre>
+        <div class="callout callout-info">
+          <div class="callout-title">Requires uv</div>
+          <p>Install uv first with <code>brew install uv</code> (macOS) or <code>curl -LsSf https://astral.sh/uv/install.sh | sh</code> (Linux).</p>
+        </div>
+
+        <h2 id="option-2-pip">Option 2: pip install</h2>
+        <p>If you prefer a traditional Python install:</p>
+        <pre><code>pip install qualys-mcp</code></pre>
+        <p>Then run the server directly:</p>
+        <pre><code>qualys-mcp</code></pre>
+        <p>To configure Claude Desktop with a pip-installed version, use <code>qualys-mcp</code> as the command:</p>
+        <pre><code>{
+  "mcpServers": {
+    "qualys": {
+      "command": "qualys-mcp",
+      "env": {
+        "QUALYS_USERNAME": "your-username",
+        "QUALYS_PASSWORD": "your-password",
+        "QUALYS_POD": "US2"
+      }
+    }
+  }
+}</code></pre>
+
+        <h2 id="option-3-from-source">Option 3: From Source</h2>
+        <p>For development or to run the latest unreleased changes:</p>
+        <pre><code>git clone https://github.com/nelssec/qualys-mcp.git
+cd qualys-mcp
+pip install -e .</code></pre>
+        <p>Then run with:</p>
+        <pre><code>python -m qualys_mcp</code></pre>
+
+        <h2 id="verifying-installation">Verifying Installation</h2>
+        <p>To verify that the server starts correctly, run it directly from the command line:</p>
+        <pre><code>qualys-mcp</code></pre>
+        <p>You should see the server start up and listen for MCP connections. Press <code>Ctrl+C</code> to stop it.</p>
+        <p>Alternatively, if you have Claude Desktop configured, open a new conversation and ask:</p>
+        <pre><code>What is the cache status?</code></pre>
+        <p>If the server is running correctly, Claude will invoke the MCP tool and return the current cache state.</p>
+
+        <h2 id="requirements">Requirements</h2>
+        <ul>
+          <li><strong>Python 3.10+</strong> &mdash; required for all installation methods</li>
+          <li><strong>Qualys API credentials</strong> &mdash; a username and password with API access</li>
+          <li><strong>Network access</strong> &mdash; the server needs to reach your Qualys API endpoints (e.g., <code>qualysapi.qg2.apps.qualys.com</code>)</li>
+        </ul>
+
+        <div class="page-nav">
+          <a href="index.html">
+            <span>&larr; Previous</span>
+            <strong>Getting Started</strong>
+          </a>
+          <a href="configuration.html" style="text-align: right;">
+            <span>Next &rarr;</span>
+            <strong>Configuration</strong>
+          </a>
+        </div>
+
+        <footer class="footer">
+          <div class="footer-content">
+            <div>MIT License - Copyright (c) 2026 Andrew Nelson</div>
+            <div class="footer-links">
+              <a href="https://github.com/nelssec/qualys-mcp">GitHub</a>
+              <a href="https://pypi.org/project/qualys-mcp/">PyPI</a>
+            </div>
+          </div>
+        </footer>
+      </div>
+      <aside class="toc">
+        <div class="toc-title">On this page</div>
+        <ul>
+          <li><a href="#option-1-uvx">Option 1: uvx (Recommended)</a></li>
+          <li><a href="#option-2-pip">Option 2: pip install</a></li>
+          <li><a href="#option-3-from-source">Option 3: From Source</a></li>
+          <li><a href="#verifying-installation">Verifying Installation</a></li>
+          <li><a href="#requirements">Requirements</a></li>
+        </ul>
+      </aside>
+    </main>
+  </div>
+</body>
+</html>

@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configuration | Qualys MCP Server</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+  <script src="../js/nav.js" defer></script>
+</head>
+<body>
+  <header class="header">
+    <a href="../index.html" class="header-logo">
+      <svg width="80" height="22" viewBox="0 0 80 22" fill="white">
+        <text x="0" y="16" font-family="Arial, sans-serif" font-size="14" font-weight="bold">QUALYS</text>
+      </svg>
+    </a>
+    <div class="header-divider"></div>
+    <span class="header-product">MCP Server Documentation</span>
+    <nav class="header-nav">
+      <a href="../getting-started/index.html">Getting Started</a>
+      <a href="../tools/index.html">Tools</a>
+      <a href="../examples/index.html">Examples</a>
+      <a href="https://github.com/nelssec/qualys-mcp" target="_blank">GitHub</a>
+    </nav>
+  </header>
+  <div class="layout">
+    <aside class="sidebar"></aside>
+    <main class="main-content">
+      <div class="content">
+        <div class="breadcrumb">
+          <a href="../index.html">Home</a>
+          <span>&rsaquo;</span>
+          <a href="index.html">Getting Started</a>
+          <span>&rsaquo;</span>
+          <span>Configuration</span>
+        </div>
+
+        <h1>Configuration</h1>
+        <p class="lead">Configure your Qualys MCP Server with POD-based URL derivation, environment variables, and SSL settings.</p>
+
+        <h2 id="pod-configuration">POD Configuration</h2>
+        <p>Set the <code>QUALYS_POD</code> environment variable to your Qualys platform POD. The server automatically derives the correct <code>BASE_URL</code> and <code>GATEWAY_URL</code> from the POD name, so you don't need to look up or remember API endpoint URLs.</p>
+
+        <h3>Supported PODs</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>POD</th>
+                <th>BASE_URL</th>
+                <th>GATEWAY_URL</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>US1</code></td>
+                <td>qualysapi.qualys.com</td>
+                <td>gateway.qg1.apps.qualys.com</td>
+              </tr>
+              <tr>
+                <td><code>US2</code></td>
+                <td>qualysapi.qg2.apps.qualys.com</td>
+                <td>gateway.qg2.apps.qualys.com</td>
+              </tr>
+              <tr>
+                <td><code>US3</code></td>
+                <td>qualysapi.qg3.apps.qualys.com</td>
+                <td>gateway.qg3.apps.qualys.com</td>
+              </tr>
+              <tr>
+                <td><code>US4</code></td>
+                <td>qualysapi.qg4.apps.qualys.com</td>
+                <td>gateway.qg4.apps.qualys.com</td>
+              </tr>
+              <tr>
+                <td><code>EU1</code></td>
+                <td>qualysapi.qualys.eu</td>
+                <td>gateway.qg1.apps.qualys.eu</td>
+              </tr>
+              <tr>
+                <td><code>EU2</code></td>
+                <td>qualysapi.qg2.apps.qualys.eu</td>
+                <td>gateway.qg2.apps.qualys.eu</td>
+              </tr>
+              <tr>
+                <td><code>EU3</code></td>
+                <td>qualysapi.qg3.apps.qualys.eu</td>
+                <td>gateway.qg3.apps.qualys.eu</td>
+              </tr>
+              <tr>
+                <td><code>IN1</code></td>
+                <td>qualysapi.qg1.apps.qualys.in</td>
+                <td>gateway.qg1.apps.qualys.in</td>
+              </tr>
+              <tr>
+                <td><code>CA1</code></td>
+                <td>qualysapi.qg1.apps.qualys.ca</td>
+                <td>gateway.qg1.apps.qualys.ca</td>
+              </tr>
+              <tr>
+                <td><code>AE1</code></td>
+                <td>qualysapi.qg1.apps.qualys.ae</td>
+                <td>gateway.qg1.apps.qualys.ae</td>
+              </tr>
+              <tr>
+                <td><code>UK1</code></td>
+                <td>qualysapi.qg1.apps.qualys.co.uk</td>
+                <td>gateway.qg1.apps.qualys.co.uk</td>
+              </tr>
+              <tr>
+                <td><code>AU1</code></td>
+                <td>qualysapi.qg1.apps.qualys.com.au</td>
+                <td>gateway.qg1.apps.qualys.com.au</td>
+              </tr>
+              <tr>
+                <td><code>KSA1</code></td>
+                <td>qualysapi.qg1.apps.qualys.sa</td>
+                <td>gateway.qg1.apps.qualys.sa</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2 id="environment-variables">Environment Variables</h2>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Variable</th>
+                <th>Required</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>QUALYS_USERNAME</code></td>
+                <td>Yes</td>
+                <td>Qualys API username</td>
+              </tr>
+              <tr>
+                <td><code>QUALYS_PASSWORD</code></td>
+                <td>Yes</td>
+                <td>Qualys API password</td>
+              </tr>
+              <tr>
+                <td><code>QUALYS_POD</code></td>
+                <td>Yes*</td>
+                <td>Platform POD (e.g., <code>US2</code>, <code>EU1</code>)</td>
+              </tr>
+              <tr>
+                <td><code>QUALYS_BASE_URL</code></td>
+                <td>No</td>
+                <td>Override the auto-derived base URL</td>
+              </tr>
+              <tr>
+                <td><code>QUALYS_GATEWAY_URL</code></td>
+                <td>No</td>
+                <td>Override the auto-derived gateway URL</td>
+              </tr>
+              <tr>
+                <td><code>QUALYS_SSL_VERIFY</code></td>
+                <td>No</td>
+                <td>Set to <code>"false"</code> to disable SSL certificate verification for self-signed certs</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>*Either <code>QUALYS_POD</code> or both <code>QUALYS_BASE_URL</code> and <code>QUALYS_GATEWAY_URL</code> are required.</p>
+
+        <h2 id="claude-desktop-configuration">Claude Desktop Configuration</h2>
+        <p>Add the following to your Claude Desktop config file at <code>~/Library/Application Support/Claude/claude_desktop_config.json</code>:</p>
+        <pre><code>{
+  "mcpServers": {
+    "qualys": {
+      "command": "uvx",
+      "args": ["qualys-mcp"],
+      "env": {
+        "QUALYS_USERNAME": "your-username",
+        "QUALYS_PASSWORD": "your-password",
+        "QUALYS_POD": "US2"
+      }
+    }
+  }
+}</code></pre>
+        <p>Restart Claude Desktop after saving the file. The MCP server will start automatically when Claude needs to use a Qualys tool.</p>
+
+        <h2 id="self-signed-certificates">Self-Signed Certificates</h2>
+        <p>For environments with SSL inspection proxies or self-signed certificates, you can disable SSL verification by adding <code>QUALYS_SSL_VERIFY</code> to your configuration:</p>
+        <pre><code>{
+  "mcpServers": {
+    "qualys": {
+      "command": "uvx",
+      "args": ["qualys-mcp"],
+      "env": {
+        "QUALYS_USERNAME": "your-username",
+        "QUALYS_PASSWORD": "your-password",
+        "QUALYS_POD": "US2",
+        "QUALYS_SSL_VERIFY": "false"
+      }
+    }
+  }
+}</code></pre>
+        <div class="callout callout-warning">
+          <div class="callout-title">Security Warning</div>
+          <p>Disabling SSL verification removes protection against man-in-the-middle attacks. Only use this setting in trusted network environments where SSL inspection is performed by a known corporate proxy. Never disable SSL verification in production or over untrusted networks.</p>
+        </div>
+
+        <h2 id="advanced-manual-url-override">Advanced: Manual URL Override</h2>
+        <p>If your environment requires specific API endpoint URLs, you can set <code>QUALYS_BASE_URL</code> and <code>QUALYS_GATEWAY_URL</code> directly. When these variables are set, they take priority over the <code>QUALYS_POD</code> value.</p>
+        <pre><code>{
+  "mcpServers": {
+    "qualys": {
+      "command": "uvx",
+      "args": ["qualys-mcp"],
+      "env": {
+        "QUALYS_USERNAME": "your-username",
+        "QUALYS_PASSWORD": "your-password",
+        "QUALYS_BASE_URL": "qualysapi.qg2.apps.qualys.com",
+        "QUALYS_GATEWAY_URL": "gateway.qg2.apps.qualys.com"
+      }
+    }
+  }
+}</code></pre>
+        <div class="callout callout-info">
+          <div class="callout-title">Tip</div>
+          <p>Most users should use <code>QUALYS_POD</code> instead of manual URL overrides. The POD-based configuration is simpler and less error-prone. Use manual overrides only if your Qualys deployment uses non-standard URLs.</p>
+        </div>
+
+        <div class="page-nav">
+          <a href="installation.html">
+            <span>&larr; Previous</span>
+            <strong>Installation</strong>
+          </a>
+          <a href="../tools/index.html" style="text-align: right;">
+            <span>Next &rarr;</span>
+            <strong>Tools Overview</strong>
+          </a>
+        </div>
+
+        <footer class="footer">
+          <div class="footer-content">
+            <div>MIT License - Copyright (c) 2026 Andrew Nelson</div>
+            <div class="footer-links">
+              <a href="https://github.com/nelssec/qualys-mcp">GitHub</a>
+              <a href="https://pypi.org/project/qualys-mcp/">PyPI</a>
+            </div>
+          </div>
+        </footer>
+      </div>
+      <aside class="toc">
+        <div class="toc-title">On this page</div>
+        <ul>
+          <li><a href="#pod-configuration">POD Configuration</a></li>
+          <li><a href="#environment-variables">Environment Variables</a></li>
+          <li><a href="#claude-desktop-configuration">Claude Desktop Configuration</a></li>
+          <li><a href="#self-signed-certificates">Self-Signed Certificates</a></li>
+          <li><a href="#advanced-manual-url-override">Advanced: Manual URL Override</a></li>
+        </ul>
+      </aside>
+    </main>
+  </div>
+</body>
+</html>

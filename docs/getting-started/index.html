@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Getting Started | Qualys MCP Server</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+  <script src="../js/nav.js" defer></script>
+</head>
+<body>
+  <header class="header">
+    <a href="../index.html" class="header-logo">
+      <svg width="80" height="22" viewBox="0 0 80 22" fill="white">
+        <text x="0" y="16" font-family="Arial, sans-serif" font-size="14" font-weight="bold">QUALYS</text>
+      </svg>
+    </a>
+    <div class="header-divider"></div>
+    <span class="header-product">MCP Server Documentation</span>
+    <nav class="header-nav">
+      <a href="../getting-started/index.html">Getting Started</a>
+      <a href="../tools/index.html">Tools</a>
+      <a href="../examples/index.html">Examples</a>
+      <a href="https://github.com/nelssec/qualys-mcp" target="_blank">GitHub</a>
+    </nav>
+  </header>
+  <div class="layout">
+    <aside class="sidebar"></aside>
+    <main class="main-content">
+      <div class="content">
+        <div class="breadcrumb">
+          <a href="../index.html">Home</a>
+          <span>&rsaquo;</span>
+          <span>Getting Started</span>
+        </div>
+
+        <h1>Getting Started</h1>
+        <p class="lead">Get up and running with Qualys MCP Server in under 5 minutes. Connect your AI assistant to Qualys security data and start asking questions in plain English.</p>
+
+        <h2 id="prerequisites">Prerequisites</h2>
+        <ul>
+          <li>A <strong>Qualys subscription</strong> with API access enabled</li>
+          <li><strong>Python 3.10+</strong> or the <a href="https://docs.astral.sh/uv/">uv package manager</a></li>
+          <li><strong>Claude Desktop</strong> or any MCP-compatible AI client</li>
+        </ul>
+
+        <h2 id="quick-start">Quick Start</h2>
+        <ol class="step-list">
+          <li>
+            <strong>Install uv</strong> (if you don't have it already):
+            <pre><code>brew install uv</code></pre>
+            <p>Or on Linux:</p>
+            <pre><code>curl -LsSf https://astral.sh/uv/install.sh | sh</code></pre>
+          </li>
+          <li>
+            <strong>Add to Claude Desktop config</strong> (<code>~/Library/Application Support/Claude/claude_desktop_config.json</code>):
+            <pre><code>{
+  "mcpServers": {
+    "qualys": {
+      "command": "uvx",
+      "args": ["qualys-mcp"],
+      "env": {
+        "QUALYS_USERNAME": "your-username",
+        "QUALYS_PASSWORD": "your-password",
+        "QUALYS_POD": "US2"
+      }
+    }
+  }
+}</code></pre>
+          </li>
+          <li>
+            <strong>Restart Claude Desktop</strong> to pick up the new configuration.
+          </li>
+          <li>
+            <strong>Ask a question!</strong> Try one of these:
+            <ul>
+              <li>"What's my security posture?"</li>
+              <li>"Any new critical vulns this week?"</li>
+            </ul>
+          </li>
+        </ol>
+
+        <h2 id="whats-next">What's Next?</h2>
+        <div class="card-grid">
+          <a href="installation.html" class="card">
+            <div class="card-icon" style="background: #e6f2ff;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#338ADE" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </div>
+            <h3>Installation</h3>
+            <p>Full install options: uvx, pip, or from source.</p>
+            <span class="card-link">Learn more &rarr;</span>
+          </a>
+          <a href="configuration.html" class="card">
+            <div class="card-icon" style="background: #eaf3e9;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#3A7634" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </div>
+            <h3>Configuration</h3>
+            <p>POD setup, environment variables, and SSL settings.</p>
+            <span class="card-link">Learn more &rarr;</span>
+          </a>
+          <a href="../tools/index.html" class="card">
+            <div class="card-icon" style="background: #fff8e6;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#9a6700" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+            </div>
+            <h3>Tools Overview</h3>
+            <p>Explore all 35 tools across vulnerability, asset, cloud, and compliance domains.</p>
+            <span class="card-link">Learn more &rarr;</span>
+          </a>
+        </div>
+
+        <div class="page-nav">
+          <a href="../index.html">
+            <span>&larr; Previous</span>
+            <strong>Home</strong>
+          </a>
+          <a href="installation.html" style="text-align: right;">
+            <span>Next &rarr;</span>
+            <strong>Installation</strong>
+          </a>
+        </div>
+
+        <footer class="footer">
+          <div class="footer-content">
+            <div>MIT License - Copyright (c) 2026 Andrew Nelson</div>
+            <div class="footer-links">
+              <a href="https://github.com/nelssec/qualys-mcp">GitHub</a>
+              <a href="https://pypi.org/project/qualys-mcp/">PyPI</a>
+            </div>
+          </div>
+        </footer>
+      </div>
+      <aside class="toc">
+        <div class="toc-title">On this page</div>
+        <ul>
+          <li><a href="#prerequisites">Prerequisites</a></li>
+          <li><a href="#quick-start">Quick Start</a></li>
+          <li><a href="#whats-next">What's Next?</a></li>
+        </ul>
+      </aside>
+    </main>
+  </div>
+</body>
+</html>

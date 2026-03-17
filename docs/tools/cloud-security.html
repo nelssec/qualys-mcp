@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cloud Security Tools | Qualys MCP Server</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+  <script src="../js/nav.js" defer></script>
+</head>
+<body>
+  <header class="header">
+    <a href="../index.html" class="header-logo">
+      <svg width="80" height="22" viewBox="0 0 80 22" fill="white">
+        <text x="0" y="16" font-family="Arial, sans-serif" font-size="14" font-weight="bold">QUALYS</text>
+      </svg>
+    </a>
+    <div class="header-divider"></div>
+    <span class="header-product">MCP Server Documentation</span>
+    <nav class="header-nav">
+      <a href="../getting-started/index.html">Getting Started</a>
+      <a href="../tools/index.html">Tools</a>
+      <a href="../examples/index.html">Examples</a>
+      <a href="https://github.com/nelssec/qualys-mcp" target="_blank">GitHub</a>
+    </nav>
+  </header>
+  <div class="layout">
+    <aside class="sidebar"></aside>
+    <main class="main-content">
+      <div class="content">
+        <div class="breadcrumb">
+          <a href="../index.html">Home</a>
+          <span>&rsaquo;</span>
+          <a href="index.html">Tools</a>
+          <span>&rsaquo;</span>
+          <span>Cloud Security</span>
+        </div>
+
+        <h1>Cloud Security Tools</h1>
+        <p class="lead">Monitor cloud posture across AWS, Azure, and GCP. Detect cloud threats with CDR. Scan container images for vulnerabilities.</p>
+
+        <h2 id="get_cloud_risk"><code>get_cloud_risk</code></h2>
+        <p>Cloud security posture &mdash; CIS benchmark failures, misconfigurations, account-level risk across providers. Also serves as CDR findings viewer when <code>include_threats=True</code>.</p>
+
+        <h3>Parameters</h3>
+        <table>
+          <thead>
+            <tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>include_threats</code></td><td>bool</td><td><code>False</code></td><td>Include CDR threat detections alongside posture data</td></tr>
+            <tr><td><code>days</code></td><td>int</td><td><code>30</code></td><td>Lookback window in days</td></tr>
+            <tr><td><code>severity</code></td><td>str</td><td><code>""</code></td><td>Filter by severity (e.g., CRITICAL, HIGH)</td></tr>
+            <tr><td><code>cloud_provider</code></td><td>str</td><td><code>""</code></td><td>Filter by cloud provider (AWS, AZURE, GCP)</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Examples</h3>
+        <table>
+          <thead>
+            <tr><th>You ask</th><th>Tool call</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>"What's our cloud security posture?"</td><td><code>get_cloud_risk()</code></td></tr>
+            <tr><td>"How many CIS controls are failing in AWS?"</td><td><code>get_cloud_risk()</code></td></tr>
+            <tr><td>"What cloud threats were detected this week?"</td><td><code>get_cloud_risk(include_threats=True, days=7)</code></td></tr>
+            <tr><td>"Show me critical CDR findings in AWS"</td><td><code>get_cloud_risk(include_threats=True, severity="CRITICAL", cloud_provider="AWS")</code></td></tr>
+            <tr><td>"Are there any crypto-miners in our cloud?"</td><td><code>get_cloud_risk(include_threats=True, days=30)</code></td></tr>
+            <tr><td>"Show me Azure threat detections from last month"</td><td><code>get_cloud_risk(include_threats=True, days=30, cloud_provider="AZURE")</code></td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="get_cdr_findings"><code>get_cdr_findings</code></h2>
+        <p>Cloud Detection &amp; Response findings from TotalCloud. Returns threat detections, suspicious activities, and security incidents across cloud environments.</p>
+
+        <h3>Parameters</h3>
+        <table>
+          <thead>
+            <tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>days</code></td><td>int</td><td><code>7</code></td><td>Lookback window in days</td></tr>
+            <tr><td><code>severity</code></td><td>str</td><td><code>""</code></td><td>Filter by severity (e.g., CRITICAL, HIGH)</td></tr>
+            <tr><td><code>cloud_provider</code></td><td>str</td><td><code>""</code></td><td>Filter by cloud provider (AWS, AZURE, GCP)</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Examples</h3>
+        <table>
+          <thead>
+            <tr><th>You ask</th><th>Tool call</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>"What cloud threats were detected recently?"</td><td><code>get_cdr_findings()</code></td></tr>
+            <tr><td>"Show me critical CDR findings from the last 3 days"</td><td><code>get_cdr_findings(days=3, severity="CRITICAL")</code></td></tr>
+            <tr><td>"Any GCP security incidents this week?"</td><td><code>get_cdr_findings(days=7, cloud_provider="GCP")</code></td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="get_image_vulns"><code>get_image_vulns</code></h2>
+        <p>Container image vulnerability scanning. Returns vulnerabilities found in a specific container image, including severity, CVEs, and fix availability.</p>
+
+        <h3>Parameters</h3>
+        <table>
+          <thead>
+            <tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>image_id</code></td><td>str</td><td><em>required</em></td><td>The container image ID or digest to scan</td></tr>
+            <tr><td><code>limit</code></td><td>int</td><td><code>50</code></td><td>Maximum number of vulnerabilities to return</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Examples</h3>
+        <table>
+          <thead>
+            <tr><th>You ask</th><th>Tool call</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>"What vulns are in container image sha256:abc123?"</td><td><code>get_image_vulns(image_id="sha256:abc123")</code></td></tr>
+            <tr><td>"Show me the top 10 vulns in image img-456"</td><td><code>get_image_vulns(image_id="img-456", limit=10)</code></td></tr>
+          </tbody>
+        </table>
+
+        <div class="page-nav">
+          <a href="asset-management.html">
+            <span>&larr; Previous</span>
+            <strong>Asset Management</strong>
+          </a>
+          <a href="compliance.html" style="text-align: right;">
+            <span>Next &rarr;</span>
+            <strong>Compliance</strong>
+          </a>
+        </div>
+
+        <footer class="footer">
+          <div class="footer-content">
+            <div>MIT License - Copyright (c) 2026 Andrew Nelson</div>
+            <div class="footer-links">
+              <a href="https://github.com/nelssec/qualys-mcp">GitHub</a>
+              <a href="https://pypi.org/project/qualys-mcp/">PyPI</a>
+            </div>
+          </div>
+        </footer>
+      </div>
+      <aside class="toc">
+        <div class="toc-title">On this page</div>
+        <ul>
+          <li><a href="#get_cloud_risk">get_cloud_risk</a></li>
+          <li><a href="#get_cdr_findings">get_cdr_findings</a></li>
+          <li><a href="#get_image_vulns">get_image_vulns</a></li>
+        </ul>
+      </aside>
+    </main>
+  </div>
+</body>
+</html>

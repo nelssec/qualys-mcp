@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Compliance &amp; Remediation Tools | Qualys MCP Server</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+  <script src="../js/nav.js" defer></script>
+</head>
+<body>
+  <header class="header">
+    <a href="../index.html" class="header-logo">
+      <svg width="80" height="22" viewBox="0 0 80 22" fill="white">
+        <text x="0" y="16" font-family="Arial, sans-serif" font-size="14" font-weight="bold">QUALYS</text>
+      </svg>
+    </a>
+    <div class="header-divider"></div>
+    <span class="header-product">MCP Server Documentation</span>
+    <nav class="header-nav">
+      <a href="../getting-started/index.html">Getting Started</a>
+      <a href="../tools/index.html">Tools</a>
+      <a href="../examples/index.html">Examples</a>
+      <a href="https://github.com/nelssec/qualys-mcp" target="_blank">GitHub</a>
+    </nav>
+  </header>
+  <div class="layout">
+    <aside class="sidebar"></aside>
+    <main class="main-content">
+      <div class="content">
+        <div class="breadcrumb">
+          <a href="../index.html">Home</a>
+          <span>&rsaquo;</span>
+          <a href="index.html">Tools</a>
+          <span>&rsaquo;</span>
+          <span>Compliance</span>
+        </div>
+
+        <h1>Compliance &amp; Remediation Tools</h1>
+        <p class="lead">Policy compliance monitoring, remediation ticket management, SLA tracking, and vulnerability exception management.</p>
+
+        <h2 id="get_compliance_posture"><code>get_compliance_posture</code></h2>
+        <p>Policy compliance from the Qualys PC module. Returns pass/fail rates by framework (CIS, PCI-DSS, HIPAA, NIST, SOC2) and top failing controls.</p>
+
+        <h3>Parameters</h3>
+        <table>
+          <thead>
+            <tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>framework</code></td><td>str</td><td><code>""</code></td><td>Filter by compliance framework (CIS, PCI-DSS, HIPAA, NIST, SOC2)</td></tr>
+            <tr><td><code>platform</code></td><td>str</td><td><code>""</code></td><td>Filter by platform (Linux, Windows, etc.)</td></tr>
+            <tr><td><code>limit</code></td><td>int</td><td><code>20</code></td><td>Maximum number of failing controls to return</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Return Shape</h3>
+        <pre><code>{
+  "framework": "CIS",
+  "total_controls": 245,
+  "passed": 198,
+  "failed": 47,
+  "pass_rate": 80.8,
+  "top_failing_controls": [
+    {
+      "control_id": "4.1.1",
+      "title": "Ensure auditing is enabled",
+      "failing_assets": 23,
+      "severity": "HIGH"
+    }
+  ]
+}</code></pre>
+
+        <h3>Examples</h3>
+        <table>
+          <thead>
+            <tr><th>You ask</th><th>Tool call</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>"What's our CIS Benchmark compliance score?"</td><td><code>get_compliance_posture(framework="CIS")</code></td></tr>
+            <tr><td>"Show me failing PCI-DSS controls"</td><td><code>get_compliance_posture(framework="PCI-DSS")</code></td></tr>
+            <tr><td>"What's our Linux policy compliance rate?"</td><td><code>get_compliance_posture(platform="Linux")</code></td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="get_remediation_tickets"><code>get_remediation_tickets</code></h2>
+        <p>Remediation ticket tracking. Filter by status, assignee, or overdue flag to manage your remediation workflow.</p>
+
+        <h3>Parameters</h3>
+        <table>
+          <thead>
+            <tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>status</code></td><td>str</td><td><code>"OPEN"</code></td><td>Filter by ticket status (OPEN, CLOSED, IN_PROGRESS)</td></tr>
+            <tr><td><code>assignee</code></td><td>str</td><td><code>""</code></td><td>Filter by assigned user</td></tr>
+            <tr><td><code>overdue</code></td><td>bool</td><td><code>False</code></td><td>Show only overdue tickets</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Examples</h3>
+        <table>
+          <thead>
+            <tr><th>You ask</th><th>Tool call</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>"What remediation tickets are open?"</td><td><code>get_remediation_tickets(status="OPEN")</code></td></tr>
+            <tr><td>"Show me overdue remediation tickets"</td><td><code>get_remediation_tickets(overdue=True)</code></td></tr>
+            <tr><td>"What tickets are assigned to jsmith?"</td><td><code>get_remediation_tickets(assignee="jsmith")</code></td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="create_remediation_ticket"><code>create_remediation_ticket</code></h2>
+        <p>Create a remediation ticket for a QID + asset combination. Links the vulnerability finding to an actionable ticket for tracking.</p>
+
+        <h3>Parameters</h3>
+        <table>
+          <thead>
+            <tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>qid</code></td><td>str</td><td><em>required</em></td><td>The Qualys QID to remediate</td></tr>
+            <tr><td><code>asset_id</code></td><td>str</td><td><em>required</em></td><td>The asset ID where the vulnerability exists</td></tr>
+            <tr><td><code>assignee</code></td><td>str</td><td><code>""</code></td><td>User to assign the ticket to</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Examples</h3>
+        <table>
+          <thead>
+            <tr><th>You ask</th><th>Tool call</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>"Create a ticket for QID 376267 on asset 123"</td><td><code>create_remediation_ticket(qid="376267", asset_id="123", assignee="jsmith")</code></td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="get_sla_status"><code>get_sla_status</code></h2>
+        <p>SLA compliance &mdash; open/closed/overdue counts, compliance rate, and mean time to remediate (MTTR) by severity.</p>
+
+        <h3>Examples</h3>
+        <table>
+          <thead>
+            <tr><th>You ask</th><th>Tool call</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>"What's our SLA compliance rate?"</td><td><code>get_sla_status()</code></td></tr>
+            <tr><td>"What's our mean time to remediate?"</td><td><code>get_sla_status()</code></td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="get_vuln_exceptions"><code>get_vuln_exceptions</code></h2>
+        <p>Vulnerability exception lifecycle &mdash; active waivers, false positives, and exceptions approaching expiry.</p>
+
+        <h3>Parameters</h3>
+        <table>
+          <thead>
+            <tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>days_to_expiry</code></td><td>int</td><td><code>30</code></td><td>Show exceptions expiring within this many days</td></tr>
+            <tr><td><code>vuln_type</code></td><td>str</td><td><code>""</code></td><td>Filter by exception type (e.g., false_positive)</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Examples</h3>
+        <table>
+          <thead>
+            <tr><th>You ask</th><th>Tool call</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>"What exceptions expire soon?"</td><td><code>get_vuln_exceptions(days_to_expiry=30)</code></td></tr>
+            <tr><td>"Show me all false positive exceptions"</td><td><code>get_vuln_exceptions(vuln_type="false_positive")</code></td></tr>
+          </tbody>
+        </table>
+
+        <div class="page-nav">
+          <a href="cloud-security.html">
+            <span>&larr; Previous</span>
+            <strong>Cloud Security</strong>
+          </a>
+          <a href="operations.html" style="text-align: right;">
+            <span>Next &rarr;</span>
+            <strong>Operations</strong>
+          </a>
+        </div>
+
+        <footer class="footer">
+          <div class="footer-content">
+            <div>MIT License - Copyright (c) 2026 Andrew Nelson</div>
+            <div class="footer-links">
+              <a href="https://github.com/nelssec/qualys-mcp">GitHub</a>
+              <a href="https://pypi.org/project/qualys-mcp/">PyPI</a>
+            </div>
+          </div>
+        </footer>
+      </div>
+      <aside class="toc">
+        <div class="toc-title">On this page</div>
+        <ul>
+          <li><a href="#get_compliance_posture">get_compliance_posture</a></li>
+          <li><a href="#get_remediation_tickets">get_remediation_tickets</a></li>
+          <li><a href="#create_remediation_ticket">create_remediation_ticket</a></li>
+          <li><a href="#get_sla_status">get_sla_status</a></li>
+          <li><a href="#get_vuln_exceptions">get_vuln_exceptions</a></li>
+        </ul>
+      </aside>
+    </main>
+  </div>
+</body>
+</html>

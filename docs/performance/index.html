@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Performance | Qualys MCP Server</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+  <script src="../js/nav.js" defer></script>
+</head>
+<body>
+  <header class="header">
+    <a href="../index.html" class="header-logo">
+      <svg width="80" height="22" viewBox="0 0 80 22" fill="white">
+        <text x="0" y="16" font-family="Arial, sans-serif" font-size="14" font-weight="bold">QUALYS</text>
+      </svg>
+    </a>
+    <div class="header-divider"></div>
+    <span class="header-product">MCP Server Documentation</span>
+    <nav class="header-nav">
+      <a href="../getting-started/index.html">Getting Started</a>
+      <a href="../tools/index.html">Tools</a>
+      <a href="../examples/index.html">Examples</a>
+      <a href="https://github.com/nelssec/qualys-mcp" target="_blank">GitHub</a>
+    </nav>
+  </header>
+  <div class="layout">
+    <aside class="sidebar"></aside>
+    <main class="main-content">
+      <div class="content">
+        <div class="breadcrumb">
+          <a href="../index.html">Home</a>
+          <span>&rsaquo;</span>
+          <span>Performance</span>
+        </div>
+
+        <h1>Performance</h1>
+        <p class="lead">API latency baselines, tool performance targets, benchmark results, and optimization history.</p>
+
+        <h2 id="api-latency-baseline">API Latency Baseline</h2>
+        <p>Typical latencies observed against the Qualys API under normal load. These values represent single-request round-trip times and vary with result set size, network conditions, and Qualys platform load.</p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>API / Endpoint</th>
+                <th>Typical Latency</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>CSAM v2 count</td><td>0.2-0.5s</td><td>Fast JSON API</td></tr>
+              <tr><td>CSAM v2 search (100 assets)</td><td>0.5-3s</td><td>Depends on result set</td></tr>
+              <tr><td>VMDR detection list</td><td>60-180s</td><td>XML, slow for &gt;200 hosts</td></tr>
+              <tr><td>VMDR KB lookup (single QID)</td><td>0.5-1s</td><td></td></tr>
+              <tr><td>VMDR KB lookup (50 QIDs)</td><td>2-4s</td><td></td></tr>
+              <tr><td>VMDR KB published_after</td><td>2-5s</td><td>Depends on date range</td></tr>
+              <tr><td>ETM report list</td><td>0.5-2s</td><td></td></tr>
+              <tr><td>ETM report detail</td><td>1-3s</td><td></td></tr>
+              <tr><td>ETM report create (async)</td><td>60-300s</td><td>Creates; must poll</td></tr>
+              <tr><td>ETM report download</td><td>1-5s</td><td>After ready</td></tr>
+              <tr><td>WAS findings</td><td>5-30s</td><td>Depends on count</td></tr>
+              <tr><td>Bearer token refresh</td><td>1-2s</td><td>3.5h cache</td></tr>
+              <tr><td>Container images list</td><td>1-3s</td><td></td></tr>
+              <tr><td>TotalCloud connectors</td><td>0.5-2s per provider</td><td></td></tr>
+              <tr><td>TotalCloud evaluations</td><td>2-8s per account</td><td></td></tr>
+              <tr><td>CDR findings</td><td>1-5s</td><td></td></tr>
+              <tr><td>PM jobs</td><td>1-3s</td><td></td></tr>
+              <tr><td>Scanner appliance list</td><td>1-3s</td><td>XML</td></tr>
+              <tr><td>FIM events</td><td>1-5s</td><td></td></tr>
+              <tr><td>EDR events</td><td>1-5s</td><td></td></tr>
+              <tr><td>CertView certificates</td><td>1-5s</td><td></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2 id="tool-latencies">Tool Latencies</h2>
+        <p>Estimated cold (first call, empty cache) and warm (subsequent call, cache populated) latencies for each MCP tool. Cold estimates include all upstream API round-trips; warm estimates reflect cached paths.</p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Tool</th>
+                <th>Cold Estimate</th>
+                <th>Warm Estimate</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td><code>get_morning_report</code></td><td>8-15s</td><td>3-5s</td><td>6 concurrent calls</td></tr>
+              <tr><td><code>get_weekly_priorities</code></td><td>5-10s</td><td>1-2s</td><td>9 parallel CSAM calls</td></tr>
+              <tr><td><code>get_security_posture</code></td><td>8-15s</td><td>1-2s</td><td>10 parallel calls</td></tr>
+              <tr><td><code>get_patch_status</code></td><td>5-10s</td><td>1-2s</td><td>Mixed concurrent</td></tr>
+              <tr><td><code>get_threat_intel</code></td><td>5-30s</td><td>5-30s</td><td>VMDR detection</td></tr>
+              <tr><td><code>get_new_vulns</code></td><td>3-8s</td><td>3-8s</td><td>KB API, no cache</td></tr>
+              <tr><td><code>investigate_cve</code></td><td>8-20s</td><td>3-5s</td><td>KB + CSAM + QDS concurrent</td></tr>
+              <tr><td><code>get_cve_details</code></td><td>10-30s</td><td>3-5s</td><td>Multi-CVE KB lookups</td></tr>
+              <tr><td><code>get_qid_details</code></td><td>3-8s</td><td>0.1s</td><td>KB cache</td></tr>
+              <tr><td><code>get_vulns_by_software</code></td><td>3-8s</td><td>3-8s</td><td>KB API, no cache</td></tr>
+              <tr><td><code>get_asset</code></td><td>2-5s</td><td>0.5s</td><td>CSAM (cached by asset)</td></tr>
+              <tr><td><code>get_tech_debt</code></td><td>15-60s</td><td>5-10s</td><td>Paginated CSAM</td></tr>
+              <tr><td><code>get_cloud_risk</code></td><td>15-30s</td><td>5-10s</td><td>Parallel providers</td></tr>
+              <tr><td><code>get_image_vulns</code></td><td>2-6s</td><td>2-6s</td><td>No cache</td></tr>
+              <tr><td><code>get_etm_findings</code></td><td>5-300s</td><td>5-10s</td><td>Depends on report existence</td></tr>
+              <tr><td><code>get_scanner_health</code></td><td>3-8s</td><td>3-8s</td><td>5-min cache</td></tr>
+              <tr><td><code>get_eliminate_status</code></td><td>5-15s</td><td>2-5s</td><td>Concurrent PM+MTG</td></tr>
+              <tr><td><code>get_recommendations</code></td><td>15-30s</td><td>5-10s</td><td>Parallel cloud</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2 id="measured-baselines">Measured Baselines</h2>
+        <p>From benchmark run <strong>2026-03-15</strong>:</p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Tool</th>
+                <th>Cold (s)</th>
+                <th>Warm (s)</th>
+                <th>Cold Target</th>
+                <th>Warm Target</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td><code>get_security_posture</code></td><td>14.20</td><td>13.35</td><td>&lt; 5s</td><td>&lt; 1s</td><td><span class="badge badge-danger">MISS</span></td></tr>
+              <tr><td><code>get_weekly_priorities</code></td><td>4.10</td><td>3.90</td><td>&lt; 5s</td><td>&lt; 1s</td><td><span class="badge badge-warning">Partial</span></td></tr>
+              <tr><td><code>get_patch_status</code></td><td>0.72</td><td>0.75</td><td>&lt; 5s</td><td>&lt; 1s</td><td><span class="badge badge-success">PASS</span></td></tr>
+              <tr><td><code>get_tech_debt</code></td><td>0.25</td><td>0.25</td><td>&lt; 5s</td><td>&lt; 1s</td><td><span class="badge badge-success">PASS</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2 id="performance-targets">Performance Targets</h2>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Query Type</th>
+                <th>Cold Target</th>
+                <th>Warm Target</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Asset count / posture</td><td>&lt; 3s</td><td>&lt; 0.5s</td></tr>
+              <tr><td>Single CVE lookup</td><td>&lt; 5s</td><td>&lt; 1s</td></tr>
+              <tr><td>Weekly priorities</td><td>&lt; 8s</td><td>&lt; 1s</td></tr>
+              <tr><td>Morning report</td><td>&lt; 15s</td><td>&lt; 2s</td></tr>
+              <tr><td>ETM findings (cached)</td><td>&lt; 3s</td><td>&lt; 1s</td></tr>
+              <tr><td>Cloud risk</td><td>&lt; 8s</td><td>&lt; 2s</td></tr>
+              <tr><td>Scanner health</td><td>&lt; 5s</td><td>&lt; 1s</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2 id="optimization-history">Optimization History</h2>
+        <p>Performance improvements have been delivered across five phases:</p>
+
+        <h3>Phase 1: Cache Fixes</h3>
+        <p>Fixed foundational caching issues that prevented warm-path speedups from taking effect.</p>
+        <ul>
+          <li><strong>Detection cache key</strong> &mdash; corrected the cache key for VMDR detections so repeated <code>get_threat_intel</code> queries hit cache instead of re-fetching.</li>
+          <li><strong>KB TTL</strong> &mdash; added a time-to-live on the KnowledgeBase cache to prevent stale vulnerability data from persisting indefinitely.</li>
+          <li><strong>WAS cache</strong> &mdash; added caching for Web Application Security findings to avoid redundant 5-30s API calls.</li>
+          <li><strong>Scanner cache</strong> &mdash; cached the scanner appliance list with a 5-minute TTL to eliminate repeated XML parsing overhead.</li>
+          <li><strong>ETM cache</strong> &mdash; cached ETM report results after download, turning 60-300s report creation into instant retrieval on repeat queries.</li>
+        </ul>
+
+        <h3>Phase 2: Concurrency</h3>
+        <p>Replaced sequential API calls with parallel execution using <code>asyncio.gather</code>.</p>
+        <ul>
+          <li><strong>Parallel cloud risk</strong> &mdash; fetch AWS, Azure, and GCP connectors and evaluations concurrently instead of sequentially (3x speedup).</li>
+          <li><strong>Parallel security posture</strong> &mdash; run all 10 posture data sources in parallel instead of serially.</li>
+          <li><strong>Parallel recommendations</strong> &mdash; fetch cloud compliance data across providers concurrently (2x speedup).</li>
+        </ul>
+
+        <h3>Phase 3: Enhanced Docstrings</h3>
+        <p>Added routing hints to tool docstrings so the LLM selects the right tool on the first attempt, avoiding unnecessary tool calls and wasted API round-trips.</p>
+
+        <h3>Phase 4: Aggregator Tools</h3>
+        <p>Created higher-level tools that combine multiple data sources in a single call.</p>
+        <ul>
+          <li><strong><code>get_asset</code> full mode</strong> &mdash; returns asset details, vulnerabilities, and software in one call instead of three.</li>
+          <li><strong><code>get_risk_by_tag</code></strong> &mdash; aggregates risk data by asset tag, eliminating multi-step manual queries.</li>
+          <li><strong><code>get_morning_report</code> quick mode</strong> &mdash; runs 6 data fetches concurrently to produce a single comprehensive report.</li>
+        </ul>
+
+        <h3>Phase 5: Request Deduplication</h3>
+        <p>Introduced the <code>_get_or_fetch</code> helper to ensure that concurrent in-flight requests for the same resource share a single API call rather than issuing duplicates.</p>
+
+        <h2 id="quick-wins-summary">Quick Wins Summary</h2>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Change</th>
+                <th>Lines of Code</th>
+                <th>Speedup</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Fix detection cache key</td><td>~5</td><td>2x for repeated threat intel queries</td></tr>
+              <tr><td>Add KB TTL</td><td>~15</td><td>Safety fix</td></tr>
+              <tr><td>Add WAS cache</td><td>~10</td><td>10x for repeated webapp queries</td></tr>
+              <tr><td>Cache scanner list</td><td>~10</td><td>10x for repeated scanner checks</td></tr>
+              <tr><td>Cache ETM result</td><td>~30</td><td>10x for repeated ETM queries</td></tr>
+              <tr><td>Parallelize cloud risk</td><td>~20</td><td>3x for cloud queries</td></tr>
+              <tr><td>Parallelize recommendations</td><td>~15</td><td>2x</td></tr>
+              <tr><td><strong>Total</strong></td><td><strong>~105 lines</strong></td><td><strong>2-10x across most tools</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2 id="running-benchmarks">Running Benchmarks</h2>
+        <p>Use the benchmark script to measure tool latencies against your Qualys subscription. The <code>--quick</code> flag runs a subset of tools; <code>--json</code> writes results to a file for comparison.</p>
+        <pre><code>python benchmark.py --quick --json benchmark_baseline.json</code></pre>
+        <p>Compare subsequent runs against the baseline to detect regressions or validate optimizations.</p>
+
+        <div class="page-nav">
+          <a href="../architecture/index.html">
+            <span>&larr; Previous</span>
+            <strong>Architecture</strong>
+          </a>
+          <a href="../gaps/index.html" style="text-align: right;">
+            <span>Next &rarr;</span>
+            <strong>Coverage Gaps</strong>
+          </a>
+        </div>
+
+        <footer class="footer">
+          <div class="footer-content">
+            <div>MIT License - Copyright (c) 2026 Andrew Nelson</div>
+            <div class="footer-links">
+              <a href="https://github.com/nelssec/qualys-mcp">GitHub</a>
+              <a href="https://pypi.org/project/qualys-mcp/">PyPI</a>
+            </div>
+          </div>
+        </footer>
+      </div>
+      <aside class="toc">
+        <div class="toc-title">On this page</div>
+        <ul>
+          <li><a href="#api-latency-baseline">API Latency Baseline</a></li>
+          <li><a href="#tool-latencies">Tool Latencies</a></li>
+          <li><a href="#measured-baselines">Measured Baselines</a></li>
+          <li><a href="#performance-targets">Performance Targets</a></li>
+          <li><a href="#optimization-history">Optimization History</a></li>
+          <li><a href="#quick-wins-summary">Quick Wins Summary</a></li>
+          <li><a href="#running-benchmarks">Running Benchmarks</a></li>
+        </ul>
+      </aside>
+    </main>
+  </div>
+</body>
+</html>
