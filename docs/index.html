@@ -1,983 +1,220 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conversational SecOps with Qualys MCP</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: #0a0a0a;
-            color: #ffffff;
-            overflow-x: hidden;
-            overflow-y: auto;
-        }
-
-        .slide {
-            display: none;
-            min-height: 100vh;
-            padding: 60px 80px;
-            position: relative;
-        }
-
-        .slide.active {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-
-        h1 {
-            font-size: 3.5rem;
-            font-weight: 700;
-            margin-bottom: 30px;
-            background: linear-gradient(135deg, #00d4ff, #7c3aed);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        h2 {
-            font-size: 2.8rem;
-            font-weight: 600;
-            margin-bottom: 40px;
-            color: #ffffff;
-        }
-
-        h3 {
-            font-size: 1.8rem;
-            font-weight: 500;
-            margin-bottom: 20px;
-            color: #a0a0a0;
-        }
-
-        p, li {
-            font-size: 1.6rem;
-            line-height: 1.8;
-            color: #d0d0d0;
-        }
-
-        ul {
-            list-style: none;
-            margin-left: 0;
-        }
-
-        li {
-            margin-bottom: 20px;
-            padding-left: 40px;
-            position: relative;
-        }
-
-        li::before {
-            content: "\2192";
-            position: absolute;
-            left: 0;
-            color: #00d4ff;
-        }
-
-        .title-slide {
-            text-align: center;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .title-slide h1 {
-            font-size: 4.5rem;
-            margin-bottom: 20px;
-        }
-
-        .title-slide .subtitle {
-            font-size: 2rem;
-            color: #888;
-            margin-bottom: 60px;
-        }
-
-        .title-slide .meta {
-            font-size: 1.2rem;
-            color: #666;
-        }
-
-        .code-block {
-            background: #1a1a2e;
-            border-radius: 12px;
-            padding: 30px;
-            margin: 30px 0;
-            font-family: 'JetBrains Mono', 'Fira Code', monospace;
-            font-size: 1.2rem;
-            line-height: 1.6;
-            overflow-x: auto;
-            border: 1px solid #333;
-        }
-
-        .code-block .comment {
-            color: #6a9955;
-        }
-
-        .code-block .string {
-            color: #ce9178;
-        }
-
-        .code-block .keyword {
-            color: #569cd6;
-        }
-
-        .code-block .prompt {
-            color: #00d4ff;
-        }
-
-        .code-block .response {
-            color: #98c379;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 30px;
-            margin: 40px 0;
-        }
-
-        .stat-card {
-            background: linear-gradient(135deg, #1a1a2e, #16213e);
-            border-radius: 16px;
-            padding: 40px;
-            text-align: center;
-            border: 1px solid #333;
-        }
-
-        .stat-card .number {
-            font-size: 4rem;
-            font-weight: 700;
-            background: linear-gradient(135deg, #00d4ff, #7c3aed);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .stat-card .label {
-            font-size: 1.2rem;
-            color: #888;
-            margin-top: 10px;
-        }
-
-        .two-column {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 60px;
-            align-items: start;
-        }
-
-        .comparison {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 40px;
-            margin: 40px 0;
-        }
-
-        .comparison-card {
-            background: #1a1a2e;
-            border-radius: 16px;
-            padding: 40px;
-            border: 1px solid #333;
-        }
-
-        .comparison-card.before {
-            border-color: #ff4444;
-        }
-
-        .comparison-card.after {
-            border-color: #00ff88;
-        }
-
-        .comparison-card h4 {
-            font-size: 1.4rem;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .comparison-card.before h4 {
-            color: #ff4444;
-        }
-
-        .comparison-card.after h4 {
-            color: #00ff88;
-        }
-
-        .comparison-card ul {
-            font-size: 1.2rem;
-        }
-
-        .comparison-card li {
-            margin-bottom: 12px;
-            font-size: 1.2rem;
-        }
-
-        .arch-diagram {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 20px;
-            padding: 30px;
-        }
-
-        .arch-layer {
-            background: #1a1a2e;
-            border-radius: 12px;
-            padding: 25px 40px;
-            border: 1px solid #333;
-            text-align: center;
-            width: 100%;
-            max-width: 800px;
-        }
-
-        .arch-layer.client {
-            border-color: #00d4ff;
-            background: linear-gradient(135deg, #0f3460, #1a1a2e);
-        }
-
-        .arch-layer.mcp {
-            border-color: #00d4ff;
-        }
-
-        .arch-layer.apis {
-            border-color: #333;
-            background: #16213e;
-        }
-
-        .arch-layer h4 {
-            color: #00d4ff;
-            font-size: 1.3rem;
-            margin-bottom: 15px;
-        }
-
-        .arch-components {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 10px;
-        }
-
-        .arch-chip {
-            background: #16213e;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 0.95rem;
-            color: #d0d0d0;
-            border: 1px solid #333;
-        }
-
-        .arch-arrow {
-            color: #00d4ff;
-            font-size: 1.5rem;
-        }
-
-        .tool-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 20px;
-            margin: 30px 0;
-        }
-
-        .tool-card {
-            background: #1a1a2e;
-            border-radius: 12px;
-            padding: 25px;
-            border: 1px solid #333;
-        }
-
-        .tool-card .name {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #00d4ff;
-            margin-bottom: 8px;
-            font-family: 'JetBrains Mono', 'Fira Code', monospace;
-        }
-
-        .tool-card .desc {
-            font-size: 1rem;
-            color: #888;
-        }
-
-        .tool-card.new {
-            border-color: #00ff88;
-        }
-
-        .tool-card.new .name::after {
-            content: " NEW";
-            color: #00ff88;
-            font-size: 0.7rem;
-            font-family: -apple-system, sans-serif;
-            font-weight: 700;
-            vertical-align: super;
-        }
-
-        .demo-box {
-            background: linear-gradient(135deg, #1a1a2e, #0f3460);
-            border-radius: 16px;
-            padding: 40px;
-            margin: 30px 0;
-            border: 2px solid #00d4ff;
-        }
-
-        .demo-box .user {
-            color: #00d4ff;
-            font-weight: 600;
-            margin-bottom: 15px;
-        }
-
-        .demo-box .claude {
-            color: #98c379;
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #333;
-        }
-
-        .slide-number {
-            position: fixed;
-            bottom: 30px;
-            right: 40px;
-            font-size: 1rem;
-            color: #444;
-            z-index: 100;
-        }
-
-        .progress-bar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            height: 4px;
-            background: linear-gradient(90deg, #00d4ff, #7c3aed);
-            transition: width 0.3s ease;
-            z-index: 100;
-        }
-
-        .nav-hint {
-            position: fixed;
-            bottom: 30px;
-            left: 40px;
-            font-size: 0.9rem;
-            color: #444;
-            z-index: 100;
-        }
-
-        .highlight {
-            color: #00d4ff;
-        }
-
-        .value-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 30px;
-            margin: 40px 0;
-        }
-
-        .value-card {
-            background: #1a1a2e;
-            border-radius: 16px;
-            padding: 35px;
-            border: 1px solid #333;
-        }
-
-        .value-card h4 {
-            font-size: 1.4rem;
-            color: #fff;
-            margin-bottom: 15px;
-        }
-
-        .value-card p {
-            font-size: 1.1rem;
-            color: #888;
-        }
-
-        .cta-slide {
-            text-align: center;
-        }
-
-        .cta-slide .github {
-            display: inline-block;
-            background: linear-gradient(135deg, #00d4ff, #7c3aed);
-            color: #000;
-            font-size: 1.4rem;
-            font-weight: 600;
-            padding: 20px 50px;
-            border-radius: 50px;
-            text-decoration: none;
-            margin-top: 40px;
-        }
-
-        .badge {
-            display: inline-block;
-            background: #1a1a2e;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 1rem;
-            margin: 5px;
-            border: 1px solid #333;
-        }
-
-        .badge.aws { border-color: #ff9900; color: #ff9900; }
-        .badge.azure { border-color: #0089d6; color: #0089d6; }
-        .badge.gcp { border-color: #4285f4; color: #4285f4; }
-
-        /* Mobile Navigation Buttons */
-        .mobile-nav {
-            display: none;
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 200;
-            gap: 20px;
-        }
-
-        .mobile-nav button {
-            background: linear-gradient(135deg, #1a1a2e, #16213e);
-            border: 1px solid #00d4ff;
-            color: #00d4ff;
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            font-size: 1.5rem;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .mobile-nav button:active {
-            background: #00d4ff;
-            color: #000;
-        }
-
-        /* Mobile Responsive */
-        @media (max-width: 1024px) {
-            .slide { padding: 40px 40px; }
-            h1 { font-size: 2.5rem; }
-            h2 { font-size: 2rem; margin-bottom: 25px; }
-            h3 { font-size: 1.4rem; }
-            p, li { font-size: 1.2rem; }
-            .title-slide h1 { font-size: 3rem; }
-            .title-slide .subtitle { font-size: 1.4rem; margin-bottom: 40px; }
-            .stats-grid { grid-template-columns: repeat(3, 1fr); gap: 20px; }
-            .stat-card { padding: 25px; }
-            .stat-card .number { font-size: 3rem; }
-            .tool-grid { grid-template-columns: repeat(3, 1fr); gap: 15px; }
-            .tool-card { padding: 15px; }
-            .tool-card .name { font-size: 0.95rem; }
-            .two-column { grid-template-columns: 1fr; gap: 30px; }
-            .comparison { grid-template-columns: 1fr; gap: 20px; }
-            .value-grid { grid-template-columns: repeat(2, 1fr); gap: 20px; }
-            .code-block { padding: 20px; font-size: 1rem; }
-        }
-
-        @media (max-width: 768px) {
-            body { overflow-y: auto; }
-            .slide { padding: 30px 20px 100px 20px; min-height: auto; justify-content: flex-start; padding-top: 40px; }
-            .slide.active { display: flex; }
-            h1 { font-size: 2rem; margin-bottom: 20px; }
-            h2 { font-size: 1.6rem; margin-bottom: 20px; }
-            h3 { font-size: 1.2rem; margin-bottom: 15px; }
-            p, li { font-size: 1rem; line-height: 1.6; }
-            li { padding-left: 25px; margin-bottom: 12px; }
-            .title-slide { padding-top: 60px; }
-            .title-slide h1 { font-size: 2.2rem; }
-            .title-slide .subtitle { font-size: 1.1rem; margin-bottom: 30px; }
-            .title-slide .meta { font-size: 0.9rem; }
-            .badge { padding: 6px 12px; font-size: 0.85rem; margin: 3px; }
-            .stats-grid { grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 25px 0; }
-            .stat-card { padding: 20px 15px; }
-            .stat-card .number { font-size: 2.5rem; }
-            .stat-card .label { font-size: 0.9rem; }
-            .tool-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-            .tool-card { padding: 12px; }
-            .tool-card .name { font-size: 0.85rem; }
-            .tool-card .desc { font-size: 0.85rem; }
-            .comparison-card { padding: 25px; }
-            .comparison-card h4 { font-size: 1.1rem; }
-            .comparison-card li { font-size: 0.95rem; margin-bottom: 10px; }
-            .value-grid { grid-template-columns: 1fr; gap: 15px; }
-            .value-card { padding: 25px; }
-            .value-card h4 { font-size: 1.2rem; }
-            .value-card p { font-size: 1rem; }
-            .demo-box { padding: 25px; margin: 20px 0; }
-            .demo-box .user { font-size: 1rem; }
-            .code-block { padding: 15px; font-size: 0.85rem; margin: 15px 0; }
-            .arch-diagram { padding: 15px; gap: 12px; }
-            .arch-layer { padding: 15px; }
-            .arch-layer h4 { font-size: 1.1rem; margin-bottom: 10px; }
-            .arch-chip { font-size: 0.8rem; padding: 6px 12px; }
-            .arch-arrow { font-size: 1.2rem; }
-            .cta-slide .github { padding: 15px 35px; font-size: 1.1rem; }
-            .nav-hint { display: none; }
-            .slide-number { bottom: 80px; right: 20px; }
-            .mobile-nav { display: flex; }
-            .tap-zone { position: fixed; top: 0; bottom: 80px; z-index: 50; }
-            .tap-zone.left { left: 0; width: 30%; }
-            .tap-zone.right { right: 0; width: 70%; }
-        }
-
-        @media (max-width: 480px) {
-            .slide { padding: 20px 15px 100px 15px; }
-            h1 { font-size: 1.7rem; }
-            h2 { font-size: 1.4rem; }
-            h3 { font-size: 1.1rem; }
-            .title-slide h1 { font-size: 1.8rem; }
-            .title-slide .subtitle { font-size: 1rem; }
-            .stats-grid { grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-            .stat-card .number { font-size: 2rem; }
-            .tool-grid { grid-template-columns: repeat(2, 1fr); }
-            .arch-components { gap: 6px; }
-            .arch-chip { font-size: 0.75rem; padding: 5px 10px; }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>What is Qualys MCP? | Qualys MCP Server</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+  <script src="js/nav.js" defer></script>
 </head>
 <body>
-    <div class="progress-bar" id="progress"></div>
+  <header class="header">
+    <a href="index.html" class="header-logo">
+      <svg width="80" height="22" viewBox="0 0 80 22" fill="white">
+        <text x="0" y="16" font-family="Arial, sans-serif" font-size="14" font-weight="bold">QUALYS</text>
+      </svg>
+    </a>
+    <div class="header-divider"></div>
+    <span class="header-product">MCP Server Documentation</span>
+    <nav class="header-nav">
+      <a href="getting-started/index.html">Getting Started</a>
+      <a href="tools/index.html">Tools</a>
+      <a href="examples/index.html">Examples</a>
+      <a href="https://github.com/nelssec/qualys-mcp" target="_blank">GitHub</a>
+    </nav>
+  </header>
 
-    <!-- Slide 1: Title -->
-    <div class="slide title-slide active">
-        <h1>Conversational SecOps</h1>
-        <p class="subtitle">Natural Language Security Operations with Qualys MCP</p>
-        <div style="margin: 40px 0;">
-            <span class="badge">12 Tools</span>
-            <span class="badge">Python + FastMCP</span>
-            <span class="badge">One Conversation</span>
+  <div class="layout">
+    <aside class="sidebar"></aside>
+
+    <main class="main-content">
+      <div class="content">
+
+        <!-- BREADCRUMB -->
+        <div class="breadcrumb">
+          <span>Home</span>
         </div>
-        <p class="meta">Model Context Protocol + Qualys APIs + Claude</p>
-    </div>
 
-    <!-- Slide 2: The Problem -->
-    <div class="slide">
-        <h2>The Problem: Security Data Silos</h2>
-        <p style="margin-bottom: 40px; font-size: 1.8rem;">Answering one question requires navigating multiple dashboards</p>
-        <div class="comparison">
-            <div class="comparison-card before">
-                <h4>Manual Workflow</h4>
-                <ul>
-                    <li>Search KnowledgeBase for CVE</li>
-                    <li>Find QIDs and check severity</li>
-                    <li>Look up threat intelligence tags</li>
-                    <li>Check asset inventory for exposure</li>
-                    <li>Review cloud posture separately</li>
-                    <li>Check container images separately</li>
-                </ul>
-                <p style="margin-top: 20px; color: #ff4444; font-size: 1.4rem;">6 context switches per CVE</p>
-            </div>
-            <div class="comparison-card after">
-                <h4>With qualys-mcp</h4>
-                <div class="code-block" style="margin: 20px 0; font-size: 1.1rem;">
-<span class="prompt">"Are we affected by CVE-2024-3400?"</span>
+        <!-- CONTENT -->
+        <h1>Qualys MCP Server</h1>
 
-<span class="response">Severity 5 | Patch available | Ransomware-linked
-14 threat intel tags including Active_Attacks,
-CISA KEV, Exploit_Public, Wormable</span>
-                </div>
-                <p style="margin-top: 20px; color: #00ff88; font-size: 1.4rem;">One question. Complete context.</p>
-            </div>
+        <span class="version-badge">v2.15.0</span>
+
+        <p class="lead">
+          An unofficial, lightweight MCP server connecting AI assistants (Claude, etc.)
+          to Qualys security data via the Model Context Protocol. 35 tools, pure Python,
+          zero config beyond credentials.
+        </p>
+
+        <div class="callout callout-warning">
+          <div class="callout-title">Unofficial Project</div>
+          <p>
+            This is an independent, community-driven project. It is <strong>not</strong>
+            affiliated with, endorsed by, or supported by Qualys, Inc. Use at your own
+            discretion. "Qualys" is a registered trademark of Qualys, Inc.
+          </p>
         </div>
-    </div>
 
-    <!-- Slide 3: What We Built -->
-    <div class="slide">
-        <h2>What We Built</h2>
-        <h3>12 question-answering tools across Qualys security data</h3>
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="number">12</div>
-                <div class="label">MCP Tools</div>
-            </div>
-            <div class="stat-card">
-                <div class="number">1</div>
-                <div class="label">Python File</div>
-            </div>
-            <div class="stat-card">
-                <div class="number">0</div>
-                <div class="label">Config Required</div>
-            </div>
+        <!-- OVERVIEW DIAGRAM -->
+        <div class="overview-diagram">
+          <div class="diagram-row">
+            <div class="diagram-box saas">AI Assistant<br>(Claude, etc.)</div>
+          </div>
+          <div class="diagram-arrow">&#9660;</div>
+          <div class="diagram-row">
+            <div class="diagram-box dspm">MCP Protocol</div>
+          </div>
+          <div class="diagram-arrow">&#9660;</div>
+          <div class="diagram-row">
+            <div class="diagram-box cloud">Qualys MCP Server</div>
+          </div>
+          <div class="diagram-arrow">&#9660;</div>
+          <div class="diagram-row">
+            <div class="diagram-box action">VMDR</div>
+            <div class="diagram-box action">ETM</div>
+            <div class="diagram-box action">CSAM</div>
+            <div class="diagram-box action">WAS</div>
+            <div class="diagram-box action">CDR</div>
+            <div class="diagram-box action">FIM</div>
+            <div class="diagram-box action">EDR</div>
+            <div class="diagram-box action">CertView</div>
+            <div class="diagram-box action">PM</div>
+          </div>
+          <div class="diagram-caption">Qualys APIs</div>
         </div>
-        <div style="text-align: center; margin-top: 30px;">
-            <span class="badge">Vulnerability Intelligence</span>
-            <span class="badge">Asset Risk</span>
-            <span class="badge">Threat Intel</span>
-            <span class="badge aws">AWS</span>
-            <span class="badge azure">Azure</span>
-            <span class="badge gcp">GCP</span>
-            <span class="badge">Containers</span>
+
+        <h2 id="what-problems">What Problems Does It Solve?</h2>
+        <p>
+          Security teams spend hours clicking through dashboards, copying data between
+          tabs, and manually correlating findings across Qualys modules. Investigating
+          a single CVE can mean navigating the KnowledgeBase, checking threat
+          intelligence tags, looking up affected assets, and reviewing cloud posture
+          &mdash; all in separate interfaces.
+        </p>
+        <p>
+          Qualys MCP Server eliminates that friction. Instead of navigating GUIs,
+          security practitioners ask questions in plain English and get structured,
+          actionable answers in seconds. The server handles the API calls, data
+          correlation, and result formatting automatically.
+        </p>
+
+        <h2 id="who-is-it-for">Who Is It For?</h2>
+        <ul>
+          <li><strong>Security analysts</strong> who triage vulnerabilities and need fast CVE lookups with threat context</li>
+          <li><strong>SOC teams</strong> investigating incidents who need to correlate asset data with detection events</li>
+          <li><strong>Vulnerability managers</strong> tracking patch coverage, tech debt, and remediation progress</li>
+          <li><strong>CISOs and security leaders</strong> who want conversational access to security posture metrics without learning Qualys query syntax</li>
+        </ul>
+
+        <h2 id="key-features">Key Features</h2>
+        <div class="card-grid">
+          <a href="tools/index.html" class="card">
+            <div class="card-icon" style="background: #e6f2ff;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#338ADE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+              </svg>
+            </div>
+            <h3>35 Security Tools</h3>
+            <p>Purpose-built tools spanning vulnerability management, threat intelligence, asset inventory, cloud security, and more.</p>
+            <span class="card-link">View all tools &rarr;</span>
+          </a>
+          <a href="examples/index.html" class="card">
+            <div class="card-icon" style="background: #e6f7e6;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#1e7e1e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+            </div>
+            <h3>Plain English Queries</h3>
+            <p>Ask questions like "Are we affected by CVE-2024-3400?" and get structured, actionable answers instantly.</p>
+            <span class="card-link">See examples &rarr;</span>
+          </a>
+          <a href="getting-started/installation.html" class="card">
+            <div class="card-icon" style="background: #fff3e0;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#e65100" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
+              </svg>
+            </div>
+            <h3>Zero Config Setup</h3>
+            <p>Install with a single <code>uvx</code> command. No Docker, no database, no build step &mdash; just credentials and go.</p>
+            <span class="card-link">Installation guide &rarr;</span>
+          </a>
+          <a href="tools/index.html" class="card">
+            <div class="card-icon" style="background: #f3e5f5;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#6a1b9a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+              </svg>
+            </div>
+            <h3>Multi-Module Coverage</h3>
+            <p>Unified access across VM, ETM, WAS, CDR, FIM, EDR, CertView, PM, CSAM, and Compliance modules.</p>
+            <span class="card-link">Explore modules &rarr;</span>
+          </a>
         </div>
-    </div>
 
-    <!-- Slide 4: Tool Coverage -->
-    <div class="slide">
-        <h2>12 Tools</h2>
-        <div class="tool-grid">
-            <div class="tool-card">
-                <div class="name">get_security_posture</div>
-                <div class="desc">Overall health score and risk stats</div>
-            </div>
-            <div class="tool-card">
-                <div class="name">get_weekly_priorities</div>
-                <div class="desc">Top risk assets and action items</div>
-            </div>
-            <div class="tool-card">
-                <div class="name">get_patch_status</div>
-                <div class="desc">Patching coverage and gaps</div>
-            </div>
-            <div class="tool-card">
-                <div class="name">investigate_cve</div>
-                <div class="desc">Deep dive on a single CVE</div>
-            </div>
-            <div class="tool-card new">
-                <div class="name">get_cve_details</div>
-                <div class="desc">Bulk CVE lookup (up to 20)</div>
-            </div>
-            <div class="tool-card new">
-                <div class="name">get_new_vulns</div>
-                <div class="desc">Newly published vulnerabilities</div>
-            </div>
-            <div class="tool-card new">
-                <div class="name">get_vulns_by_software</div>
-                <div class="desc">CVEs for Apache, OpenSSL, etc.</div>
-            </div>
-            <div class="tool-card">
-                <div class="name">get_threat_intel</div>
-                <div class="desc">RTI tags: ransomware, exploits, CISA KEV</div>
-            </div>
-            <div class="tool-card">
-                <div class="name">get_asset</div>
-                <div class="desc">Per-asset TruRisk, software, and full profile</div>
-            </div>
-            <div class="tool-card">
-                <div class="name">get_tech_debt</div>
-                <div class="desc">EOL/EOS operating systems</div>
-            </div>
-            <div class="tool-card">
-                <div class="name">get_cloud_risk</div>
-                <div class="desc">AWS/Azure/GCP posture</div>
-            </div>
-            <div class="tool-card">
-                <div class="name">get_image_vulns</div>
-                <div class="desc">Container image vulnerabilities</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Slide 5: Demo - CVE Triage -->
-    <div class="slide">
-        <h2>Demo: CVE Investigation</h2>
-        <div class="demo-box">
-            <div class="user" style="font-size: 1.4rem;">User: "Check if we're affected by CVE-2024-3400"</div>
-            <div class="claude">
-                <div class="code-block" style="margin-top: 15px; font-size: 1.1rem; background: transparent; border: none; padding: 0;">
-<span style="color: #888;">[Calling investigate_cve("CVE-2024-3400")]</span>
-
-<span class="response">CVE-2024-3400: PAN-OS Command Injection
-Severity: 5 (Critical) | Patch: Available | Ransomware: Yes
-
-Threat Intelligence:
-  Active_Attacks, Cisa_Known_Exploited_Vulns,
-  Exploit_Public, Ransomware, Remote_Code_Execution,
-  Wormable, Unauthenticated_Exploitation, Easy_Exploit
-
-3 related QIDs. Prioritize remediation given active
-exploitation and ransomware linkage.</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Slide 6: Demo - New Vulns & Software -->
-    <div class="slide">
-        <h2>Demo: Vulnerability Intelligence</h2>
-        <div class="two-column" style="gap: 40px;">
-            <div class="demo-box" style="margin: 0;">
-                <div class="user">User: "What new vulns this week?"</div>
-                <div class="claude">
-                    <div class="code-block" style="font-size: 1rem; background: transparent; border: none; padding: 0;">
-<span style="color: #888;">[get_new_vulns(days=7)]</span>
-
-<span class="response">3,432 new vulnerabilities
-  Critical: 251
-  High: 899
-  With patches: 3,387
-  With threat intel: 3,314</span>
-                    </div>
-                </div>
-            </div>
-            <div class="demo-box" style="margin: 0;">
-                <div class="user">User: "Show me Apache vulns"</div>
-                <div class="claude">
-                    <div class="code-block" style="font-size: 1rem; background: transparent; border: none; padding: 0;">
-<span style="color: #888;">[get_vulns_by_software("Apache")]</span>
-
-<span class="response">294 Apache vulnerabilities
-  Critical: 54
-  High: 129
-  Patchable: 287 (97.6%)
-  HTTP Server, Tomcat, Struts...</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Slide 7: Demo - Bulk CVE -->
-    <div class="slide">
-        <h2>Demo: Bulk CVE Comparison</h2>
-        <div class="demo-box">
-            <div class="user" style="font-size: 1.4rem;">User: "Compare Log4Shell, the PAN-OS bug, and Citrix Bleed"</div>
-            <div class="claude">
-                <div class="code-block" style="margin-top: 15px; font-size: 1.1rem; background: transparent; border: none; padding: 0;">
-<span style="color: #888;">[get_cve_details("CVE-2021-44228,CVE-2024-3400,CVE-2023-4966")]</span>
-
-<span class="response">3 requested, 3 found:
-
-CVE-2021-44228 (Log4Shell)
-  Sev 5 | Patch YES | Ransomware YES
-  Active_Attacks, CISA KEV, Exploit_Public, Wormable, RCE
-
-CVE-2024-3400 (PAN-OS)
-  Sev 5 | Patch YES | Ransomware YES
-  Active_Attacks, CISA KEV, Exploit_Public, Wormable, RCE
-
-CVE-2023-4966 (Citrix Bleed)
-  Sev 5 | Patch YES | Ransomware YES
-  Active_Attacks, CISA KEV, Exploit_Public, Easy_Exploit</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Slide 8: Architecture -->
-    <div class="slide">
-        <h2>Architecture</h2>
-        <div class="arch-diagram">
-            <div class="arch-layer client">
-                <h4>Claude / AI Assistant</h4>
-                <span class="arch-chip">Natural Language Queries</span>
-            </div>
-
-            <div class="arch-arrow">&#9660;</div>
-
-            <div class="arch-layer mcp">
-                <h4>qualys-mcp &mdash; 12 Tools, Single Python File</h4>
-                <div class="arch-components" style="margin-bottom: 15px;">
-                    <span class="arch-chip">Posture &amp; Priorities</span>
-                    <span class="arch-chip">Vuln Intelligence</span>
-                    <span class="arch-chip">Threat Intel</span>
-                    <span class="arch-chip">Asset Risk</span>
-                    <span class="arch-chip">Cloud &amp; Container</span>
-                </div>
-                <div class="arch-components">
-                    <span class="arch-chip">JWT + Basic Auth</span>
-                    <span class="arch-chip">KB Cache</span>
-                    <span class="arch-chip">Concurrent API Calls</span>
-                </div>
-            </div>
-
-            <div class="arch-arrow">&#9660;</div>
-
-            <div class="arch-layer apis">
-                <h4 style="color: #888;">Qualys APIs</h4>
-                <div class="arch-components">
-                    <span class="arch-chip">KB API (XML)</span>
-                    <span class="arch-chip">CSAM v2 (JSON)</span>
-                    <span class="arch-chip">CloudView</span>
-                    <span class="arch-chip">TotalCloud</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Slide 9: Use Cases by Role -->
-    <div class="slide">
-        <h2>Use Cases by Role</h2>
-        <div class="two-column" style="gap: 40px;">
-            <div>
-                <div style="margin-bottom: 35px;">
-                    <h4 style="color: #00d4ff; margin-bottom: 10px;">Security Analysts</h4>
-                    <p style="font-size: 1.2rem;">"What vulns have active ransomware exploits?"</p>
-                </div>
-                <div style="margin-bottom: 35px;">
-                    <h4 style="color: #00d4ff; margin-bottom: 10px;">Developers</h4>
-                    <p style="font-size: 1.2rem;">"What vulns are in this container image?"</p>
-                </div>
-                <div style="margin-bottom: 35px;">
-                    <h4 style="color: #00d4ff; margin-bottom: 10px;">Compliance</h4>
-                    <p style="font-size: 1.2rem;">"How many EOL systems do we have?"</p>
-                </div>
-            </div>
-            <div>
-                <div style="margin-bottom: 35px;">
-                    <h4 style="color: #7c3aed; margin-bottom: 10px;">Incident Response</h4>
-                    <p style="font-size: 1.2rem;">"Is CVE-2024-3400 being actively exploited?"</p>
-                </div>
-                <div style="margin-bottom: 35px;">
-                    <h4 style="color: #7c3aed; margin-bottom: 10px;">Cloud Security</h4>
-                    <p style="font-size: 1.2rem;">"What's our posture across AWS, Azure, and GCP?"</p>
-                </div>
-                <div style="margin-bottom: 35px;">
-                    <h4 style="color: #7c3aed; margin-bottom: 10px;">Executives</h4>
-                    <p style="font-size: 1.2rem;">"How secure are we overall?"</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Slide 10: Why This Matters -->
-    <div class="slide">
-        <h2>Why This Matters</h2>
-        <div class="value-grid">
-            <div class="value-card">
-                <h4>Fewer Tools, Better Answers</h4>
-                <p>12 tools beat 60 API wrappers. The AI picks the right tool almost every time.</p>
-            </div>
-            <div class="value-card">
-                <h4>Answers, Not Data</h4>
-                <p>Tools return severity breakdowns, risk rankings, and actionable summaries &mdash; not raw API responses.</p>
-            </div>
-            <div class="value-card">
-                <h4>Anyone Can Query</h4>
-                <p>No Qualys expertise required. Ask in plain English, get security answers.</p>
-            </div>
-            <div class="value-card">
-                <h4>Zero Config</h4>
-                <p>Single Python file. Install with uvx. Four env vars. No Docker, no database.</p>
-            </div>
-            <div class="value-card">
-                <h4>Multi-Cloud</h4>
-                <p>Unified view across AWS, Azure, and GCP. One question, all providers.</p>
-            </div>
-            <div class="value-card">
-                <h4>Threat Intelligence</h4>
-                <p>12+ RTI categories: ransomware, active attacks, CISA KEV, weaponized exploits, and more.</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Slide 11: Getting Started -->
-    <div class="slide">
-        <h2>Getting Started</h2>
-        <div class="code-block" style="font-size: 1.3rem;">
-<span class="comment"># Add to Claude Desktop config</span>
-<span class="comment"># ~/Library/Application Support/Claude/claude_desktop_config.json</span>
-
-{
-  <span class="string">"mcpServers"</span>: {
-    <span class="string">"qualys"</span>: {
-      <span class="string">"command"</span>: <span class="string">"uvx"</span>,
-      <span class="string">"args"</span>: [<span class="string">"qualys-mcp"</span>],
-      <span class="string">"env"</span>: {
-        <span class="string">"QUALYS_USERNAME"</span>: <span class="string">"your-username"</span>,
-        <span class="string">"QUALYS_PASSWORD"</span>: <span class="string">"your-password"</span>,
-        <span class="string">"QUALYS_BASE_URL"</span>: <span class="string">"qualysapi.qualys.com"</span>,
-        <span class="string">"QUALYS_GATEWAY_URL"</span>: <span class="string">"gateway.qg1.apps.qualys.com"</span>
+        <h2 id="quick-install">Quick Install</h2>
+        <p>
+          Add the following to your Claude Desktop configuration file
+          (<code>claude_desktop_config.json</code>):
+        </p>
+        <pre><code>{
+  "mcpServers": {
+    "qualys": {
+      "command": "uvx",
+      "args": ["qualys-mcp"],
+      "env": {
+        "QUALYS_USERNAME": "your-username",
+        "QUALYS_PASSWORD": "your-password",
+        "QUALYS_POD": "US2"
       }
     }
   }
-}
-
-<span class="comment"># That's it. No build step. No Docker.</span>
-        </div>
-    </div>
-
-    <!-- Slide 12: CTA -->
-    <div class="slide title-slide cta-slide">
-        <h1>The Future of SecOps<br>is Conversational</h1>
-        <p class="subtitle" style="margin-top: 30px;">12 tools. One Python file. One conversation.</p>
-        <a href="https://github.com/nelssec/qualys-mcp" class="github">View on GitHub &rarr;</a>
-        <p style="margin-top: 60px; color: #666; font-size: 1rem;">
-            Open source &bull; MIT License &bull; Not affiliated with Qualys, Inc.
+}</code></pre>
+        <p>
+          That's it &mdash; no build step, no Docker, no database. See the
+          <a href="getting-started/installation.html">installation guide</a> for
+          platform-specific paths and all available environment variables.
         </p>
-    </div>
 
-    <div class="slide-number" id="slideNumber">1 / 12</div>
-    <div class="nav-hint">&larr; &rarr; or click to navigate</div>
+        <div class="callout callout-info">
+          <div class="callout-title">Ready to Get Started?</div>
+          <p>
+            Head over to the <a href="getting-started/index.html">Getting Started guide</a>
+            for a step-by-step walkthrough of installation, configuration, and your first queries.
+          </p>
+        </div>
 
-    <!-- Mobile Navigation -->
-    <div class="mobile-nav">
-        <button onclick="prevSlide()" aria-label="Previous slide">&larr;</button>
-        <button onclick="nextSlide()" aria-label="Next slide">&rarr;</button>
-    </div>
+        <!-- PAGE NAV -->
+        <div class="page-nav">
+          <div></div>
+          <a href="getting-started/index.html">
+            <span>Next</span>
+            <strong>Getting Started &rarr;</strong>
+          </a>
+        </div>
 
-    <!-- Touch zones for tap navigation -->
-    <div class="tap-zone left" onclick="prevSlide()"></div>
-    <div class="tap-zone right" onclick="nextSlide()"></div>
+        <!-- FOOTER -->
+        <div class="footer">
+          <div class="footer-content">
+            <span>Qualys MCP Server &mdash; unofficial, community-driven project. Not affiliated with Qualys, Inc.</span>
+            <div class="footer-links">
+              <a href="https://github.com/nelssec/qualys-mcp" target="_blank">GitHub</a>
+              <a href="https://github.com/nelssec/qualys-mcp/issues" target="_blank">Issues</a>
+            </div>
+          </div>
+        </div>
 
-    <script>
-        const slides = document.querySelectorAll('.slide');
-        let currentSlide = 0;
-        let touchStartX = 0;
-        let touchEndX = 0;
+      </div>
 
-        function showSlide(n) {
-            slides[currentSlide].classList.remove('active');
-            currentSlide = (n + slides.length) % slides.length;
-            slides[currentSlide].classList.add('active');
-
-            document.getElementById('slideNumber').textContent = `${currentSlide + 1} / ${slides.length}`;
-            document.getElementById('progress').style.width = `${((currentSlide + 1) / slides.length) * 100}%`;
-
-            window.scrollTo(0, 0);
-        }
-
-        function nextSlide() {
-            showSlide(currentSlide + 1);
-        }
-
-        function prevSlide() {
-            showSlide(currentSlide - 1);
-        }
-
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowRight' || e.key === ' ') {
-                e.preventDefault();
-                nextSlide();
-            } else if (e.key === 'ArrowLeft') {
-                e.preventDefault();
-                prevSlide();
-            }
-        });
-
-        const isMobile = window.innerWidth <= 768;
-
-        if (!isMobile) {
-            document.addEventListener('click', (e) => {
-                if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON') return;
-                if (e.clientX > window.innerWidth / 2) {
-                    nextSlide();
-                } else {
-                    prevSlide();
-                }
-            });
-        }
-
-        document.addEventListener('touchstart', (e) => {
-            touchStartX = e.changedTouches[0].screenX;
-        }, { passive: true });
-
-        document.addEventListener('touchend', (e) => {
-            touchEndX = e.changedTouches[0].screenX;
-            handleSwipe();
-        }, { passive: true });
-
-        function handleSwipe() {
-            const swipeThreshold = 50;
-            const diff = touchStartX - touchEndX;
-
-            if (Math.abs(diff) > swipeThreshold) {
-                if (diff > 0) {
-                    nextSlide();
-                } else {
-                    prevSlide();
-                }
-            }
-        }
-
-        showSlide(0);
-    </script>
+      <aside class="toc">
+        <div class="toc-title">On this page</div>
+        <ul>
+          <li><a href="#what-problems">What Problems Does It Solve?</a></li>
+          <li><a href="#who-is-it-for">Who Is It For?</a></li>
+          <li><a href="#key-features">Key Features</a></li>
+          <li><a href="#quick-install">Quick Install</a></li>
+        </ul>
+      </aside>
+    </main>
+  </div>
 </body>
 </html>

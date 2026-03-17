@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tools Overview | Qualys MCP Server</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+  <script src="../js/nav.js" defer></script>
+</head>
+<body>
+  <header class="header">
+    <a href="../index.html" class="header-logo">
+      <svg width="80" height="22" viewBox="0 0 80 22" fill="white">
+        <text x="0" y="16" font-family="Arial, sans-serif" font-size="14" font-weight="bold">QUALYS</text>
+      </svg>
+    </a>
+    <div class="header-divider"></div>
+    <span class="header-product">MCP Server Documentation</span>
+    <nav class="header-nav">
+      <a href="../getting-started/index.html">Getting Started</a>
+      <a href="../tools/index.html">Tools</a>
+      <a href="../examples/index.html">Examples</a>
+      <a href="https://github.com/nelssec/qualys-mcp" target="_blank">GitHub</a>
+    </nav>
+  </header>
+  <div class="layout">
+    <aside class="sidebar"></aside>
+    <main class="main-content">
+      <div class="content">
+        <div class="breadcrumb">
+          <a href="../index.html">Home</a>
+          <span>&rsaquo;</span>
+          <span>Tools</span>
+        </div>
+
+        <h1>Tools Overview</h1>
+        <p class="lead">35 tools covering vulnerability management, threat intelligence, asset risk, cloud security, containers, web application security, certificate monitoring, endpoint detection, file integrity monitoring, patch management, compliance, remediation workflow, and security program coaching.</p>
+
+        <h2 id="tools-by-category">Tools by Category</h2>
+
+        <h3 id="daily-operations-coaching"><a href="operations.html">Daily Operations &amp; Coaching</a> <small>(5 tools)</small></h3>
+        <table>
+          <thead>
+            <tr><th>Tool</th><th>What it answers</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>get_morning_report</code></td><td>What happened overnight? New vulns, ransomware/exploit flags, top risks, action items</td></tr>
+            <tr><td><code>get_recommendations</code></td><td>What should we improve? Module gaps, risk reduction opportunities, prioritized next steps</td></tr>
+            <tr><td><code>get_eliminate_status</code></td><td>What's our patching and mitigation status? Patch jobs, mitigation jobs, catalog coverage</td></tr>
+            <tr><td><code>get_etm_findings</code></td><td>What confirmed vulnerabilities exist across all sources? ETM findings with QID, QDS, TruRisk, CVE, patch status</td></tr>
+            <tr><td><code>get_scanner_health</code></td><td>Are our scanners healthy? Appliance status, failed scans, capacity utilization, signature updates</td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="security-posture-priorities"><a href="operations.html">Security Posture &amp; Priorities</a> <small>(5 tools)</small></h3>
+        <table>
+          <thead>
+            <tr><th>Tool</th><th>What it answers</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>get_security_posture</code></td><td>How secure are we overall? Health score, risk distribution, container and cloud stats</td></tr>
+            <tr><td><code>get_weekly_priorities</code></td><td>What should my team fix this week? Top risk assets ranked by TruRisk</td></tr>
+            <tr><td><code>get_patch_status</code></td><td>What's our patching coverage? Risk distribution and assets needing remediation</td></tr>
+            <tr><td><code>get_scan_status</code></td><td>What scans are running, queued, paused, or failed?</td></tr>
+            <tr><td><code>get_compliance_posture</code></td><td>What's our policy compliance rate? Pass/fail by framework</td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="vulnerability-intelligence"><a href="vulnerability-management.html">Vulnerability Intelligence</a> <small>(6 tools)</small></h3>
+        <table>
+          <thead>
+            <tr><th>Tool</th><th>What it answers</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>investigate_cve</code></td><td>Are we affected by CVE-XXXX? QIDs, severity, patches, threat intel</td></tr>
+            <tr><td><code>get_cve_details</code></td><td>Bulk CVE lookup with concurrent fetching</td></tr>
+            <tr><td><code>get_new_vulns</code></td><td>What new vulns dropped this week? Severity breakdown, RTI tags</td></tr>
+            <tr><td><code>get_vulns_by_software</code></td><td>What vulns affect Apache? Search by software/vendor/product</td></tr>
+            <tr><td><code>get_threat_intel</code></td><td>What vulns have ransomware/active exploits? RTI breakdown across 12+ threat categories</td></tr>
+            <tr><td><code>get_vuln_exceptions</code></td><td>What vulnerabilities have approved exceptions?</td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="asset-infrastructure-risk"><a href="asset-management.html">Asset &amp; Infrastructure Risk</a> <small>(8 tools)</small></h3>
+        <table>
+          <thead>
+            <tr><th>Tool</th><th>What it answers</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>get_asset_risk</code></td><td>Why is this asset risky? TruRisk score, software inventory, EOL status</td></tr>
+            <tr><td><code>get_asset_full_profile</code></td><td>Full single-asset profile combining CSAM + ETM + VMDR detections in parallel</td></tr>
+            <tr><td><code>get_risk_by_tag</code></td><td>Risk distribution for a tagged asset group</td></tr>
+            <tr><td><code>get_environment_summary</code></td><td>Fast all-CSAM environment snapshot</td></tr>
+            <tr><td><code>get_asset_inventory</code></td><td>What assets do we have? Search by OS, tag, or query</td></tr>
+            <tr><td><code>get_tech_debt</code></td><td>How many EOL/EOS systems do we have?</td></tr>
+            <tr><td><code>get_cloud_risk</code></td><td>What's our cloud security posture?</td></tr>
+            <tr><td><code>get_image_vulns</code></td><td>What vulns are in this container image?</td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="web-application-security"><a href="vulnerability-management.html">Web &amp; Application Security</a> <small>(2 tools)</small></h3>
+        <table>
+          <thead>
+            <tr><th>Tool</th><th>What it answers</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>get_webapp_vulns</code></td><td>What web app vulnerabilities were found? OWASP Top 10 mapping</td></tr>
+            <tr><td><code>get_expiring_certs</code></td><td>SSL/TLS cert expiry + issue detection</td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="threat-detection"><a href="threat-intelligence.html">Threat Detection</a> <small>(3 tools)</small></h3>
+        <table>
+          <thead>
+            <tr><th>Tool</th><th>What it answers</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>get_edr_events</code></td><td>What endpoint threats were detected?</td></tr>
+            <tr><td><code>get_fim_events</code></td><td>What file changes happened?</td></tr>
+            <tr><td><code>get_cdr_findings</code></td><td>What cloud threats were detected?</td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="patch-management"><a href="operations.html">Patch Management</a> <small>(1 tool)</small></h3>
+        <table>
+          <thead>
+            <tr><th>Tool</th><th>What it answers</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>get_pm_status</code></td><td>What's our patch deployment status?</td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="remediation-workflow"><a href="compliance.html">Remediation Workflow</a> <small>(3 tools)</small></h3>
+        <table>
+          <thead>
+            <tr><th>Tool</th><th>What it answers</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>get_remediation_tickets</code></td><td>What remediation tickets are open?</td></tr>
+            <tr><td><code>create_remediation_ticket</code></td><td>Create a remediation ticket</td></tr>
+            <tr><td><code>get_sla_status</code></td><td>What's our SLA compliance?</td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="qid-lookups"><a href="vulnerability-management.html">QID Lookups</a> <small>(1 tool)</small></h3>
+        <table>
+          <thead>
+            <tr><th>Tool</th><th>What it answers</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>get_qid_details</code></td><td>What is this QID? Severity, CVEs, threat intel</td></tr>
+          </tbody>
+        </table>
+
+        <h3 id="admin"><a href="operations.html">Admin</a> <small>(1 tool)</small></h3>
+        <table>
+          <thead>
+            <tr><th>Tool</th><th>What it answers</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>cache_status</code></td><td>What's cached? Use clear=True to reset</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="threat-intel-categories">Threat Intel Categories</h2>
+        <p>The following 12 Real-Time Threat Indicator (RTI) categories are available for filtering with <code>get_threat_intel</code>:</p>
+        <ol>
+          <li><strong>Ransomware</strong></li>
+          <li><strong>Malware</strong></li>
+          <li><strong>Active_Attacks</strong></li>
+          <li><strong>Exploit_Public</strong></li>
+          <li><strong>Easy_Exploit</strong></li>
+          <li><strong>Wormable</strong></li>
+          <li><strong>Cisa_Known_Exploited_Vulns</strong></li>
+          <li><strong>Denial_of_Service</strong></li>
+          <li><strong>Privilege_Escalation</strong></li>
+          <li><strong>Remote_Code_Execution</strong></li>
+          <li><strong>Predicted_High_Risk</strong></li>
+          <li><strong>Unauthenticated_Exploitation</strong></li>
+        </ol>
+
+        <div class="page-nav">
+          <a href="../getting-started/configuration.html">
+            <span>&larr; Previous</span>
+            <strong>Configuration</strong>
+          </a>
+          <a href="vulnerability-management.html" style="text-align: right;">
+            <span>Next &rarr;</span>
+            <strong>Vulnerability Management</strong>
+          </a>
+        </div>
+
+        <footer class="footer">
+          <div class="footer-content">
+            <div>MIT License - Copyright (c) 2026 Andrew Nelson</div>
+            <div class="footer-links">
+              <a href="https://github.com/nelssec/qualys-mcp">GitHub</a>
+              <a href="https://pypi.org/project/qualys-mcp/">PyPI</a>
+            </div>
+          </div>
+        </footer>
+      </div>
+      <aside class="toc">
+        <div class="toc-title">On this page</div>
+        <ul>
+          <li><a href="#tools-by-category">Tools by Category</a></li>
+          <li><a href="#daily-operations-coaching">Daily Operations &amp; Coaching</a></li>
+          <li><a href="#security-posture-priorities">Security Posture &amp; Priorities</a></li>
+          <li><a href="#vulnerability-intelligence">Vulnerability Intelligence</a></li>
+          <li><a href="#asset-infrastructure-risk">Asset &amp; Infrastructure Risk</a></li>
+          <li><a href="#web-application-security">Web &amp; Application Security</a></li>
+          <li><a href="#threat-detection">Threat Detection</a></li>
+          <li><a href="#patch-management">Patch Management</a></li>
+          <li><a href="#remediation-workflow">Remediation Workflow</a></li>
+          <li><a href="#qid-lookups">QID Lookups</a></li>
+          <li><a href="#admin">Admin</a></li>
+          <li><a href="#threat-intel-categories">Threat Intel Categories</a></li>
+        </ul>
+      </aside>
+    </main>
+  </div>
+</body>
+</html>
