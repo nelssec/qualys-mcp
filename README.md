@@ -4,6 +4,8 @@
 
 A lightweight MCP server that connects AI assistants to Qualys security data. **35 tools**, pure Python, zero config beyond credentials. Install with `uvx` and start asking security questions in plain English.
 
+**📖 [Full documentation →](https://qualys-mcp.netlify.app/)**
+
 ## Setup
 
 Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
