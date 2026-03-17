@@ -49,14 +49,14 @@ def call_tool(name, **kwargs):
 
 @skip_no_creds
 class TestSecurityPosture:
-    """Test get_security_posture tool responses."""
+    """Test get_trurisk_score tool responses."""
 
     def test_returns_non_empty(self):
-        result = call_tool("get_security_posture")
+        result = call_tool("get_trurisk_score")
         assert isinstance(result, dict)
 
     def test_contains_risk_data(self):
-        result = call_tool("get_security_posture")
+        result = call_tool("get_trurisk_score")
         result_str = json.dumps(result).lower()
         assert any(
             kw in result_str for kw in ["risk", "asset", "vulnerability", "trurisk"]
@@ -81,17 +81,17 @@ class TestMorningReport:
 
 @skip_no_creds
 class TestListVulnerabilities:
-    """Test vulnerability listing via get_threat_intel."""
+    """Test vulnerability listing via search_vulns."""
 
     def test_returns_non_empty(self):
-        result = call_tool("get_threat_intel", threat_type="Ransomware")
+        result = call_tool("search_vulns", threat_type="Ransomware")
         assert isinstance(result, dict)
 
     def test_contains_vuln_data(self):
-        result = call_tool("get_threat_intel", threat_type="Ransomware")
+        result = call_tool("search_vulns", threat_type="Ransomware")
         result_str = json.dumps(result).lower()
         assert any(
-            kw in result_str for kw in ["vulnerability", "cve", "detection", "ransomware"]
+            kw in result_str for kw in ["vulnerability", "cve", "vuln", "ransomware", "threat"]
         ), "Response missing expected vulnerability keywords"
 
 
