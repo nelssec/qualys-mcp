@@ -49,14 +49,14 @@ def call_tool(name, **kwargs):
 
 @skip_no_creds
 class TestSecurityPosture:
-    """Test get_security_posture tool responses."""
+    """Test get_trurisk_score tool responses."""
 
     def test_returns_non_empty(self):
-        result = call_tool("get_security_posture")
+        result = call_tool("get_trurisk_score")
         assert isinstance(result, dict)
 
     def test_contains_risk_data(self):
-        result = call_tool("get_security_posture")
+        result = call_tool("get_trurisk_score")
         result_str = json.dumps(result).lower()
         assert any(
             kw in result_str for kw in ["risk", "asset", "vulnerability", "trurisk"]
