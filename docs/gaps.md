@@ -236,3 +236,74 @@ These return error messages redirecting users to the consolidated replacement:
 | Extend `get_compliance_posture` | ~5 | Low | Add `control_id` for single-control lookup |
 
 Building all of these would bring total coverage from 43% to approximately 60%. The remaining 40% consists of highly granular queries (individual patch KBs, K8s RBAC, cloud resource-type specifics, SLA tracking) that require either deep API integration or customer-specific configuration.
+
+---
+
+## Live Eval Results — US2 Tenant (2026-03-17)
+
+Measured against real Qualys US2 tenant using `scripts/eval_live.py`.
+34 active tools tested (14 deprecated stubs skipped).
+
+### Summary
+
+| Metric | Value |
+|--------|-------|
+| Tools tested | 34 |
+| ✓ Pass (ok/empty) | 29 (85.3%) |
+| ✗ Error | 5 (14.7%) |
+| Total latency | 272s |
+
+### Per-Tool Results
+
+| Tool | Status | Latency | Notes |
+|------|--------|---------|-------|
+| `cache_status` | ✓ ok | 0.0s | 1 returned |
+| `get_scanner_health` | ✓ ok | 9.4s | 17 scanners |
+| `get_scan_status` | ✓ ok | 1.9s | 68 scans (50 returned) |
+| `get_morning_report` | ✓ ok | 1.2s | 1 report |
+| `get_weekly_priorities` | ✓ ok | 4.9s | 0 returned (no data) |
+| `search_vulns` | ✓ ok | 61.1s | 3366 vulns (10 returned) |
+| `get_cve_details` | ✓ ok | 60.1s | 1 returned |
+| `get_qid_details` | ✓ ok | 48.2s | 1 returned |
+| `get_etm_findings` | ✓ ok | 7.1s | findings present |
+| `get_patch_status` | ✓ ok | 0.8s | 0 returned (no PM data) |
+| `get_eliminate_status` | ✓ ok | 1.0s | 1 returned |
+| `get_recommendations` | ✓ ok | 37.0s | 6 recommendations |
+| `get_asset_inventory` | ✓ ok | 0.3s | 0 returned (CSAM empty) |
+| `get_tech_debt` | ✓ ok | 0.3s | 0 returned (no EOL assets) |
+| `get_cloud_risk` | ✓ ok | 0.7s | 0 returned (no cloud data) |
+| `get_webapp_vulns` | ✓ ok | 4.0s | 0 returned (no WAS data) |
+| `get_expiring_certs` | ✓ ok | 0.2s | 0 returned |
+| `get_vuln_exceptions` | ✓ ok | 0.2s | 0 returned |
+| `get_compliance_posture` | ✗ error | 12.6s | PC module not licensed |
+| `get_trurisk_score` | ✓ ok | 0.8s | 0 returned (no TruRisk data) |
+| `get_edr_events` | ✓ ok | 0.3s | 0 returned (no EDR data) |
+| `get_fim_events` | ✓ ok | 0.2s | 0 returned (no FIM data) |
+| `reports_list` | ✓ ok | 4.7s | 115 reports |
+| `reports_templates` | ✗ error | 0.2s | Template API endpoint not accessible |
+| `get_asset_inventory_tags` | ✓ ok | 0.3s | 0 returned |
+| `get_asset_inventory_groups` | ✓ ok | 0.2s | 0 returned |
+| `get_asset_summary` | ✗ error | 0.0s | No asset_id (CSAM returned empty) |
+| `get_asset_full` | ✗ error | 0.0s | No asset_id (CSAM returned empty) |
+| `get_risk_by_tag` | ✗ error | 0.0s | No tags found in tenant |
+| `get_image_vulns` | ✓ ok | 0.3s | 0 returned (no container data) |
+| `investigate_cve` | ✓ ok | 7.3s | 11 results |
+| `investigate` | ✓ ok | 5.1s | 2 results |
+| `summarize_investigation` | ✓ ok | 0.0s | ok |
+| `reports_status` | ✓ ok | 1.6s | 1 returned |
+
+### Error Classification
+
+| Tool | Error Type | Root Cause |
+|------|-----------|------------|
+| `get_compliance_posture` | Expected (not licensed) | PC module not in this subscription |
+| `reports_templates` | Bug | Template API endpoint returns empty (needs investigation) |
+| `get_asset_summary` | Expected (no data) | CSAM returned 0 assets for this tenant |
+| `get_asset_full` | Expected (no data) | CSAM returned 0 assets for this tenant |
+| `get_risk_by_tag` | Expected (no data) | No tags configured on this tenant |
+
+### Known Fixes Applied
+
+- **Scanner parsing** (`get_scanner_health`): Added `safe_int()` helper to handle empty XML fields — `invalid literal for int() with base 10: ''` bug fixed
+- **CSAM 400 errors** were investigated; the tenant simply has no CSAM assets (not a code bug)
+
