@@ -1923,8 +1923,8 @@ def investigate(topic: str, depth: str = "standard", prior_context: str = "") ->
 
         # Quick: get_cve_details + investigate_cve
         tasks = {
-            'cve_details': lambda: _safe_call('get_cve_details', lambda: get_cve_details.fn(cve_id)),
-            'cve_investigation': lambda: _safe_call('investigate_cve', lambda: investigate_cve.fn(cve_id)),
+            'cve_details': lambda: _safe_call('get_cve_details', lambda: get_cve_details(cve_id)),
+            'cve_investigation': lambda: _safe_call('investigate_cve', lambda: investigate_cve(cve_id)),
         }
         results = _run_concurrent(**tasks)
         findings['cve_details'] = results.get('cve_details')
@@ -1932,8 +1932,8 @@ def investigate(topic: str, depth: str = "standard", prior_context: str = "") ->
 
         if depth in ('standard', 'deep'):
             std_tasks = {
-                'patch_status': lambda: _safe_call('get_patch_status', lambda: get_patch_status.fn()),
-                'vuln_exceptions': lambda: _safe_call('get_vuln_exceptions', lambda: get_vuln_exceptions.fn()),
+                'patch_status': lambda: _safe_call('get_patch_status', lambda: get_patch_status()),
+                'vuln_exceptions': lambda: _safe_call('get_vuln_exceptions', lambda: get_vuln_exceptions()),
             }
             std_results = _run_concurrent(**std_tasks)
             findings['patch_status'] = std_results.get('patch_status')
@@ -1942,8 +1942,8 @@ def investigate(topic: str, depth: str = "standard", prior_context: str = "") ->
         if depth == 'deep':
             deep_tasks = {
                 'etm_findings': lambda: _safe_call('get_etm_findings',
-                    lambda: get_etm_findings.fn(qql=f'vulnerabilities.vulnerability.cveIds:{cve_id}')),
-                'weekly_priorities': lambda: _safe_call('get_weekly_priorities', lambda: get_weekly_priorities.fn()),
+                    lambda: get_etm_findings(qql=f'vulnerabilities.vulnerability.cveIds:{cve_id}')),
+                'weekly_priorities': lambda: _safe_call('get_weekly_priorities', lambda: get_weekly_priorities()),
             }
             deep_results = _run_concurrent(**deep_tasks)
             findings['etm_findings'] = deep_results.get('etm_findings')
@@ -1954,15 +1954,15 @@ def investigate(topic: str, depth: str = "standard", prior_context: str = "") ->
         asset_query = topic_lower.replace('asset:', '').strip()
 
         # Quick: get_asset full
-        findings['asset'] = _safe_call('get_asset', lambda: get_asset.fn(asset_query, detail='full'))
+        findings['asset'] = _safe_call('get_asset', lambda: get_asset(asset_query, detail='full'))
 
         if depth in ('standard', 'deep'):
-            findings['etm_findings'] = _safe_call('get_etm_findings', lambda: get_etm_findings.fn())
+            findings['etm_findings'] = _safe_call('get_etm_findings', lambda: get_etm_findings())
 
         if depth == 'deep':
             deep_tasks = {
-                'patch_status': lambda: _safe_call('get_patch_status', lambda: get_patch_status.fn()),
-                'vuln_exceptions': lambda: _safe_call('get_vuln_exceptions', lambda: get_vuln_exceptions.fn()),
+                'patch_status': lambda: _safe_call('get_patch_status', lambda: get_patch_status()),
+                'vuln_exceptions': lambda: _safe_call('get_vuln_exceptions', lambda: get_vuln_exceptions()),
             }
             deep_results = _run_concurrent(**deep_tasks)
             findings['patch_status'] = deep_results.get('patch_status')
@@ -1971,8 +1971,8 @@ def investigate(topic: str, depth: str = "standard", prior_context: str = "") ->
     # --- Risk spike investigation ---
     elif inv_type == 'risk_spike':
         tasks = {
-            'trurisk': lambda: _safe_call('get_trurisk_score', lambda: get_trurisk_score.fn()),
-            'weekly_priorities': lambda: _safe_call('get_weekly_priorities', lambda: get_weekly_priorities.fn()),
+            'trurisk': lambda: _safe_call('get_trurisk_score', lambda: get_trurisk_score()),
+            'weekly_priorities': lambda: _safe_call('get_weekly_priorities', lambda: get_weekly_priorities()),
         }
         results = _run_concurrent(**tasks)
         findings['trurisk'] = results.get('trurisk')
@@ -1980,8 +1980,8 @@ def investigate(topic: str, depth: str = "standard", prior_context: str = "") ->
 
         if depth in ('standard', 'deep'):
             std_tasks = {
-                'search_vulns': lambda: _safe_call('search_vulns', lambda: search_vulns.fn()),
-                'morning_report': lambda: _safe_call('get_morning_report', lambda: get_morning_report.fn()),
+                'search_vulns': lambda: _safe_call('search_vulns', lambda: search_vulns()),
+                'morning_report': lambda: _safe_call('get_morning_report', lambda: get_morning_report()),
             }
             std_results = _run_concurrent(**std_tasks)
             findings['search_vulns'] = std_results.get('search_vulns')
@@ -1996,14 +1996,14 @@ def investigate(topic: str, depth: str = "standard", prior_context: str = "") ->
                 if asset_id:
                     findings[f'top_asset_{i}'] = _safe_call(
                         f'get_asset({asset_id})',
-                        lambda aid=asset_id: get_asset.fn(aid, detail='full'))
+                        lambda aid=asset_id: get_asset(aid, detail='full'))
 
     # --- Ransomware investigation ---
     elif inv_type == 'ransomware':
         tasks = {
             'etm_findings': lambda: _safe_call('get_etm_findings',
-                lambda: get_etm_findings.fn(qql='threatName:ransomware')),
-            'weekly_priorities': lambda: _safe_call('get_weekly_priorities', lambda: get_weekly_priorities.fn()),
+                lambda: get_etm_findings(qql='threatName:ransomware')),
+            'weekly_priorities': lambda: _safe_call('get_weekly_priorities', lambda: get_weekly_priorities()),
         }
         results = _run_concurrent(**tasks)
         findings['etm_findings'] = results.get('etm_findings')
@@ -2011,8 +2011,8 @@ def investigate(topic: str, depth: str = "standard", prior_context: str = "") ->
 
         if depth in ('standard', 'deep'):
             std_tasks = {
-                'edr_events': lambda: _safe_call('get_edr_events', lambda: get_edr_events.fn()),
-                'patch_status': lambda: _safe_call('get_patch_status', lambda: get_patch_status.fn()),
+                'edr_events': lambda: _safe_call('get_edr_events', lambda: get_edr_events()),
+                'patch_status': lambda: _safe_call('get_patch_status', lambda: get_patch_status()),
             }
             std_results = _run_concurrent(**std_tasks)
             findings['edr_events'] = std_results.get('edr_events')
@@ -2029,13 +2029,13 @@ def investigate(topic: str, depth: str = "standard", prior_context: str = "") ->
                         seen_cves.add(cve_id)
                         findings[f'cve_{cve_id}'] = _safe_call(
                             f'investigate_cve({cve_id})',
-                            lambda c=cve_id: investigate_cve.fn(c))
+                            lambda c=cve_id: investigate_cve(c))
 
     # --- Compliance investigation ---
     elif inv_type == 'compliance':
         tasks = {
-            'compliance': lambda: _safe_call('get_compliance_posture', lambda: get_compliance_posture.fn()),
-            'morning_report': lambda: _safe_call('get_morning_report', lambda: get_morning_report.fn(quick=True)),
+            'compliance': lambda: _safe_call('get_compliance_posture', lambda: get_compliance_posture()),
+            'morning_report': lambda: _safe_call('get_morning_report', lambda: get_morning_report(quick=True)),
         }
         results = _run_concurrent(**tasks)
         findings['compliance'] = results.get('compliance')
@@ -2043,8 +2043,8 @@ def investigate(topic: str, depth: str = "standard", prior_context: str = "") ->
 
         if depth in ('standard', 'deep'):
             std_tasks = {
-                'etm_findings': lambda: _safe_call('get_etm_findings', lambda: get_etm_findings.fn()),
-                'vuln_exceptions': lambda: _safe_call('get_vuln_exceptions', lambda: get_vuln_exceptions.fn()),
+                'etm_findings': lambda: _safe_call('get_etm_findings', lambda: get_etm_findings()),
+                'vuln_exceptions': lambda: _safe_call('get_vuln_exceptions', lambda: get_vuln_exceptions()),
             }
             std_results = _run_concurrent(**std_tasks)
             findings['etm_findings'] = std_results.get('etm_findings')
@@ -2052,8 +2052,8 @@ def investigate(topic: str, depth: str = "standard", prior_context: str = "") ->
 
         if depth == 'deep':
             deep_tasks = {
-                'cloud_risk': lambda: _safe_call('get_cloud_risk', lambda: get_cloud_risk.fn()),
-                'expiring_certs': lambda: _safe_call('get_expiring_certs', lambda: get_expiring_certs.fn()),
+                'cloud_risk': lambda: _safe_call('get_cloud_risk', lambda: get_cloud_risk()),
+                'expiring_certs': lambda: _safe_call('get_expiring_certs', lambda: get_expiring_certs()),
             }
             deep_results = _run_concurrent(**deep_tasks)
             findings['cloud_risk'] = deep_results.get('cloud_risk')
@@ -2062,20 +2062,20 @@ def investigate(topic: str, depth: str = "standard", prior_context: str = "") ->
     # --- General / fallback investigation ---
     else:
         tasks = {
-            'morning_report': lambda: _safe_call('get_morning_report', lambda: get_morning_report.fn()),
-            'weekly_priorities': lambda: _safe_call('get_weekly_priorities', lambda: get_weekly_priorities.fn()),
+            'morning_report': lambda: _safe_call('get_morning_report', lambda: get_morning_report()),
+            'weekly_priorities': lambda: _safe_call('get_weekly_priorities', lambda: get_weekly_priorities()),
         }
         results = _run_concurrent(**tasks)
         findings['morning_report'] = results.get('morning_report')
         findings['weekly_priorities'] = results.get('weekly_priorities')
 
         if depth in ('standard', 'deep'):
-            findings['search_vulns'] = _safe_call('search_vulns', lambda: search_vulns.fn())
+            findings['search_vulns'] = _safe_call('search_vulns', lambda: search_vulns())
 
         if depth == 'deep':
             deep_tasks = {
-                'cloud_risk': lambda: _safe_call('get_cloud_risk', lambda: get_cloud_risk.fn()),
-                'compliance': lambda: _safe_call('get_compliance_posture', lambda: get_compliance_posture.fn()),
+                'cloud_risk': lambda: _safe_call('get_cloud_risk', lambda: get_cloud_risk()),
+                'compliance': lambda: _safe_call('get_compliance_posture', lambda: get_compliance_posture()),
             }
             deep_results = _run_concurrent(**deep_tasks)
             findings['cloud_risk'] = deep_results.get('cloud_risk')
@@ -2597,7 +2597,7 @@ def get_recommendations() -> dict:
         fim=lambda: _fetch_fim_events_raw(5, 7),
         edr=lambda: _fetch_edr_events_raw(5),
         certs=lambda: get_certificates(5, 30),
-        ransomware_vulns=lambda: search_vulns.fn(days=30, threat_type='Ransomware'),
+        ransomware_vulns=lambda: search_vulns(days=30, threat_type='Ransomware'),
     )
 
     total = concurrent.get('total') or 0
@@ -3382,11 +3382,11 @@ def get_morning_report(quick: bool = False) -> dict:
     # Run everything concurrently for speed
     concurrent = _run_concurrent(
         posture=lambda: get_security_posture(),
-        priorities=lambda: get_weekly_priorities.fn(),
-        new_vulns=lambda: search_vulns.fn(days=1),
-        ransomware=lambda: search_vulns.fn(days=1, threat_type='Ransomware'),
-        active=lambda: search_vulns.fn(days=1, threat_type='Active_Attacks'),
-        cisa=lambda: search_vulns.fn(days=1, threat_type='Cisa_Known_Exploited_Vulns'),
+        priorities=lambda: get_weekly_priorities(),
+        new_vulns=lambda: search_vulns(days=1),
+        ransomware=lambda: search_vulns(days=1, threat_type='Ransomware'),
+        active=lambda: search_vulns(days=1, threat_type='Active_Attacks'),
+        cisa=lambda: search_vulns(days=1, threat_type='Cisa_Known_Exploited_Vulns'),
         trurisk_now=lambda: csam_search(limit=100, fields="truRisk"),
         trurisk_7d=lambda: csam_search(
             filters=[{"field": "asset.lastModifiedDate", "operator": "LESS",
