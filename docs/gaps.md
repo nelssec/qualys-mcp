@@ -1,6 +1,6 @@
 # Qualys MCP — Tool Coverage & Gap Analysis
 
-Updated: 2026-03-17 | 29 active tools | 14 deprecated stubs | 515 customer questions
+Updated: 2026-03-17 | v2.15 | 29 active tools | 14 deprecated stubs | 515 customer questions
 
 ---
 
@@ -13,7 +13,7 @@ Updated: 2026-03-17 | 29 active tools | 14 deprecated stubs | 515 customer quest
 | `investigate` | Q1–7, Q8–10 (partial) | Deep-dive on any security topic; chains other tools internally |
 | `investigate_cve` | Q11–20 | CVE → QID → KB → asset inventory pipeline |
 | `summarize_investigation` | Q503–504 | Narrative summaries for exec or technical audiences |
-| `get_morning_report` | Q2–3, Q82–84 | Morning briefing with quick mode; includes `_gaps` and `_next` |
+| `get_morning_report` | Q2–3, Q82–84, Q501–502 | Morning briefing with quick mode; includes `_gaps` and `_next` |
 | `reports` | Q81, Q86 | Unified report ops: list, templates, generate, status, download, delete |
 
 ### Vulnerability Management
@@ -99,43 +99,47 @@ Updated: 2026-03-17 | 29 active tools | 14 deprecated stubs | 515 customer quest
 
 ## Coverage Summary by Category
 
+Counts derived from per-question annotations in `docs/questions.md`:
+
 | Category | Total | ✅ | ⚠️ | ❌ | Coverage |
 |----------|------:|---:|---:|---:|---------:|
 | Investigation Chaining | 10 | 7 | 3 | 0 | 85% |
-| Vulnerability Management | 90 | 38 | 14 | 38 | 50% |
-| Patch Management | 50 | 7 | 6 | 37 | 20% |
+| Vulnerability Management | 90 | 58 | 14 | 18 | 72% |
+| Patch Management | 50 | 7 | 5 | 38 | 19% |
 | TruRisk Eliminate | 30 | 8 | 4 | 18 | 33% |
-| Cloud Security | 70 | 14 | 8 | 48 | 26% |
-| Container Security | 40 | 6 | 4 | 30 | 20% |
-| Web Application Security | 50 | 10 | 9 | 31 | 29% |
-| Endpoint / EDR + FIM | 35 | 14 | 12 | 9 | 57% |
-| Certificates / CertView | 30 | 13 | 8 | 9 | 57% |
-| Asset Management | 40 | 14 | 10 | 16 | 48% |
+| Cloud Security | 70 | 14 | 9 | 47 | 26% |
+| Container Security | 40 | 6 | 6 | 28 | 22% |
+| Web Application Security | 50 | 8 | 12 | 30 | 28% |
+| Endpoint / EDR + FIM | 35 | 15 | 13 | 7 | 61% |
+| Certificates / CertView | 30 | 13 | 10 | 7 | 60% |
+| Asset Management | 40 | 14 | 13 | 13 | 51% |
 | Compliance | 45 | 7 | 4 | 34 | 20% |
 | Scanner / Infrastructure | 20 | 9 | 4 | 7 | 55% |
-| Growth Engine | 5 | 2 | 1 | 2 | 50% |
-| **Total** | **515** | **149** | **87** | **279** | **37%** |
+| Growth Engine | 5 | 4 | 1 | 0 | 90% |
+| **Total** | **515** | **170** | **98** | **247** | **43%** |
+
+Coverage % = (✅ + ⚠️ × 0.5) / Total
 
 Previous assessment (pre-v2.15): 76 ✅ / 39 ⚠️ / 385 ❌ (23%)
-Current (v2.15): **149 ✅ / 87 ⚠️ / 279 ❌ (37%)**
+Current (v2.15): **170 ✅ / 98 ⚠️ / 247 ❌ (43%)**
 
-Coverage roughly doubled since the last gap analysis. The biggest gains came from adding `get_webapp_vulns`, `get_edr_events`, `get_fim_events`, `get_expiring_certs`, `get_compliance_posture`, `get_scan_status`, `get_asset_inventory`, and `get_vuln_exceptions`.
+Coverage nearly doubled since the last gap analysis. The biggest gains came from Vulnerability Management (50% → 72%), Endpoint/EDR+FIM (→ 61%), Certificates (→ 60%), and Asset Management (→ 51%).
 
 ---
 
 ## Remaining Gaps
 
-### Gap 1: Trend & Historical Analysis (≈40 questions)
+### Gap 1: Trend & Historical Analysis (~40 questions)
 
 **Affected questions:** Q34–40, Q57, Q60, Q87–90, Q131–140, Q183, Q202, Q224, Q249, Q329–330, Q345, Q359, Q449, Q474, Q491
 
-**What's missing:** Week-over-week and month-over-month trend data. Questions like "Show me vulnerability trend for 90 days", "What's our remediation rate over time", "How has our TruRisk changed month-over-month."
+**What's missing:** Week-over-week and month-over-month trend data — vulnerability trends over 90 days, remediation rates over time, TruRisk change month-over-month.
 
 **Why it's hard:** The Qualys VMDR API does not provide historical snapshot endpoints. Trends would need to be computed from detection firstFound/lastFixed dates or from periodic snapshots stored externally.
 
-**Recommendation:** A `get_vuln_trends` tool could approximate trends from current detection data with date filtering. Moderate effort — would cover ~40 questions. Worth building if trend questions are frequent in practice.
+**Recommendation:** A `get_vuln_trends` tool could approximate trends from current detection data with date filtering. Moderate effort — would cover ~40 questions.
 
-### Gap 2: Detailed Patch Management (≈30 questions)
+### Gap 2: Detailed Patch Management (~30 questions)
 
 **Affected questions:** Q96–100, Q106–130
 
@@ -143,29 +147,29 @@ Coverage roughly doubled since the last gap analysis. The biggest gains came fro
 
 **Why it's hard:** The Qualys PM API provides job-level data, but mapping individual patches to assets requires deep PM API integration. Many of these questions assume a patch-management-centric workflow that goes beyond the current Eliminate-focused approach.
 
-**Recommendation:** Extend `get_eliminate_status` with a `job_id` parameter for per-job detail and a `vendor` filter. This covers ~10 more questions with minimal effort. The remaining 20 (maintenance windows, exclusions, scheduling) require PM API features not yet explored.
+**Recommendation:** Extend `get_eliminate_status` with a `job_id` parameter for per-job detail and a `vendor` filter. Covers ~10 more questions with minimal effort. The remaining 20 (maintenance windows, exclusions, scheduling) require PM API features not yet explored.
 
-### Gap 3: Cloud-Specific Resource Queries (≈25 questions)
+### Gap 3: Cloud-Specific Resource Queries (~25 questions)
 
 **Affected questions:** Q201–215, Q226–240
 
-**What's missing:** Queries about specific cloud resource types (Lambda functions, RDS instances, S3 buckets by name), per-account connector listing, cloud asset inventory by provider, cloud resources with specific misconfigurations.
+**What's missing:** Queries about specific cloud resource types (Lambda functions, RDS instances, S3 buckets by name), per-account connector listing, cloud asset inventory by provider.
 
 **Why it's hard:** `get_cloud_risk` provides aggregate posture and CDR findings but doesn't support resource-type-specific queries. The TotalCloud API has granular resource endpoints that aren't yet wrapped.
 
-**Recommendation:** A `get_cloud_resources` tool with `resource_type` and `provider` params could cover ~15 of these. Low-medium effort. The remaining 10 (Lambda permissions, hardcoded credentials, secrets in env vars) require specialized cloud API calls.
+**Recommendation:** A `get_cloud_resources` tool with `resource_type` and `provider` params could cover ~15 of these. Low-medium effort.
 
-### Gap 4: Kubernetes & Container Runtime (≈20 questions)
+### Gap 4: Kubernetes & Container Runtime (~20 questions)
 
 **Affected questions:** Q256–275
 
-**What's missing:** K8s cluster inventory, namespace-level vuln breakdown, RBAC analysis, pod-level queries, container runtime inventory (running containers, hosts, privileged mode).
+**What's missing:** K8s cluster inventory, namespace-level vuln breakdown, RBAC analysis, pod-level queries, container runtime inventory.
 
 **Why it's hard:** Qualys Container Security API provides image scanning but K8s runtime data requires the Qualys K8s sensor and separate API endpoints not yet integrated.
 
-**Recommendation:** A `get_container_runtime` tool could surface running containers and basic K8s data. Medium effort — would cover ~10 questions. K8s RBAC and misconfiguration analysis (another ~10) requires deeper integration.
+**Recommendation:** A `get_container_runtime` tool could surface running containers and basic K8s data. Medium effort — covers ~10 questions.
 
-### Gap 5: WAS Scan Management & Remediation (≈20 questions)
+### Gap 5: WAS Scan Management & Remediation (~20 questions)
 
 **Affected questions:** Q296–305, Q316–325
 
@@ -173,19 +177,19 @@ Coverage roughly doubled since the last gap analysis. The biggest gains came fro
 
 **Why it's hard:** `get_webapp_vulns` covers findings but not the scan management side. The WAS API has separate endpoints for web app inventory and scan management.
 
-**Recommendation:** Extend `get_webapp_vulns` with a `scan_status=True` parameter to include last-scan-date per app, or add a `get_webapp_scans` tool. Low effort — covers ~10 questions.
+**Recommendation:** Extend `get_webapp_vulns` with a `scan_status=True` parameter or add a `get_webapp_scans` tool. Low effort — covers ~10 questions.
 
-### Gap 6: Granular Compliance Controls (≈30 questions)
+### Gap 6: Granular Compliance Controls (~30 questions)
 
 **Affected questions:** Q447–470
 
-**What's missing:** Framework-specific deep dives (FedRAMP, DISA STIG, CMMC, Essential 8), individual control queries, compliance-to-CVE mapping, compensating controls.
+**What's missing:** Framework-specific deep dives (FedRAMP, DISA STIG, CMMC, Essential 8), individual control queries, compliance-to-CVE mapping.
 
-**Why it's hard:** `get_compliance_posture` provides top-level pass/fail rates but the Qualys PC module has hundreds of controls across dozens of frameworks. Surfacing individual control detail requires significantly more API work.
+**Why it's hard:** `get_compliance_posture` provides top-level pass/fail rates but the Qualys PC module has hundreds of controls across dozens of frameworks.
 
-**Recommendation:** Extend `get_compliance_posture` with a `control_id` parameter for single-control lookup. Low effort — covers ~5 more questions. The full framework coverage (FedRAMP, CMMC, etc.) depends on what the customer has licensed.
+**Recommendation:** Extend `get_compliance_posture` with a `control_id` parameter for single-control lookup. Low effort — covers ~5 more questions. Full framework coverage depends on customer licensing.
 
-### Gap 7: SLA & Business-Unit Segmentation (≈15 questions)
+### Gap 7: SLA & Business-Unit Segmentation (~15 questions)
 
 **Affected questions:** Q30, Q33, Q38–39, Q58, Q87–88, Q90, Q132, Q134, Q406–407, Q417
 
@@ -193,7 +197,7 @@ Coverage roughly doubled since the last gap analysis. The biggest gains came fro
 
 **Why it's hard:** SLA definitions are customer-specific and not stored in Qualys APIs. Business-unit segmentation requires tag-based grouping that varies per customer.
 
-**Recommendation:** No new tool needed. Document that `get_risk_by_tag` and `get_asset_inventory` can approximate business-unit queries when customers use tags consistently. SLA tracking is out of scope for the MCP server.
+**Recommendation:** No new tool needed. `get_risk_by_tag` and `get_asset_inventory` approximate business-unit queries when customers use tags consistently. SLA tracking is out of scope.
 
 ---
 
@@ -231,4 +235,4 @@ These return error messages redirecting users to the consolidated replacement:
 | Extend `get_eliminate_status` | ~10 | Low | Add `job_id` for per-job detail, `vendor` filter |
 | Extend `get_compliance_posture` | ~5 | Low | Add `control_id` for single-control lookup |
 
-Building all of these would bring total coverage from 37% to approximately 55%. The remaining 45% consists of highly granular queries (individual patch KBs, K8s RBAC, cloud resource-type specifics, SLA tracking) that require either deep API integration or customer-specific configuration.
+Building all of these would bring total coverage from 43% to approximately 60%. The remaining 40% consists of highly granular queries (individual patch KBs, K8s RBAC, cloud resource-type specifics, SLA tracking) that require either deep API integration or customer-specific configuration.
