@@ -1125,14 +1125,19 @@ def get_criticality(asset):
     return crit or 0
 
 
-def fetch_all_eol(eol_type, limit=0, max_pages=0):
+def fetch_all_eol(eol_type, limit=0, max_pages=0, days=30):
     """Fetch EOL assets with pagination. eol_type is 'os' or 'hardware'.
-    limit=0 means fetch all. max_pages=0 means use global MAX_PAGES (0=unlimited)."""
+    limit=0 means fetch all. max_pages=0 means use global MAX_PAGES (0=unlimited).
+    days>0 filters to assets updated within that many days; days=0 means all-time."""
     token = get_bearer_token()
     if eol_type == 'os':
         filters = [{"field": "operatingSystem.lifecycle.stage", "operator": "CONTAINS", "value": "EOL"}]
     else:
         filters = [{"field": "hardware.lifecycle.stage", "operator": "CONTAINS", "value": "EOL"}]
+
+    if days > 0:
+        cutoff = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%dT00:00:00Z')
+        filters.append({"field": "asset.lastUpdatedDate", "operator": "GREATER", "value": cutoff})
 
     results = []
     seen = set()
@@ -1143,8 +1148,6 @@ def fetch_all_eol(eol_type, limit=0, max_pages=0):
     while True:
         if page_cap > 0 and pages >= page_cap:
             _log(f"fetch_all_eol({eol_type}): hit page cap ({page_cap})")
-            break
-        if limit > 0 and len(results) >= limit:
             break
 
         url = f"{GATEWAY_URL}/rest/2.0/search/am/asset?pageSize=100"
@@ -4117,7 +4120,7 @@ def get_asset_risk(asset_id: str, tag: str = "", asset_group: str = "") -> dict:
 
 
 @mcp.tool()
-def get_tech_debt(limit: int = 100) -> dict:
+def get_tech_debt(limit: int = 100, days: int = 30) -> dict:
     """[Asset Lifecycle] End-of-life and end-of-support systems — OS and hardware assets running unsupported software, sorted by criticality and risk score. @slow
 
     USE WHEN: "which systems are unsupported?", tech debt assessment, EOL/EOS exposure audit, or upgrade planning. Returns both OS EOL (e.g. Windows Server 2012) and hardware EOL assets.
@@ -4126,14 +4129,15 @@ def get_tech_debt(limit: int = 100) -> dict:
 
     Parameters:
         limit: max assets per category (default 100). Use 500 for full inventory.
+        days: only include assets updated within this many days (default 30). Use 0 for all-time.
 
     Returns: os (list of OS EOL assets with assetId, hostname, os, riskScore, criticality, lifecycleStage), hardware (list of hardware EOL assets), summary (osEOL count, hardwareEOL count).
 
     Performance: ~25s for limit=100 / ~2min for limit=500 (paginated CSAM API)."""
     # Run OS and hardware EOL fetches concurrently (fetch all, no artificial page cap)
     concurrent = _run_concurrent(
-        os_eol=lambda: fetch_all_eol('os', limit),
-        hw_eol=lambda: fetch_all_eol('hardware', limit),
+        os_eol=lambda: fetch_all_eol('os', limit, days=days),
+        hw_eol=lambda: fetch_all_eol('hardware', limit, days=days),
     )
 
     result = {
