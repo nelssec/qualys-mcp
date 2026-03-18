@@ -5260,7 +5260,7 @@ def get_asset_inventory(query: str = "", tag: str = "", os: str = "", days_since
     f = filters if filters else None
     data = _run_concurrent(
         assets=lambda: csam_search(filters=f, limit=limit, fetch_all=False,
-                                   fields="operatingSystem,hardware,tags,vulnerabilities,tagList,truRisk,truRiskScoreFactors"),
+                                   fields="assetName,dnsName,netbiosName,address,lastModifiedDate,operatingSystem,hardware,tags,vulnerabilities,tagList,riskScore,criticality"),
         total=lambda: csam_count(filters=f),
     )
     assets = data.get('assets', [])
@@ -5281,8 +5281,10 @@ def get_asset_inventory(query: str = "", tag: str = "", os: str = "", days_since
         summary['byOS'][os_name] = summary['byOS'].get(os_name, 0) + 1
 
         asset_tags = []
-        for t in a.get('tagList', []) or a.get('tags', []) or []:
-            tag_name = t.get('name', '') if isinstance(t, dict) else str(t)
+        raw_tags = (a.get('tagList') or {})
+        tag_list = raw_tags.get('tag', []) if isinstance(raw_tags, dict) else raw_tags
+        for t in tag_list or a.get('tags', []) or []:
+            tag_name = t.get('tagName', '') or t.get('name', '') if isinstance(t, dict) else str(t)
             if tag_name:
                 asset_tags.append(tag_name)
                 summary['byTag'][tag_name] = summary['byTag'].get(tag_name, 0) + 1
@@ -5292,10 +5294,10 @@ def get_asset_inventory(query: str = "", tag: str = "", os: str = "", days_since
 
         result_assets.append({
             'id': a.get('assetId', ''),
-            'name': a.get('name', '') or a.get('dnsName', ''),
+            'name': a.get('assetName', '') or a.get('dnsName', '') or a.get('netbiosName', ''),
             'ip': a.get('address', '') or a.get('ipAddress', ''),
             'os': os_name,
-            'lastSeen': short_date(a.get('lastSeen', '')),
+            'lastSeen': short_date(a.get('lastModifiedDate', '') or a.get('sensorLastUpdatedDate', '')),
             'tags': asset_tags,
             'truRiskScore': a.get('riskScore', 0) or a.get('truRiskScore', 0) or 0,
             'openVulns': open_vulns,
