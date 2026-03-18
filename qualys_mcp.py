@@ -5253,7 +5253,7 @@ def get_asset_inventory(query: str = "", tag: str = "", os: str = "", days_since
         filters.append({"field": "asset.name", "operator": "CONTAINS", "value": query})
     if days_since_seen > 0:
         cutoff = (datetime.now(timezone.utc) - timedelta(days=days_since_seen)).strftime('%Y-%m-%dT00:00:00Z')
-        filters.append({"field": "asset.lastSeen", "operator": "LESS", "value": cutoff})
+        filters.append({"field": "asset.lastUpdatedDate", "operator": "LESS", "value": cutoff})
     if eol_only:
         filters.append({"field": "operatingSystem.lifecycle.stage", "operator": "CONTAINS", "value": "EOL"})
 
