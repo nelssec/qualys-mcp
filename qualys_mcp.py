@@ -759,14 +759,15 @@ def is_eol_stage(stage):
 
 def _paginate_json(base_url, limit, data_key='data', count_key='count',
                     page_param='pageNumber', size_param='pageSize',
-                    count_only=False, gateway=True, fetch_all=True, not_found_ok=False):
+                    count_only=False, gateway=True, fetch_all=True, not_found_ok=False,
+                    page_start=1):
     """Generic paginated fetch for JSON APIs. Returns list or int (count_only).
     When fetch_all=True (default), fetches all pages up to MAX_PAGES (0=unlimited).
     When fetch_all=False, respects the limit parameter strictly.
     When not_found_ok=True, a 404 response is treated as empty rather than logged as an error."""
     page_size = min(limit, 100)
     results = []
-    page = 1
+    page = page_start
     # Determine page cap: fetch_all ignores limit-based cap; MAX_PAGES=0 means unlimited
     if fetch_all:
         cap = MAX_PAGES if MAX_PAGES > 0 else 0  # 0 = unlimited
@@ -822,18 +823,17 @@ def get_containers(limit=100, count_only=False):
 
 
 def get_connectors(provider='aws', limit=50):
-    url = f"{BASE_URL}/cloudview-api/rest/v1/{provider}/connectors"
+    url = f"{GATEWAY_URL}/cloudview-api/rest/v1/{provider}/connectors"
     # 404 = no connectors configured for this provider — valid state, return empty list
     return _paginate_json(url, limit, data_key='content', count_key='totalElements',
                           page_param='pageNo', size_param='pageSize',
-                          gateway=False, not_found_ok=True)
+                          not_found_ok=True, page_start=0)
 
 
 def get_evaluations(account_id, provider='aws', limit=500):
-    url = f"{BASE_URL}/cloudview-api/rest/v1/{provider}/evaluations/{account_id}"
+    url = f"{GATEWAY_URL}/cloudview-api/rest/v1/{provider}/evaluations/{account_id}"
     return _paginate_json(url, limit, data_key='content', count_key='totalElements',
-                          page_param='pageNo', size_param='pageSize',
-                          gateway=False)
+                          page_param='pageNo', size_param='pageSize', page_start=0)
 
 
 def get_cdr(days=7, limit=100, severity=None, cloud_provider=None, category=None):
