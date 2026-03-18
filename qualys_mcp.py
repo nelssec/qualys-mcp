@@ -689,12 +689,12 @@ def csam_search(filters=None, limit=100, fields=None, fetch_all=True):
     When fetch_all=True (default), paginates using lastSeenAssetId cursor until all pages exhausted.
     """
     with _CSAM_SEM:
-        # Always include tags so every asset response has tags[]
+        # Always include tagList so every asset response has tagList[]
         if fields:
-            if 'tags' not in fields:
-                fields = f"{fields},tags"
+            if 'tagList' not in fields:
+                fields = f"{fields},tagList"
         else:
-            fields = "tags"
+            fields = "tagList"
         page_size = min(limit, 100) if not fetch_all else 100
         body = json.dumps({"filters": filters or []})
         all_assets = []
@@ -871,24 +871,44 @@ def get_certificates(limit=100, days_expiring=None):
     if days_expiring:
         future = (datetime.now(timezone.utc) + timedelta(days=days_expiring)).strftime('%Y-%m-%d')
         url += f"?filter=validTo:<{future}"
-    return _paginate_json(url, limit)
+    return _paginate_json(url, limit, not_found_ok=True)
+
+
+def _fetch_ioc_events(limit=200):
+    """Fetch events from the unified /ioc/v1/events endpoint."""
+    url = f"{GATEWAY_URL}/ioc/v1/events?pageSize={min(limit, 200)}"
+    data = api_get(url, gateway=True, timeout=30)
+    if not data:
+        return []
+    try:
+        parsed = json.loads(data)
+        if isinstance(parsed, list):
+            return parsed[:limit]
+        if isinstance(parsed, dict):
+            return (parsed.get('data', []) or parsed.get('events', []) or parsed.get('items', []))[:limit]
+        return []
+    except (json.JSONDecodeError, TypeError):
+        return []
 
 
 def _fetch_fim_events_raw(limit=100, days=7, host=''):
-    end = datetime.now(timezone.utc)
-    start = end - timedelta(days=days)
-    filt = f"dateTime:[{start.strftime('%Y-%m-%dT%H:%M:%SZ')}...{end.strftime('%Y-%m-%dT%H:%M:%SZ')}]"
-    if host:
-        filt += f" and asset.hostname:{host}"
-    url = f"{BASE_URL}/fim/v2/events?filter={filt}"
-    return _paginate_json(url, limit, gateway=False)
+    all_events = _fetch_ioc_events(limit * 3)
+    fim_events = []
+    for e in all_events:
+        src = str(e.get('eventSource', '') or e.get('type', '') or '').upper()
+        if src in ('FIM', 'FILE', 'FILE_CHANGE', 'FILE CHANGE'):
+            fim_events.append(e)
+    return fim_events[:limit]
 
 
 def _fetch_edr_events_raw(limit=100, severity=None):
-    url = f"{GATEWAY_URL}/edr/v1/events"
-    if severity:
-        url += f"?filter=severity:{severity}"
-    return _paginate_json(url, limit)
+    all_events = _fetch_ioc_events(limit * 3)
+    edr_events = []
+    for e in all_events:
+        src = str(e.get('eventSource', '') or e.get('type', '') or '').upper()
+        if src not in ('FIM', 'FILE', 'FILE_CHANGE', 'FILE CHANGE'):
+            edr_events.append(e)
+    return edr_events[:limit]
 
 
 def get_was_findings(limit=100, severity=None, days=None, app_name=None):
@@ -4223,6 +4243,8 @@ def get_expiring_certs(days: int = 90, include_expired: bool = True, weak_only: 
     today = datetime.now(timezone.utc)
 
     certs = get_certificates(limit * 3, days)
+    if not certs:
+        return {"error": "CertView module not accessible on this tenant.", "total": 0, "certs": []}
     all_certs = []
 
     for c in certs:
@@ -4428,7 +4450,7 @@ def get_threats(days: int = 7, limit: int = 50) -> dict:
 
 
 @mcp.tool()
-def get_webapp_vulns(severity: int = 0, days: int = 30, app_name: str = "", owasp_category: str = "", limit: int = 50) -> dict:
+def get_webapp_vulns(severity: int = 0, days: int = 0, app_name: str = "", owasp_category: str = "", limit: int = 50) -> dict:
     """[Web Application Security] Web application vulnerabilities from Qualys WAS / TotalAppSec — severity breakdown per app, OWASP Top 10 classification, and vuln categories.
 
     USE WHEN: "what web app vulns do we have?", OWASP Top 10 findings, XSS/SQLi/CSRF issues, per-app vulnerability posture, or web application security audit.
@@ -4437,7 +4459,7 @@ def get_webapp_vulns(severity: int = 0, days: int = 30, app_name: str = "", owas
 
     Parameters:
         severity: Minimum severity filter (0=all, 1-5). 4=high+critical, 5=critical only.
-        days: Only findings detected in the last N days (default 30). Use 7 for weekly review.
+        days: Only findings detected in the last N days (default 0 = all time). Use 7 for weekly review, 30 for monthly.
         app_name: Filter by web app name (substring match, e.g. "portal", "api").
         owasp_category: Filter results by OWASP Top 10 category keyword (e.g. "Injection", "XSS", "SSRF", "Access Control", "Cryptographic"). Case-insensitive substring match.
         limit: Max findings to return (default 50).
@@ -5177,24 +5199,40 @@ def get_asset_inventory(query: str = "", tag: str = "", os: str = "", days_since
     Performance: ~3s (parallel CSAM search + count)."""
     # Handle list_tags and list_groups metadata queries
     if list_tags or list_groups:
-        fields = "tags,tagList"
-        if list_groups:
-            fields += ",assetGroups"
-        assets_raw = csam_search(limit=limit or 500, fields=fields, fetch_all=False)
         result = {}
         if list_tags:
+            # Query the tag API directly — asset-level tagList is often empty
             tag_set = set()
-            for a in assets_raw:
-                for t in a.get('tags', []) or a.get('tagList', []) or []:
-                    name = t.get('name', '') if isinstance(t, dict) else str(t)
-                    if name:
-                        tag_set.add(name)
+            tag_url = f"{BASE_URL}/qps/rest/2.0/search/am/tag"
+            tag_req_body = b'<ServiceRequest></ServiceRequest>'
+            try:
+                from urllib.request import Request as _Req
+                req = _Req(tag_url, data=tag_req_body, method='POST')
+                req.add_header('Authorization', f'Basic {BASIC_AUTH}')
+                req.add_header('Content-Type', 'text/xml')
+                req.add_header('X-Requested-With', 'qualys-mcp')
+                with _open(req, timeout=30) as resp:
+                    tag_root = ET.fromstring(resp.read())
+                    for tag_el in tag_root.findall('.//Tag'):
+                        name = tag_el.findtext('name', '')
+                        if name:
+                            tag_set.add(name)
+            except Exception as e:
+                _log(f"Tag API error: {e}")
+                # Fallback to CSAM asset tags
+                assets_raw = csam_search(limit=limit or 500, fields='tagList', fetch_all=False)
+                for a in assets_raw:
+                    for t in a.get('tagList', []) or a.get('tags', []) or []:
+                        name = t.get('name', '') if isinstance(t, dict) else str(t)
+                        if name:
+                            tag_set.add(name)
             tags_sorted = sorted(tag_set)
             result['totalTags'] = len(tags_sorted)
             result['tags'] = tags_sorted
         if list_groups:
             group_set = set()
-            for a in assets_raw:
+            groups_raw = csam_search(limit=limit or 500, fields='assetGroups', fetch_all=False)
+            for a in groups_raw:
                 for g in a.get('assetGroups', []) or []:
                     name = g.get('name', '') if isinstance(g, dict) else str(g)
                     if name:
@@ -5243,7 +5281,7 @@ def get_asset_inventory(query: str = "", tag: str = "", os: str = "", days_since
         summary['byOS'][os_name] = summary['byOS'].get(os_name, 0) + 1
 
         asset_tags = []
-        for t in a.get('tags', []) or a.get('tagList', []) or []:
+        for t in a.get('tagList', []) or a.get('tags', []) or []:
             tag_name = t.get('name', '') if isinstance(t, dict) else str(t)
             if tag_name:
                 asset_tags.append(tag_name)
@@ -5387,10 +5425,24 @@ def get_compliance_posture(framework: str = "", platform: str = "", limit: int =
 
     def _parse_controls(root):
         """Parse controls from XML response and build result dict."""
-        controls = (root.findall('.//CONTROL') or root.findall('.//POSTURE')
+        # Prefer INFO elements (posture/info response) which have STATUS;
+        # CONTROL elements in GLOSSARY have statements but no status
+        infos = root.findall('.//INFO')
+        controls = (infos if infos else
+                    root.findall('.//CONTROL') or root.findall('.//POSTURE')
                     or root.findall('.//COMPLIANCE_CONTROL'))
         if not controls:
             return None
+
+        # Build a lookup from CONTROL ID -> statement/criticality from GLOSSARY
+        ctrl_lookup = {}
+        for gc in root.findall('.//CONTROL'):
+            cid = gc.findtext('ID', '')
+            if cid:
+                ctrl_lookup[cid] = {
+                    'statement': gc.findtext('STATEMENT', ''),
+                    'criticality': (gc.findtext('CRITICALITY', '') or '').strip(),
+                }
 
         passed = 0
         failed = 0
@@ -5404,8 +5456,12 @@ def get_compliance_posture(framework: str = "", platform: str = "", limit: int =
             ctrl_fw = (c.findtext('FRAMEWORK', '') or c.findtext('TECHNOLOGY', '')
                        or c.findtext('POLICY', ''))
             ctrl_id = c.findtext('CONTROL_ID', '') or c.findtext('CID', '') or c.findtext('ID', '')
-            ctrl_name = c.findtext('CONTROL_NAME', '') or c.findtext('TITLE', '') or c.findtext('STATEMENT', '')
-            ctrl_sev = (c.findtext('SEVERITY', '') or c.findtext('CRITICALITY', '')).upper()
+            # Look up statement/criticality from glossary if available
+            glossary = ctrl_lookup.get(ctrl_id, {})
+            ctrl_name = (c.findtext('CONTROL_NAME', '') or c.findtext('TITLE', '')
+                         or c.findtext('STATEMENT', '') or glossary.get('statement', ''))
+            ctrl_sev = (c.findtext('SEVERITY', '') or c.findtext('CRITICALITY', '')
+                        or glossary.get('criticality', '')).strip().upper()
             ctrl_platform = c.findtext('PLATFORM', '') or c.findtext('TECHNOLOGY', '') or ''
             host_count_text = c.findtext('HOST_COUNT', '') or c.findtext('ASSET_COUNT', '')
 
@@ -5489,9 +5545,40 @@ def get_compliance_posture(framework: str = "", platform: str = "", limit: int =
         res['_followups'] = followups
         return res
 
-    # --- Strategy 1: PC posture info endpoint ---
+    # --- Strategy 1: PC v4 — list policies, then get posture per policy ---
+    _log("Compliance posture: listing policies via v4 API...")
+    policy_data = api_get(f"{BASE_URL}/api/4.0/fo/compliance/policy/?action=list", timeout=120)
+    policy_ids = []
+    if policy_data:
+        try:
+            policy_root = ET.fromstring(policy_data if isinstance(policy_data, (str, bytes)) else policy_data)
+            for policy in (policy_root.findall('.//POLICY') or policy_root.findall('.//COMPLIANCE_POLICY') or []):
+                pid = policy.findtext('ID', '') or policy.findtext('POLICY_ID', '')
+                if pid:
+                    policy_ids.append(pid)
+        except ET.ParseError:
+            _log("Compliance posture: policy list returned non-XML")
+
+    if policy_ids:
+        _log(f"Compliance posture: found {len(policy_ids)} policies, fetching posture...")
+        for pid in policy_ids[:10]:
+            posture_data = api_get(
+                f"{BASE_URL}/api/2.0/fo/compliance/posture/info/?action=list&policy_id={pid}",
+                timeout=120
+            )
+            if posture_data:
+                try:
+                    root = ET.fromstring(posture_data if isinstance(posture_data, (str, bytes)) else posture_data)
+                    parsed = _parse_controls(root)
+                    if parsed:
+                        parsed['source'] = 'pc_posture_v4'
+                        return _add_compliance_followups(parsed)
+                except ET.ParseError:
+                    continue
+
+    # --- Strategy 2: PC posture info (no policy_id) ---
     _log("Compliance posture: trying posture/info endpoint...")
-    data = api_get(f"{BASE_URL}/api/2.0/fo/compliance/posture/info/?action=list", timeout=30)
+    data = api_get(f"{BASE_URL}/api/2.0/fo/compliance/posture/info/?action=list", timeout=120)
     if data:
         try:
             root = ET.fromstring(data if isinstance(data, (str, bytes)) else data)
@@ -5502,9 +5589,9 @@ def get_compliance_posture(framework: str = "", platform: str = "", limit: int =
         except ET.ParseError:
             _log("Compliance posture: posture/info returned non-XML")
 
-    # --- Strategy 2: PC control list endpoint ---
+    # --- Strategy 3: PC control list ---
     _log("Compliance posture: trying control list endpoint...")
-    data2 = api_get(f"{BASE_URL}/api/2.0/fo/compliance/control/?action=list", timeout=30)
+    data2 = api_get(f"{BASE_URL}/api/2.0/fo/compliance/control/?action=list", timeout=60)
     if data2:
         try:
             root2 = ET.fromstring(data2 if isinstance(data2, (str, bytes)) else data2)
@@ -5605,7 +5692,7 @@ def get_trurisk_score(days: int = 30, breakdown_by: str = "tag") -> dict:
     top_assets.sort(key=lambda a: int(a.get('riskScore') or 0), reverse=True)
     for asset in top_assets[:10]:
         tags = []
-        for t in (asset.get('tags') or asset.get('tagList') or []):
+        for t in (asset.get('tagList') or asset.get('tags') or []):
             tag_name = t.get('name', '') if isinstance(t, dict) else str(t)
             if tag_name:
                 tags.append(tag_name)
@@ -5672,7 +5759,7 @@ def get_trurisk_score(days: int = 30, breakdown_by: str = "tag") -> dict:
         tag_scores = {}  # {tag: [scores]}
         for asset in top_assets:
             score = int(asset.get('riskScore') or 0)
-            asset_tags = asset.get('tags') or asset.get('tagList') or []
+            asset_tags = asset.get('tagList') or asset.get('tags') or []
             tag_names = []
             for t in asset_tags:
                 name = t.get('name', '') if isinstance(t, dict) else str(t)
