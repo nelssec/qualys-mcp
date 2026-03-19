@@ -94,6 +94,7 @@ async def run_question(
                     {
                         "tool": block.name,
                         "input": block.input,
+                        "output": result_text,
                         "output_preview": result_text[:500],
                         "error": None,
                     }
@@ -180,7 +181,8 @@ async def run_conversation(
                         {
                             "tool": block.name,
                             "input": block.input,
-                            "output_preview": result_text[:500],
+                            "output": result_text,
+                        "output_preview": result_text[:500],
                             "error": None,
                         }
                     )
