@@ -1125,15 +1125,17 @@ def get_criticality(asset):
     return crit or 0
 
 
-def fetch_all_eol(eol_type, limit=0, max_pages=0, days=30):
+def fetch_all_eol(eol_type, limit=0, max_pages=0, cutoff_date=None):
     """Fetch EOL assets with pagination. eol_type is 'os' or 'hardware'.
     limit=0 means fetch all. max_pages=0 means use global MAX_PAGES (0=unlimited).
-    days>0 filters to assets updated within that many days; days=0 means all-time."""
+    cutoff_date: ISO-8601 string; when provided, only assets updated after this date are returned."""
     token = get_bearer_token()
     if eol_type == 'os':
         filters = [{"field": "operatingSystem.lifecycle.stage", "operator": "CONTAINS", "value": "EOL"}]
     else:
         filters = [{"field": "hardware.lifecycle.stage", "operator": "CONTAINS", "value": "EOL"}]
+    if cutoff_date:
+        filters.append({"field": "asset.lastUpdatedDate", "operator": "GREATER", "value": cutoff_date})
 
     if days > 0:
         cutoff = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%dT00:00:00Z')
@@ -4135,15 +4137,19 @@ def get_tech_debt(limit: int = 100, days: int = 30) -> dict:
 
     Parameters:
         limit: max assets per category (default 100). Use 500 for full inventory.
-        days: only include assets updated within this many days (default 30). Use 0 for all-time.
+        days: recency window in days (default 30, use 0 for all-time). With days=30, typically ~4,229 assets vs ~6,645 all-time.
 
-    Returns: os (list of OS EOL assets with assetId, hostname, os, riskScore, criticality, lifecycleStage), hardware (list of hardware EOL assets), summary (osEOL count, hardwareEOL count).
+    Returns: os (list of OS EOL assets with assetId, hostname, os, riskScore, criticality, lifecycleStage), hardware (list of hardware EOL assets), summary (osEOL count, hardwareEOL count). truncated=True appears in meta when results are sliced.
 
-    Performance: ~25s for limit=100 / ~2min for limit=500 (paginated CSAM API)."""
-    # Run OS and hardware EOL fetches concurrently (fetch all, no artificial page cap)
+    Performance: ~15s with days=30 / ~2min for days=0 (paginated CSAM API). Always paginates fully, then slices to limit."""
+    cutoff = None
+    if days > 0:
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    # Run OS and hardware EOL fetches concurrently — always fetch all, slice after sort
     concurrent = _run_concurrent(
-        os_eol=lambda: fetch_all_eol('os', limit, days=days),
-        hw_eol=lambda: fetch_all_eol('hardware', limit, days=days),
+        os_eol=lambda: fetch_all_eol('os', cutoff_date=cutoff),
+        hw_eol=lambda: fetch_all_eol('hardware', cutoff_date=cutoff),
     )
 
     result = {
@@ -4155,7 +4161,19 @@ def get_tech_debt(limit: int = 100, days: int = 30) -> dict:
     result['hardware'].sort(key=lambda x: (-x['criticality'], -x['riskScore']))
     result['summary'] = {'osEOL': len(result['os']), 'hardwareEOL': len(result['hardware'])}
 
-    return _with_meta(result, 'os', len(result['os']) + len(result['hardware']))
+    truncated = False
+    if limit > 0:
+        if len(result['os']) > limit:
+            result['os'] = result['os'][:limit]
+            truncated = True
+        if len(result['hardware']) > limit:
+            result['hardware'] = result['hardware'][:limit]
+            truncated = True
+
+    meta = _with_meta(result, 'os', len(result['os']) + len(result['hardware']))
+    if truncated:
+        meta.get('_meta', {})['truncated'] = True
+    return meta
 
 
 @mcp.tool()
