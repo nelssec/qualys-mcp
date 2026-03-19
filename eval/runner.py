@@ -128,6 +128,101 @@ async def run_question(
     return {"response": assistant_text, "tool_calls": tool_calls_log}
 
 
+async def run_conversation(
+    client: anthropic.Anthropic,
+    session: ClientSession,
+    tools: list[dict],
+    turns: list[str],
+) -> list[dict]:
+    """Run a multi-turn conversation, maintaining message history across turns.
+
+    Returns a list of per-turn results:
+        [{"turn": int, "question": str, "response": str, "tool_calls": list[dict]}, ...]
+    """
+    messages: list[dict] = []
+    turn_results = []
+
+    for turn_idx, user_msg in enumerate(turns, start=1):
+        messages.append({"role": "user", "content": user_msg})
+        tool_calls_log = []
+        assistant_text = ""
+
+        for _ in range(10):  # max iterations per turn
+            resp = client.messages.create(
+                model=MODEL,
+                max_tokens=4096,
+                system=SYSTEM_PROMPT,
+                tools=tools,
+                messages=messages,
+            )
+
+            assistant_text = ""
+            tool_use_blocks = []
+            for block in resp.content:
+                if block.type == "text":
+                    assistant_text += block.text
+                elif block.type == "tool_use":
+                    tool_use_blocks.append(block)
+
+            messages.append({"role": "assistant", "content": resp.content})
+
+            if resp.stop_reason == "end_turn" or not tool_use_blocks:
+                break
+
+            # Process tool calls
+            tool_results = []
+            for block in tool_use_blocks:
+                try:
+                    result_text = await call_mcp_tool(
+                        session, block.name, block.input
+                    )
+                    tool_calls_log.append(
+                        {
+                            "tool": block.name,
+                            "input": block.input,
+                            "output_preview": result_text[:500],
+                            "error": None,
+                        }
+                    )
+                    tool_results.append(
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": result_text,
+                        }
+                    )
+                except Exception as e:
+                    tool_calls_log.append(
+                        {
+                            "tool": block.name,
+                            "input": block.input,
+                            "output_preview": None,
+                            "error": str(e),
+                        }
+                    )
+                    tool_results.append(
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": f"Error: {e}",
+                            "is_error": True,
+                        }
+                    )
+
+            messages.append({"role": "user", "content": tool_results})
+
+        turn_results.append(
+            {
+                "turn": turn_idx,
+                "question": user_msg,
+                "response": assistant_text,
+                "tool_calls": tool_calls_log,
+            }
+        )
+
+    return turn_results
+
+
 def get_server_params() -> StdioServerParameters:
     """Build MCP server parameters from environment."""
     return StdioServerParameters(
