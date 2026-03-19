@@ -1214,6 +1214,8 @@ def _run_concurrent(**tasks):
     """Run named tasks concurrently. Returns dict of {name: result}.
     Each task value is a callable (lambda or function).
     """
+    if not tasks:
+        return {}
     results = {}
     with ThreadPoolExecutor(max_workers=min(len(tasks), 8)) as executor:
         futures = {executor.submit(fn): name for name, fn in tasks.items()}
@@ -3770,6 +3772,10 @@ def get_cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7)
             first_accounts[provider] = first_acc
 
     result['stats']['total'] = len(result['accounts'])
+
+    if not result['accounts']:
+        result['message'] = 'No cloud connectors configured. Connect AWS, Azure, or GCP accounts in Qualys TotalCloud to see cloud risk data.'
+        return compact(result)
 
     # Fetch evaluations for first account of each provider AND CDR in parallel
     eval_tasks = {
