@@ -1,0 +1,304 @@
+[
+  {
+    "id": 1,
+    "title": "Monday Morning Standup",
+    "category": "Vulnerability Management",
+    "turns": [
+      "what happened over the weekend anything new",
+      "how critical is that log4j one",
+      "which servers are affected",
+      "are any of those in prod",
+      "ok can you give me a quick summary i can share with the team"
+    ]
+  },
+  {
+    "id": 2,
+    "title": "Ransomware Exposure Check",
+    "category": "Threat Intelligence",
+    "turns": [
+      "hey quick question — are we exposed to any ransomware-associated vulns right now",
+      "how many assets is that",
+      "which ones are the worst",
+      "what do we need to patch first",
+      "what's the realistic timeline if we started today"
+    ]
+  },
+  {
+    "id": 3,
+    "title": "CVE Incident Response — Log4Shell",
+    "category": "Vulnerability Management",
+    "turns": [
+      "CVE-2021-44228 just dropped on the news, are we affected",
+      "show me the affected assets",
+      "any of these have exceptions or are they all open",
+      "what's the patch",
+      "ok who owns these systems, can you tell from the tags",
+      "summarize this for a ticket"
+    ]
+  },
+  {
+    "id": 4,
+    "title": "New CVE Triage (Patch Tuesday)",
+    "category": "Vulnerability Management",
+    "turns": [
+      "patch tuesday was yesterday what do we need to care about",
+      "which of those are actually exploitable in the wild",
+      "focus on the windows ones, that's our main surface",
+      "how many assets",
+      "what's our patching coverage look like for these"
+    ]
+  },
+  {
+    "id": 5,
+    "title": "Single Asset Deep Dive",
+    "category": "Asset Management",
+    "turns": [
+      "why is server-prod-db-01 showing as high risk",
+      "what vulns does it have",
+      "is it running any EOL software",
+      "when was it last scanned",
+      "what would fix the most risk fastest"
+    ]
+  },
+  {
+    "id": 6,
+    "title": "Cloud Security Posture Review",
+    "category": "Cloud Security",
+    "turns": [
+      "i have a cloud security review tomorrow give me the overview",
+      "which cloud provider is worst",
+      "drill into azure what's failing",
+      "how many resources are affected",
+      "any of these are critical/internet-facing",
+      "give me an exec summary i can use in slides"
+    ]
+  },
+  {
+    "id": 7,
+    "title": "Compliance Audit Prep",
+    "category": "Compliance",
+    "turns": [
+      "pci audit in 2 weeks where do we stand",
+      "what controls are we failing",
+      "how many systems fail those controls",
+      "which failures are worst / highest impact",
+      "are there any exceptions we've approved that auditors will ask about",
+      "draft me a summary of our posture"
+    ]
+  },
+  {
+    "id": 8,
+    "title": "Container Security Review",
+    "category": "Container Security",
+    "turns": [
+      "what's the state of our container images",
+      "which images have the most critical vulns",
+      "what's actually running in prod right now",
+      "any of those running containers have unpatched criticals",
+      "what do we need to rebuild"
+    ]
+  },
+  {
+    "id": 9,
+    "title": "EOL / Tech Debt Discussion",
+    "category": "Asset Management",
+    "turns": [
+      "how bad is our tech debt",
+      "which eol systems are we talking about",
+      "are any of those internet facing",
+      "what's the risk if we don't fix them",
+      "help me prioritize which to tackle first"
+    ]
+  },
+  {
+    "id": 10,
+    "title": "Web App Security Review",
+    "category": "Web Application Security",
+    "turns": [
+      "how are our web apps doing from a security standpoint",
+      "which app has the most issues",
+      "what kind of vulns — xss sqli that kind of thing",
+      "are any of these owasp top 10",
+      "what do we tell the dev team"
+    ]
+  },
+  {
+    "id": 11,
+    "title": "TruRisk Score Investigation",
+    "category": "Vulnerability Management",
+    "turns": [
+      "our trurisk score went up this week why",
+      "what changed",
+      "which assets are driving it",
+      "can we do anything about it quickly",
+      "what's the realistic path to getting it back down"
+    ]
+  },
+  {
+    "id": 12,
+    "title": "Threat Intel Briefing",
+    "category": "Threat Intelligence",
+    "turns": [
+      "what threats should we be aware of this week",
+      "tell me more about the active exploit ones",
+      "do we have any of those in our environment",
+      "what's the exposure",
+      "prioritize for me"
+    ]
+  },
+  {
+    "id": 13,
+    "title": "Patch Management Status",
+    "category": "Patch Management",
+    "turns": [
+      "where are we on patching",
+      "what's still open from last month",
+      "which systems are furthest behind",
+      "anything blocking the patches from deploying",
+      "give me a status i can send to the vp"
+    ]
+  },
+  {
+    "id": 14,
+    "title": "Scanner Health Check",
+    "category": "Asset Management",
+    "turns": [
+      "are all our scanners working",
+      "which ones are having issues",
+      "when did those last successfully scan",
+      "how much of our environment is missing coverage",
+      "what do we need to fix"
+    ]
+  },
+  {
+    "id": 15,
+    "title": "SOC Analyst Morning Triage",
+    "category": "Vulnerability Management",
+    "turns": [
+      "morning, what do i need to look at today",
+      "tell me about the top one",
+      "has this been seen before in our environment",
+      "what's the blast radius",
+      "what's the recommended action"
+    ]
+  },
+  {
+    "id": 16,
+    "title": "Executive Vulnerability Briefing",
+    "category": "Vulnerability Management",
+    "turns": [
+      "i need to brief the cto in an hour on our vulnerability posture",
+      "what's our overall risk score",
+      "how do we compare to last quarter",
+      "what are the top 3 things we're doing about it",
+      "any active threats we're exposed to right now"
+    ]
+  },
+  {
+    "id": 17,
+    "title": "Incident: Suspicious Activity on a Host",
+    "category": "Asset Management",
+    "turns": [
+      "we got an alert on 10.20.5.44 what do we know about it",
+      "what vulns does that host have",
+      "any with active exploits",
+      "has there been any fim or edr activity on it",
+      "what's the full risk profile"
+    ]
+  },
+  {
+    "id": 18,
+    "title": "ECS/K8s Container Investigation",
+    "category": "Container Security",
+    "turns": [
+      "what containers are running right now",
+      "any running with known critical vulns",
+      "which namespaces are those in",
+      "are any running as root or privileged",
+      "what's the worst offender"
+    ]
+  },
+  {
+    "id": 19,
+    "title": "Software-Specific Vuln Hunt",
+    "category": "Vulnerability Management",
+    "turns": [
+      "do we have any log4j in our environment",
+      "which versions",
+      "how many hosts",
+      "are any of those hosts internet facing",
+      "what's the patch status"
+    ]
+  },
+  {
+    "id": 20,
+    "title": "Certificate Expiry Review",
+    "category": "Asset Management",
+    "turns": [
+      "any certs expiring soon",
+      "which ones are critical",
+      "what systems are they on",
+      "who do i talk to about renewing them",
+      "are any already expired"
+    ]
+  },
+  {
+    "id": 21,
+    "title": "Vulnerability Exception Review",
+    "category": "Vulnerability Management",
+    "turns": [
+      "what exceptions do we have approved right now",
+      "any expiring soon",
+      "which ones should we reconsider",
+      "are any of the excepted vulns now being actively exploited"
+    ]
+  },
+  {
+    "id": 22,
+    "title": "Eliminate/Mitigation Status",
+    "category": "Patch Management",
+    "turns": [
+      "what's the status of our eliminate program",
+      "how many vulns have we mitigated without patching",
+      "any failed jobs",
+      "what's the risk reduction so far",
+      "what should we prioritize next"
+    ]
+  },
+  {
+    "id": 23,
+    "title": "Risk by Business Unit",
+    "category": "Asset Management",
+    "turns": [
+      "which of our asset groups is riskiest",
+      "tell me more about the production group",
+      "what are the top vulns there",
+      "how long have they been open",
+      "who owns remediation"
+    ]
+  },
+  {
+    "id": 24,
+    "title": "New Employee Security Orientation",
+    "category": "General",
+    "turns": [
+      "hey i just joined the security team, give me an overview of our posture",
+      "what should i focus on first",
+      "what tools do we have connected",
+      "where are the biggest gaps",
+      "what does a typical week look like"
+    ]
+  },
+  {
+    "id": 25,
+    "title": "Post-Incident Review",
+    "category": "Vulnerability Management",
+    "turns": [
+      "we just had an incident on a windows server, what's our overall windows vuln exposure",
+      "how many windows servers do we have total",
+      "which have the most unpatched criticals",
+      "are we missing scan coverage anywhere",
+      "what would a hardening plan look like"
+    ]
+  }
+]
