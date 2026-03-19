@@ -41,3 +41,4 @@ discovery/
 benchmark_results.json
 eval_results/
 !eval_results/.gitkeep
+.venv/
