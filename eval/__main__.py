@@ -111,7 +111,7 @@ async def run_eval(args):
                         "score": judgment["score"],
                         "reasoning": judgment["reasoning"],
                         "tool_calls": resp["tool_calls"],
-                        "response": resp["response"][:2000],
+                        "response": resp["response"],
                     }
 
                     icon = {"correct": "✅", "partial": "⚠️", "wrong": "❌", "tool-error": "💥"}.get(
@@ -258,7 +258,7 @@ async def run_conversation_eval(args):
                             "score": judgment["score"],
                             "reasoning": judgment["reasoning"],
                             "tool_calls": tr["tool_calls"],
-                            "response": tr["response"][:2000],
+                            "response": tr["response"],
                         }
                     )
 
