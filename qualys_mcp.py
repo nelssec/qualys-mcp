@@ -1137,10 +1137,6 @@ def fetch_all_eol(eol_type, limit=0, max_pages=0, cutoff_date=None):
     if cutoff_date:
         filters.append({"field": "asset.lastUpdatedDate", "operator": "GREATER", "value": cutoff_date})
 
-    if days > 0:
-        cutoff = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%dT00:00:00Z')
-        filters.append({"field": "asset.lastUpdatedDate", "operator": "GREATER", "value": cutoff})
-
     results = []
     seen = set()
     last_id = None
