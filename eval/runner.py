@@ -8,7 +8,10 @@ import anthropic
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-MODEL = "claude-sonnet-4-20250514"
+_DEFAULT_MODEL = "claude-haiku-3-5-20241022"
+
+RUNNER_MODEL = os.environ.get("EVAL_RUNNER_MODEL") or os.environ.get("EVAL_MODEL") or _DEFAULT_MODEL
+JUDGE_MODEL = os.environ.get("EVAL_JUDGE_MODEL") or os.environ.get("EVAL_MODEL") or _DEFAULT_MODEL
 
 SYSTEM_PROMPT = (
     "You are a security analyst assistant with access to Qualys security tools. "
@@ -62,7 +65,7 @@ async def run_question(
 
     for _ in range(10):  # max iterations
         resp = client.messages.create(
-            model=MODEL,
+            model=RUNNER_MODEL,
             max_tokens=4096,
             system=SYSTEM_PROMPT,
             tools=tools,
@@ -150,7 +153,7 @@ async def run_conversation(
 
         for _ in range(10):  # max iterations per turn
             resp = client.messages.create(
-                model=MODEL,
+                model=RUNNER_MODEL,
                 max_tokens=4096,
                 system=SYSTEM_PROMPT,
                 tools=tools,
