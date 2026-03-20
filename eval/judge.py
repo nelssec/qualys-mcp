@@ -5,7 +5,7 @@ import re
 
 import anthropic
 
-from .runner import MODEL
+from .runner import JUDGE_MODEL
 
 SCORE_WEIGHTS = {"correct": 1.0, "partial": 0.5, "wrong": 0.0, "tool-error": 0.0}
 
@@ -57,7 +57,7 @@ def judge_response(
 {response}"""
 
     resp = client.messages.create(
-        model=MODEL,
+        model=JUDGE_MODEL,
         max_tokens=256,
         system=JUDGE_SYSTEM,
         messages=[{"role": "user", "content": user_msg}],
@@ -127,7 +127,7 @@ def judge_conversation_turn(
 {response}"""
 
     resp = client.messages.create(
-        model=MODEL,
+        model=JUDGE_MODEL,
         max_tokens=256,
         system=CONV_JUDGE_SYSTEM,
         messages=[{"role": "user", "content": user_msg}],
