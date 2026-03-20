@@ -22,7 +22,9 @@ mcp = FastMCP("qualys-mcp")
 
 RETRY_STATUS = {429, 503, 502}
 MAX_RETRIES = 4
-_CSAM_SEM = Semaphore(3)
+CSAM_MAX_RETRIES = int(os.environ.get("CSAM_MAX_RETRIES", "6"))
+# Cap concurrent CSAM requests to avoid 429 floods at high worker concurrency
+_CSAM_SEM = Semaphore(int(os.environ.get("CSAM_MAX_CONCURRENT", "3")))
 _CSAM_COUNT_CACHE = {}
 _CSAM_COUNT_CACHE_TTL = 300
 
@@ -633,7 +635,7 @@ def _scope_filters(base_filters, tag='', asset_group=''):
 def _csam_request(url, body, timeout=30):
     """POST to a CSAM endpoint with retry logic for 429/503/502."""
     token = get_bearer_token()
-    for attempt in range(MAX_RETRIES):
+    for attempt in range(CSAM_MAX_RETRIES):
         req = Request(url, data=body.encode(), method='POST')
         req.add_header('Authorization', f'Bearer {token}' if token else f'Basic {BASIC_AUTH}')
         req.add_header('Content-Type', 'application/json')
@@ -643,7 +645,7 @@ def _csam_request(url, body, timeout=30):
             with _open(req, timeout=timeout) as resp:
                 return json.loads(resp.read())
         except HTTPError as e:
-            if e.code in RETRY_STATUS and attempt < MAX_RETRIES - 1:
+            if e.code in RETRY_STATUS and attempt < CSAM_MAX_RETRIES - 1:
                 retry_after = e.headers.get('Retry-After') if e.headers else None
                 if retry_after:
                     try:
@@ -652,7 +654,7 @@ def _csam_request(url, body, timeout=30):
                         delay = 2 ** attempt + random.uniform(0, 1)
                 else:
                     delay = 2 ** attempt + random.uniform(0, 1)
-                _log(f"CSAM retry {attempt + 1}/{MAX_RETRIES} after {e.code} (wait {delay:.1f}s)")
+                _log(f"CSAM retry {attempt + 1}/{CSAM_MAX_RETRIES} after {e.code} (wait {delay:.1f}s)")
                 time.sleep(delay)
                 continue
             _log(f"csam_search error: HTTP Error {e.code}: {e.reason}")
