@@ -19,6 +19,14 @@ export QUALYS_PASSWORD=...
 export QUALYS_BASE_URL=...
 export ANTHROPIC_API_KEY=...
 
+# Optional: override models (default: claude-haiku-3-5-20241022)
+export EVAL_MODEL=claude-sonnet-4-20250514          # set both runner and judge
+export EVAL_RUNNER_MODEL=claude-sonnet-4-20250514   # runner only (overrides EVAL_MODEL)
+export EVAL_JUDGE_MODEL=claude-haiku-3-5-20241022   # judge only (overrides EVAL_MODEL)
+
+# Optional: route requests through a proxy / OpenRouter
+export ANTHROPIC_BASE_URL=https://openrouter.ai/api/v1
+
 # Run all 500 questions
 python -m eval
 
@@ -58,6 +66,16 @@ Results are saved to `eval_results/YYYY-MM-DD_HHMMSS.json` with:
 | tool-error | 0.0 | Tool exception, error, or no tool called when one should have been |
 
 Overall score = (correct + 0.5 * partial) / total
+
+## Cost guidance
+
+| Model | ~500 questions | ~20 questions (--quick) |
+|-------|---------------|------------------------|
+| Haiku 3.5 (default) | ~$5 | ~$0.20 |
+| Sonnet 4 | ~$50 | ~$2 |
+| Opus 4 | ~$100+ | ~$5 |
+
+Use `--quick` for smoke tests and Haiku for routine runs. Set `EVAL_RUNNER_MODEL` to a larger model only when you need higher-fidelity answers.
 
 ## CI Integration
 
