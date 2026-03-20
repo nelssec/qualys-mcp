@@ -28,7 +28,7 @@ from .reporter import (
     print_summary,
     save_results,
 )
-from .runner import MODEL, get_mcp_tools, get_server_params, run_conversation, run_question
+from .runner import JUDGE_MODEL, RUNNER_MODEL, get_mcp_tools, get_server_params, run_conversation, run_question
 from .updater import update_questions_file
 
 
@@ -57,6 +57,8 @@ async def run_eval(args):
     print(f"Eval: {len(questions)} questions (of {total_parsed} total)")
     if args.category:
         print(f"Category filter: {args.category}")
+    print(f"Runner model: {RUNNER_MODEL}")
+    print(f"Judge model:  {JUDGE_MODEL}")
     print(f"Concurrency: {args.concurrency}")
     print(f"Threshold: {args.threshold}")
     print()
@@ -129,7 +131,7 @@ async def run_eval(args):
     summary = compute_summary(results)
     now = datetime.now(timezone.utc)
     run_date = now.strftime("%Y-%m-%d_%H%M%S")
-    result_file = save_results(results, summary, run_date, MODEL)
+    result_file = save_results(results, summary, run_date, RUNNER_MODEL)
     print(f"\nResults saved to {result_file}")
 
     # Print summary
@@ -343,7 +345,8 @@ async def run_conversation_eval(args):
 
     output = {
         "run_date": run_date,
-        "model": MODEL,
+        "runner_model": RUNNER_MODEL,
+        "judge_model": JUDGE_MODEL,
         "type": "conversation",
         "total_scenarios": total_scenarios,
         "total_turns": total_turns,
