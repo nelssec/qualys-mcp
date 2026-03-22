@@ -26,6 +26,7 @@ MAX_RETRIES = 4
 KB_CONFLICT_MAX_RETRIES = 3
 KB_CONFLICT_BASE_DELAY = 3  # seconds
 KB_BUSY_MSG = "Knowledge base export is currently busy (concurrent request in progress). Please try again in a moment."
+CDR_UNAVAILABLE_MSG = "CDR findings currently unavailable"
 CSAM_MAX_RETRIES = int(os.environ.get("CSAM_MAX_RETRIES", "6"))
 # Cap concurrent CSAM requests to avoid 429 floods at high worker concurrency
 _CSAM_SEM = Semaphore(int(os.environ.get("CSAM_MAX_CONCURRENT", "3")))
@@ -259,7 +260,7 @@ def get_bearer_token():
             return None
 
 
-def api_get(url, gateway=False, timeout=30, not_found_ok=False):
+def api_get(url, gateway=False, timeout=30, not_found_ok=False, server_error_sentinel=None):
     for attempt in range(MAX_RETRIES):
         req = Request(url)
         if gateway:
@@ -294,6 +295,9 @@ def api_get(url, gateway=False, timeout=30, not_found_ok=False):
             if e.code in KB_CONFLICT_RETRY_STATUS:
                 _log(f"KB busy (409 conflict) after {KB_CONFLICT_MAX_RETRIES} retries: {url.split('?')[0]}")
                 return 'KB_BUSY'
+            if e.code == 500 and server_error_sentinel:
+                _log(f"[WARN] Server error 500 for {url.split('?')[0]} — returning sentinel")
+                return server_error_sentinel
             _log(f"API error {e.code}: {url.split('?')[0]}")
             return None
         except URLError as e:
@@ -784,11 +788,12 @@ def is_eol_stage(stage):
 def _paginate_json(base_url, limit, data_key='data', count_key='count',
                     page_param='pageNumber', size_param='pageSize',
                     count_only=False, gateway=True, fetch_all=True, not_found_ok=False,
-                    page_start=1):
+                    page_start=1, server_error_sentinel=None):
     """Generic paginated fetch for JSON APIs. Returns list or int (count_only).
     When fetch_all=True (default), fetches all pages up to MAX_PAGES (0=unlimited).
     When fetch_all=False, respects the limit parameter strictly.
-    When not_found_ok=True, a 404 response is treated as empty rather than logged as an error."""
+    When not_found_ok=True, a 404 response is treated as empty rather than logged as an error.
+    When server_error_sentinel is set, a 500 response returns the sentinel string directly."""
     page_size = min(limit, 100)
     results = []
     page = page_start
@@ -808,7 +813,10 @@ def _paginate_json(base_url, limit, data_key='data', count_key='count',
         if not fetch_all and len(results) >= limit:
             break
         url = f"{base_url}{sep}{size_param}={page_size}&{page_param}={page}"
-        data = api_get(url, gateway=gateway, not_found_ok=not_found_ok)
+        data = api_get(url, gateway=gateway, not_found_ok=not_found_ok,
+                       server_error_sentinel=server_error_sentinel)
+        if server_error_sentinel and data == server_error_sentinel:
+            return data
         try:
             parsed = json.loads(data) if data else {}
         except json.JSONDecodeError:
@@ -870,8 +878,10 @@ def get_cdr(days=7, limit=100, severity=None, cloud_provider=None, category=None
         url += f"&cloudProvider={cloud_provider}"
     if category:
         url += f"&category={category}"
-    return _paginate_json(url, limit, data_key='content', count_key='totalElements',
-                          page_param='pageNumber', size_param='limit')
+    results = _paginate_json(url, limit, data_key='content', count_key='totalElements',
+                              page_param='pageNumber', size_param='limit',
+                              server_error_sentinel='CDR_UNAVAILABLE')
+    return results
 
 
 def get_image_details(image_id):
@@ -3826,10 +3836,15 @@ def get_cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7)
 
     # CDR threats — detailed findings (merged from get_cdr_findings)
     if include_threats:
+        cdr_result = eval_results.get('cdr')
+        if cdr_result == 'CDR_UNAVAILABLE':
+            result['cdr_status'] = CDR_UNAVAILABLE_MSG
+            findings = []
+        else:
+            findings = cdr_result or []
         sev_map = {'1': 'LOW', '2': 'MEDIUM', '3': 'HIGH', '4': 'CRITICAL'}
         by_provider = {}
         by_category = {}
-        findings = eval_results.get('cdr') or []
 
         for f in findings:
             sev = str(f.get('severity', '')).upper()
