@@ -706,7 +706,7 @@ def csam_count(filters=None):
         return 0
 
 
-def csam_search(filters=None, limit=100, fields=None, fetch_all=True):
+def csam_search(filters=None, limit=100, fields=None, fetch_all=False):
     """Search assets with optional structured filters. Returns list of assets.
     filters: list of {"field": "...", "operator": "...", "value": "..."} dicts
     fields: comma-separated includeFields (e.g. "operatingSystem,hardware")
@@ -783,7 +783,7 @@ def is_eol_stage(stage):
 
 def _paginate_json(base_url, limit, data_key='data', count_key='count',
                     page_param='pageNumber', size_param='pageSize',
-                    count_only=False, gateway=True, fetch_all=True, not_found_ok=False,
+                    count_only=False, gateway=True, fetch_all=False, not_found_ok=False,
                     page_start=1):
     """Generic paginated fetch for JSON APIs. Returns list or int (count_only).
     When fetch_all=True (default), fetches all pages up to MAX_PAGES (0=unlimited).
