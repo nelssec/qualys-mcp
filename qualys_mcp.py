@@ -643,7 +643,11 @@ def _csam_request(url, body, timeout=30):
         req.add_header('X-Requested-With', 'qualys-mcp')
         try:
             with _open(req, timeout=timeout) as resp:
-                return json.loads(resp.read())
+                raw = resp.read()
+                if not raw or not raw.strip():
+                    _log("[DEBUG] csam_search: empty response body — returning empty result")
+                    return {}
+                return json.loads(raw)
         except HTTPError as e:
             if e.code in RETRY_STATUS and attempt < CSAM_MAX_RETRIES - 1:
                 retry_after = e.headers.get('Retry-After') if e.headers else None
