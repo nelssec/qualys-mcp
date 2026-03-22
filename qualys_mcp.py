@@ -21,7 +21,11 @@ from fastmcp import FastMCP
 mcp = FastMCP("qualys-mcp")
 
 RETRY_STATUS = {429, 503, 502}
+KB_CONFLICT_RETRY_STATUS = {409}
 MAX_RETRIES = 4
+KB_CONFLICT_MAX_RETRIES = 3
+KB_CONFLICT_BASE_DELAY = 3  # seconds
+KB_BUSY_MSG = "Knowledge base export is currently busy (concurrent request in progress). Please try again in a moment."
 CSAM_MAX_RETRIES = int(os.environ.get("CSAM_MAX_RETRIES", "6"))
 # Cap concurrent CSAM requests to avoid 429 floods at high worker concurrency
 _CSAM_SEM = Semaphore(int(os.environ.get("CSAM_MAX_CONCURRENT", "3")))
@@ -280,8 +284,16 @@ def api_get(url, gateway=False, timeout=30, not_found_ok=False):
                 _log(f"Retry {attempt + 1}/{MAX_RETRIES} after {e.code} for {url.split('?')[0]} (wait {delay:.1f}s)")
                 time.sleep(delay)
                 continue
+            if e.code in KB_CONFLICT_RETRY_STATUS and attempt < KB_CONFLICT_MAX_RETRIES - 1:
+                delay = KB_CONFLICT_BASE_DELAY + random.uniform(0, 2)
+                _log(f"KB conflict retry {attempt + 1}/{KB_CONFLICT_MAX_RETRIES} for {url.split('?')[0]} (wait {delay:.1f}s)")
+                time.sleep(delay)
+                continue
             if e.code == 404 and not_found_ok:
                 return None  # 404 means resource not configured — treat as empty, not an error
+            if e.code in KB_CONFLICT_RETRY_STATUS:
+                _log(f"KB busy (409 conflict) after {KB_CONFLICT_MAX_RETRIES} retries: {url.split('?')[0]}")
+                return 'KB_BUSY'
             _log(f"API error {e.code}: {url.split('?')[0]}")
             return None
         except URLError as e:
@@ -558,6 +570,8 @@ def get_kb(qid):
         if cached_time and (now - cached_time).total_seconds() < 3600:
             return KB_CACHE[qid]
     data = api_get(f"{BASE_URL}/api/2.0/fo/knowledge_base/vuln/?action=list&ids={qid}&details=All")
+    if data == 'KB_BUSY':
+        return {'error': KB_BUSY_MSG}
     if not data:
         return None
     try:
@@ -592,6 +606,8 @@ def get_kb_batch(qids):
             batch = uncached[i:i+50]
             ids_str = ','.join(map(str, batch))
             data = api_get(f"{BASE_URL}/api/2.0/fo/knowledge_base/vuln/?action=list&ids={ids_str}&details=All", timeout=60)
+            if data == 'KB_BUSY':
+                return {q: {'error': KB_BUSY_MSG} if q in uncached else KB_CACHE.get(q) for q in qids}
             if data:
                 try:
                     root = ET.fromstring(data)
@@ -607,6 +623,8 @@ def get_kb_batch(qids):
 
 def get_cve_qids(cve):
     data = api_get(f"{BASE_URL}/api/2.0/fo/knowledge_base/vuln/?action=list&details=All&cve={cve}", timeout=60)
+    if data == 'KB_BUSY':
+        return [{'error': KB_BUSY_MSG}]
     if not data:
         return []
     try:
@@ -2503,6 +2521,9 @@ def search_vulns(days: int = 7, threat_type: str = "", software: str = "", limit
         f"&published_after={after}",
         timeout=30
     )
+    if data == 'KB_BUSY':
+        result['summary'] = KB_BUSY_MSG
+        return _with_meta(result, 'vulns')
     if not data:
         result['summary'] = 'Failed to fetch KB data'
         return _with_meta(result, 'vulns')
