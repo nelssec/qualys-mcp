@@ -23,8 +23,8 @@ mcp = FastMCP("qualys-mcp")
 RETRY_STATUS = {429, 503, 502}
 MAX_RETRIES = 4
 CSAM_MAX_RETRIES = int(os.environ.get("CSAM_MAX_RETRIES", "6"))
-# Cap concurrent CSAM requests to avoid 429 floods at high worker concurrency
-_CSAM_SEM = Semaphore(int(os.environ.get("CSAM_MAX_CONCURRENT", "3")))
+# Serialize CSAM requests to avoid 429 thundering-herd at high eval concurrency
+_CSAM_SEM = Semaphore(int(os.environ.get("CSAM_CONCURRENCY", "1")))
 _CSAM_COUNT_CACHE = {}
 _CSAM_COUNT_CACHE_TTL = 300
 
