@@ -870,6 +870,12 @@ def get_cdr(days=7, limit=100, severity=None, cloud_provider=None, category=None
         url += f"&cloudProvider={cloud_provider}"
     if category:
         url += f"&category={category}"
+    # Check availability before paginating — api_get returns None on any HTTP error (incl. 500)
+    check_url = f"{url}&limit=1&pageNumber=1"
+    check = api_get(check_url, gateway=True)
+    if check is None:
+        _log('[WARN] CDR findings endpoint unavailable — returning graceful empty result')
+        return {'unavailable': True, 'message': 'CDR findings currently unavailable'}
     return _paginate_json(url, limit, data_key='content', count_key='totalElements',
                           page_param='pageNumber', size_param='limit')
 
@@ -3829,7 +3835,13 @@ def get_cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7)
         sev_map = {'1': 'LOW', '2': 'MEDIUM', '3': 'HIGH', '4': 'CRITICAL'}
         by_provider = {}
         by_category = {}
-        findings = eval_results.get('cdr') or []
+        cdr_result = eval_results.get('cdr') or []
+        # Handle CDR unavailability gracefully
+        if isinstance(cdr_result, dict) and cdr_result.get('unavailable'):
+            result['cdrMessage'] = cdr_result.get('message', 'CDR findings currently unavailable')
+            findings = []
+        else:
+            findings = cdr_result
 
         for f in findings:
             sev = str(f.get('severity', '')).upper()
@@ -4483,7 +4495,12 @@ def get_threats(days: int = 7, limit: int = 50) -> dict:
         })
     result['stats']['edr'] = len(edr_events)
 
-    cdr_findings = concurrent.get('cdr') or []
+    cdr_result = concurrent.get('cdr') or []
+    if isinstance(cdr_result, dict) and cdr_result.get('unavailable'):
+        result['cdrMessage'] = cdr_result.get('message', 'CDR findings currently unavailable')
+        cdr_findings = []
+    else:
+        cdr_findings = cdr_result
     for f in cdr_findings:
         sev = str(f.get('severity', ''))
         if sev in ['CRITICAL', '5']:
