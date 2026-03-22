@@ -294,6 +294,9 @@ def api_get(url, gateway=False, timeout=30, not_found_ok=False):
             if e.code in KB_CONFLICT_RETRY_STATUS:
                 _log(f"KB busy (409 conflict) after {KB_CONFLICT_MAX_RETRIES} retries: {url.split('?')[0]}")
                 return 'KB_BUSY'
+            if e.code == 500 and 'cdr-api/rest/v1/findings' in url:
+                _log(f"[WARN] CDR findings unavailable (HTTP 500 — may be transient): {url.split('?')[0]}")
+                return None
             _log(f"API error {e.code}: {url.split('?')[0]}")
             return None
         except URLError as e:
@@ -784,11 +787,12 @@ def is_eol_stage(stage):
 def _paginate_json(base_url, limit, data_key='data', count_key='count',
                     page_param='pageNumber', size_param='pageSize',
                     count_only=False, gateway=True, fetch_all=True, not_found_ok=False,
-                    page_start=1):
+                    page_start=1, error_fallback=None):
     """Generic paginated fetch for JSON APIs. Returns list or int (count_only).
     When fetch_all=True (default), fetches all pages up to MAX_PAGES (0=unlimited).
     When fetch_all=False, respects the limit parameter strictly.
-    When not_found_ok=True, a 404 response is treated as empty rather than logged as an error."""
+    When not_found_ok=True, a 404 response is treated as empty rather than logged as an error.
+    When error_fallback is set, it is returned instead of [] when the first page API call fails."""
     page_size = min(limit, 100)
     results = []
     page = page_start
@@ -809,6 +813,8 @@ def _paginate_json(base_url, limit, data_key='data', count_key='count',
             break
         url = f"{base_url}{sep}{size_param}={page_size}&{page_param}={page}"
         data = api_get(url, gateway=gateway, not_found_ok=not_found_ok)
+        if data is None and page == page_start and error_fallback is not None:
+            return error_fallback
         try:
             parsed = json.loads(data) if data else {}
         except json.JSONDecodeError:
@@ -860,6 +866,9 @@ def get_evaluations(account_id, provider='aws', limit=500):
                           page_param='pageNo', size_param='pageSize', page_start=0)
 
 
+_CDR_UNAVAILABLE = {'_cdr_unavailable': True, 'message': 'CDR findings currently unavailable'}
+
+
 def get_cdr(days=7, limit=100, severity=None, cloud_provider=None, category=None):
     end = datetime.now(timezone.utc)
     start = end - timedelta(days=days)
@@ -871,7 +880,8 @@ def get_cdr(days=7, limit=100, severity=None, cloud_provider=None, category=None
     if category:
         url += f"&category={category}"
     return _paginate_json(url, limit, data_key='content', count_key='totalElements',
-                          page_param='pageNumber', size_param='limit')
+                          page_param='pageNumber', size_param='limit',
+                          error_fallback=_CDR_UNAVAILABLE)
 
 
 def get_image_details(image_id):
@@ -3829,7 +3839,12 @@ def get_cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7)
         sev_map = {'1': 'LOW', '2': 'MEDIUM', '3': 'HIGH', '4': 'CRITICAL'}
         by_provider = {}
         by_category = {}
-        findings = eval_results.get('cdr') or []
+        cdr_result = eval_results.get('cdr')
+        if isinstance(cdr_result, dict) and cdr_result.get('_cdr_unavailable'):
+            result['threatsNote'] = cdr_result['message']
+            findings = []
+        else:
+            findings = cdr_result or []
 
         for f in findings:
             sev = str(f.get('severity', '')).upper()
@@ -4483,7 +4498,12 @@ def get_threats(days: int = 7, limit: int = 50) -> dict:
         })
     result['stats']['edr'] = len(edr_events)
 
-    cdr_findings = concurrent.get('cdr') or []
+    cdr_result = concurrent.get('cdr')
+    if isinstance(cdr_result, dict) and cdr_result.get('_cdr_unavailable'):
+        result['cdrNote'] = cdr_result['message']
+        cdr_findings = []
+    else:
+        cdr_findings = cdr_result or []
     for f in cdr_findings:
         sev = str(f.get('severity', ''))
         if sev in ['CRITICAL', '5']:
