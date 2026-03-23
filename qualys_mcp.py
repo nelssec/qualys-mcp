@@ -28,8 +28,10 @@ KB_CONFLICT_BASE_DELAY = 3  # seconds
 KB_BUSY_MSG = "Knowledge base export is currently busy (concurrent request in progress). Please try again in a moment."
 CDR_UNAVAILABLE_MSG = "CDR findings currently unavailable"
 CSAM_MAX_RETRIES = int(os.environ.get("CSAM_MAX_RETRIES", "6"))
-# Cap concurrent CSAM requests to avoid 429 floods at high worker concurrency
-_CSAM_SEM = Semaphore(int(os.environ.get("CSAM_MAX_CONCURRENT", "3")))
+# Serialize CSAM requests by default (semaphore=1) to prevent 429 retry storms
+# when multiple concurrent callers (e.g. eval harness) hit the API simultaneously.
+# Override with CSAM_MAX_CONCURRENT env var if the API can handle more.
+_CSAM_SEM = Semaphore(int(os.environ.get("CSAM_MAX_CONCURRENT", "1")))
 _CSAM_COUNT_CACHE = {}
 _CSAM_COUNT_CACHE_TTL = 300
 
