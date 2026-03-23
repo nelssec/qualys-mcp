@@ -29,7 +29,7 @@ KB_BUSY_MSG = "Knowledge base export is currently busy (concurrent request in pr
 CDR_UNAVAILABLE_MSG = "CDR findings currently unavailable"
 CSAM_MAX_RETRIES = int(os.environ.get("CSAM_MAX_RETRIES", "6"))
 # Cap concurrent CSAM requests to avoid 429 floods at high worker concurrency
-_CSAM_SEM = Semaphore(int(os.environ.get("CSAM_MAX_CONCURRENT", "3")))
+_CSAM_SEM = Semaphore(int(os.environ.get("CSAM_MAX_CONCURRENT", "2")))
 _CSAM_COUNT_CACHE = {}
 _CSAM_COUNT_CACHE_TTL = 300
 
