@@ -28,8 +28,10 @@ KB_CONFLICT_BASE_DELAY = 3  # seconds
 KB_BUSY_MSG = "Knowledge base export is currently busy (concurrent request in progress). Please try again in a moment."
 CDR_UNAVAILABLE_MSG = "CDR findings currently unavailable"
 CSAM_MAX_RETRIES = int(os.environ.get("CSAM_MAX_RETRIES", "6"))
-# Cap concurrent CSAM requests to avoid 429 floods at high worker concurrency
-_CSAM_SEM = Semaphore(int(os.environ.get("CSAM_MAX_CONCURRENT", "3")))
+# Global semaphore — held only during the actual HTTP request, released during retry backoff.
+# Prevents 429 storms under concurrent usage (eval harness, parallel tool calls).
+# Default=1 serialises CSAM calls; raise CSAM_MAX_CONCURRENT if the API proves tolerant.
+_CSAM_SEM = Semaphore(int(os.environ.get("CSAM_MAX_CONCURRENT", "1")))
 _CSAM_COUNT_CACHE = {}
 _CSAM_COUNT_CACHE_TTL = 300
 
@@ -655,38 +657,51 @@ def _scope_filters(base_filters, tag='', asset_group=''):
 
 
 def _csam_request(url, body, timeout=30):
-    """POST to a CSAM endpoint with retry logic for 429/503/502."""
+    """POST to a CSAM endpoint with retry logic for 429/503/502.
+
+    The global _CSAM_SEM is acquired only for the duration of the HTTP round-trip
+    and released *before* any retry sleep.  This prevents the semaphore slot from
+    being wasted while the thread is backing off, which is what caused 429 storms
+    under concurrent usage even when the semaphore was present.
+    """
     token = get_bearer_token()
     for attempt in range(CSAM_MAX_RETRIES):
-        req = Request(url, data=body.encode(), method='POST')
-        req.add_header('Authorization', f'Bearer {token}' if token else f'Basic {BASIC_AUTH}')
-        req.add_header('Content-Type', 'application/json')
-        req.add_header('Accept', 'application/json')
-        req.add_header('X-Requested-With', 'qualys-mcp')
-        try:
-            with _open(req, timeout=timeout) as resp:
-                raw = resp.read()
-                if not raw or not raw.strip():
-                    _log("[DEBUG] csam_search: empty response body — returning empty result")
-                    return {}
-                return json.loads(raw)
-        except HTTPError as e:
-            if e.code in RETRY_STATUS and attempt < CSAM_MAX_RETRIES - 1:
-                retry_after = e.headers.get('Retry-After') if e.headers else None
-                if retry_after:
-                    try:
-                        delay = float(retry_after)
-                    except ValueError:
-                        delay = 2 ** attempt + random.uniform(0, 1)
+        retry_delay = None  # set below when we need to retry
+
+        with _CSAM_SEM:  # hold only for this single HTTP attempt
+            req = Request(url, data=body.encode(), method='POST')
+            req.add_header('Authorization', f'Bearer {token}' if token else f'Basic {BASIC_AUTH}')
+            req.add_header('Content-Type', 'application/json')
+            req.add_header('Accept', 'application/json')
+            req.add_header('X-Requested-With', 'qualys-mcp')
+            try:
+                with _open(req, timeout=timeout) as resp:
+                    raw = resp.read()
+                    if not raw or not raw.strip():
+                        _log("[DEBUG] csam_search: empty response body — returning empty result")
+                        return {}
+                    return json.loads(raw)
+            except HTTPError as e:
+                if e.code in RETRY_STATUS and attempt < CSAM_MAX_RETRIES - 1:
+                    retry_after = e.headers.get('Retry-After') if e.headers else None
+                    if retry_after:
+                        try:
+                            retry_delay = float(retry_after)
+                        except ValueError:
+                            retry_delay = 2 ** attempt + random.uniform(0, 1)
+                    else:
+                        retry_delay = 2 ** attempt + random.uniform(0, 1)
+                    _log(f"CSAM retry {attempt + 1}/{CSAM_MAX_RETRIES} after {e.code} (wait {retry_delay:.1f}s)")
                 else:
-                    delay = 2 ** attempt + random.uniform(0, 1)
-                _log(f"CSAM retry {attempt + 1}/{CSAM_MAX_RETRIES} after {e.code} (wait {delay:.1f}s)")
-                time.sleep(delay)
-                continue
-            _log(f"csam_search error: HTTP Error {e.code}: {e.reason}")
-            return None
-        except Exception as e:
-            _log(f"csam_search error: {e}")
+                    _log(f"csam_search error: HTTP Error {e.code}: {e.reason}")
+                    return None
+            except Exception as e:
+                _log(f"csam_search error: {e}")
+                return None
+        # _CSAM_SEM released — sleep outside the lock so other callers can proceed
+        if retry_delay is not None:
+            time.sleep(retry_delay)
+        else:
             return None
     return None
 
@@ -695,19 +710,18 @@ def csam_count(filters=None):
     """Count assets with optional structured filters. Fast (~0.2s).
     filters: list of {"field": "...", "operator": "...", "value": "..."} dicts
     """
-    with _CSAM_SEM:
-        cache_key = json.dumps(filters, sort_keys=True) if filters else "__all__"
-        cached = _CSAM_COUNT_CACHE.get(cache_key)
-        if cached and (time.time() - cached[1]) < _CSAM_COUNT_CACHE_TTL:
-            return cached[0]
-        url = f"{GATEWAY_URL}/rest/2.0/count/am/asset"
-        body = json.dumps({"filters": filters or []})
-        data = _csam_request(url, body)
-        if data is not None:
-            count = data.get('count', 0)
-            _CSAM_COUNT_CACHE[cache_key] = (count, time.time())
-            return count
-        return 0
+    cache_key = json.dumps(filters, sort_keys=True) if filters else "__all__"
+    cached = _CSAM_COUNT_CACHE.get(cache_key)
+    if cached and (time.time() - cached[1]) < _CSAM_COUNT_CACHE_TTL:
+        return cached[0]
+    url = f"{GATEWAY_URL}/rest/2.0/count/am/asset"
+    body = json.dumps({"filters": filters or []})
+    data = _csam_request(url, body)
+    if data is not None:
+        count = data.get('count', 0)
+        _CSAM_COUNT_CACHE[cache_key] = (count, time.time())
+        return count
+    return 0
 
 
 def csam_search(filters=None, limit=100, fields=None, fetch_all=True):
@@ -716,46 +730,49 @@ def csam_search(filters=None, limit=100, fields=None, fetch_all=True):
     fields: comma-separated includeFields (e.g. "operatingSystem,hardware")
     When fetch_all=True (default), paginates using lastSeenAssetId cursor until all pages exhausted.
     """
-    with _CSAM_SEM:
-        # Always include tagList so every asset response has tagList[]
+    # NOTE: _CSAM_SEM is acquired per HTTP request inside _csam_request, not here.
+    # Holding it across the full paginated search would block other callers for too long
+    # and cause the semaphore slot to be wasted during retry backoff sleeps.
+
+    # Always include tagList so every asset response has tagList[]
+    if fields:
+        if 'tagList' not in fields:
+            fields = f"{fields},tagList"
+    else:
+        fields = "tagList"
+    page_size = min(limit, 100) if not fetch_all else 100
+    body = json.dumps({"filters": filters or []})
+    all_assets = []
+    last_id = None
+    max_page_cap = MAX_PAGES if MAX_PAGES > 0 else 0  # 0 = unlimited
+    pages = 0
+    while True:
+        if max_page_cap > 0 and pages >= max_page_cap:
+            _log(f"CSAM search: hit MAX_PAGES cap ({max_page_cap})")
+            break
+        if not fetch_all and len(all_assets) >= limit:
+            break
+        url = f"{GATEWAY_URL}/rest/2.0/search/am/asset?pageSize={page_size}"
         if fields:
-            if 'tagList' not in fields:
-                fields = f"{fields},tagList"
-        else:
-            fields = "tagList"
-        page_size = min(limit, 100) if not fetch_all else 100
-        body = json.dumps({"filters": filters or []})
-        all_assets = []
-        last_id = None
-        max_page_cap = MAX_PAGES if MAX_PAGES > 0 else 0  # 0 = unlimited
-        pages = 0
-        while True:
-            if max_page_cap > 0 and pages >= max_page_cap:
-                _log(f"CSAM search: hit MAX_PAGES cap ({max_page_cap})")
-                break
-            if not fetch_all and len(all_assets) >= limit:
-                break
-            url = f"{GATEWAY_URL}/rest/2.0/search/am/asset?pageSize={page_size}"
-            if fields:
-                url += f"&includeFields={fields}"
-            if last_id:
-                url += f"&lastSeenAssetId={last_id}"
-            data = _csam_request(url, body)
-            if data is None:
-                break
-            assets = data.get('assetListData', {}).get('asset', [])
-            if not assets:
-                break
-            all_assets.extend(assets)
-            pages += 1
-            if not data.get('hasMore'):
-                break
-            last_id = assets[-1].get('assetId')
-        if pages > 1:
-            _log(f"CSAM search: fetched {len(all_assets)} assets across {pages} pages")
-        if not fetch_all:
-            return all_assets[:limit]
-        return all_assets
+            url += f"&includeFields={fields}"
+        if last_id:
+            url += f"&lastSeenAssetId={last_id}"
+        data = _csam_request(url, body)
+        if data is None:
+            break
+        assets = data.get('assetListData', {}).get('asset', [])
+        if not assets:
+            break
+        all_assets.extend(assets)
+        pages += 1
+        if not data.get('hasMore'):
+            break
+        last_id = assets[-1].get('assetId')
+    if pages > 1:
+        _log(f"CSAM search: fetched {len(all_assets)} assets across {pages} pages")
+    if not fetch_all:
+        return all_assets[:limit]
+    return all_assets
 
 
 def get_asset_by_id(asset_id):
