@@ -29,6 +29,13 @@ dependencies = [
     "fastmcp>=0.1.0",
 ]
 
+[project.optional-dependencies]
+eval = [
+    "anthropic",
+    "mcp",
+    "python-dotenv",
+]
+
 [project.urls]
 Homepage = "https://github.com/nelssec/qualys-mcp"
 Repository = "https://github.com/nelssec/qualys-mcp"
