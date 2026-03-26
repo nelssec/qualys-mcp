@@ -1052,8 +1052,16 @@ def get_mtg_job_detail(job_id):
         return {}
 
 
+ETM_401_MSG = 'TruRisk Eliminate is not available on your current Qualys subscription or requires additional configuration. Please contact your Qualys administrator.'
+ETM_401_SENTINEL = {'_etm_401': True, 'error': ETM_401_MSG}
+
+
+def _is_etm_401(val):
+    """Check if a value is the ETM 401 sentinel."""
+    return isinstance(val, dict) and val.get('_etm_401')
+
 def etm_api(method, path, body=None, timeout=60):
-    """Call ETM API. Returns parsed JSON or None on error."""
+    """Call ETM API. Returns parsed JSON, ETM_401_SENTINEL on 401, or None on other errors."""
     token = get_bearer_token()
     url = f"{GATEWAY_URL}{path}"
     data = json.dumps(body).encode() if body else None
@@ -1065,6 +1073,12 @@ def etm_api(method, path, body=None, timeout=60):
     try:
         with _open(req, timeout=timeout) as resp:
             return json.loads(resp.read())
+    except HTTPError as e:
+        if e.code == 401:
+            _log(f"ETM API 401 Unauthorized: {path}")
+            return ETM_401_SENTINEL
+        _log(f"ETM API error: {e}")
+        return None
     except Exception as e:
         _log(f"ETM API error: {e}")
         return None
@@ -1081,6 +1095,12 @@ def etm_download(report_id, resource_name, timeout=60):
     try:
         with _open(req, timeout=timeout) as resp:
             return json.loads(resp.read())
+    except HTTPError as e:
+        if e.code == 401:
+            _log(f"ETM download 401 Unauthorized: report {report_id}")
+            return ETM_401_SENTINEL
+        _log(f"ETM download error: {e}")
+        return []
     except Exception as e:
         _log(f"ETM download error: {e}")
         return []
@@ -3183,6 +3203,10 @@ def get_etm_findings(qql: str = "", report_id: str = "") -> dict:
     # If report_id provided, check its status and download if ready
     if report_id:
         detail = etm_api('GET', f'/etm/api/rest/v1/reports/{report_id}')
+        if _is_etm_401(detail):
+            result['reportStatus'] = 'unavailable'
+            result['summary'] = {'error': ETM_401_MSG}
+            return _with_meta(result, 'findings')
         if not detail:
             result['reportStatus'] = 'error'
             result['summary'] = {'error': 'Could not retrieve report status'}
@@ -3196,6 +3220,10 @@ def get_etm_findings(qql: str = "", report_id: str = "") -> dict:
             # _run_concurrent() but left as-is — typically 1-2 resources (#17)
             for res_name in resources[:5]:  # Cap at 5 resource files
                 findings = etm_download(detail['id'], res_name)
+                if _is_etm_401(findings):
+                    result['reportStatus'] = 'unavailable'
+                    result['summary'] = {'error': ETM_401_MSG}
+                    return _with_meta(result, 'findings')
                 if findings:
                     all_findings.extend(findings)
 
@@ -3227,6 +3255,10 @@ def get_etm_findings(qql: str = "", report_id: str = "") -> dict:
 
     # No report_id — check for a recent completed report matching the query
     reports = etm_api('POST', '/etm/api/rest/v1/reports/list', {'pageSize': 50})
+    if _is_etm_401(reports):
+        result['reportStatus'] = 'unavailable'
+        result['summary'] = {'error': ETM_401_MSG}
+        return _with_meta(result, 'findings')
     if reports:
         # Look for a recent completed JSON report (prefer matching name/filter)
         completed = [r for r in reports if r.get('status') == 'COMPLETED' and r.get('reportFormat') == 'JSON']
@@ -3234,11 +3266,19 @@ def get_etm_findings(qql: str = "", report_id: str = "") -> dict:
         if not qql and completed:
             target = completed[0]
             detail = etm_api('GET', f'/etm/api/rest/v1/reports/{target["id"]}')
+            if _is_etm_401(detail):
+                result['reportStatus'] = 'unavailable'
+                result['summary'] = {'error': ETM_401_MSG}
+                return _with_meta(result, 'findings')
             if detail and detail.get('resources'):
                 all_findings = []
                 # NOTE: sequential downloads — same as above, left as-is (#17)
                 for res_name in detail['resources'][:5]:
                     findings = etm_download(detail['id'], res_name)
+                    if _is_etm_401(findings):
+                        result['reportStatus'] = 'unavailable'
+                        result['summary'] = {'error': ETM_401_MSG}
+                        return _with_meta(result, 'findings')
                     if findings:
                         all_findings.extend(findings)
                 if all_findings:
@@ -3257,6 +3297,10 @@ def get_etm_findings(qql: str = "", report_id: str = "") -> dict:
         body['findingFilter'] = {'qql': qql}
 
     new_report = etm_api('POST', '/etm/api/rest/v1/reports/findings', body)
+    if _is_etm_401(new_report):
+        result['reportStatus'] = 'unavailable'
+        result['summary'] = {'error': ETM_401_MSG}
+        return _with_meta(result, 'findings')
     if not new_report:
         result['reportStatus'] = 'error'
         result['summary'] = {'error': 'Failed to create ETM report. ETM module may not be enabled.'}
@@ -4012,6 +4056,8 @@ def get_asset(asset_id: str, detail: str = "summary") -> dict:
                     'findingFilter': {'qql': qql},
                 }
                 new_report = etm_api('POST', '/etm/api/rest/v1/reports/findings', body)
+                if _is_etm_401(new_report):
+                    return [{'message': ETM_401_MSG}]
                 if new_report:
                     return [{'_async': True, 'reportId': new_report.get('id', ''),
                              'message': 'ETM report requested — call get_etm_findings(report_id=...) to retrieve'}]
