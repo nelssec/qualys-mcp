@@ -921,8 +921,11 @@ def get_certificates(limit=100, days_expiring=None):
     url = f"{GATEWAY_URL}/certview/v1/certificates"
     if days_expiring:
         future = (datetime.now(timezone.utc) + timedelta(days=days_expiring)).strftime('%Y-%m-%d')
-        url += f"?filter=validTo:<{future}"
-    return _paginate_json(url, limit, not_found_ok=True)
+        url += f"?pageSize={min(limit, 100)}&filter={quote(f'validTo:<{future}')}"
+    try:
+        return _paginate_json(url, limit, not_found_ok=True)
+    except Exception:
+        return None
 
 
 def _fetch_ioc_events(limit=200):
@@ -4372,8 +4375,15 @@ def get_expiring_certs(days: int = 90, include_expired: bool = True, weak_only: 
     today = datetime.now(timezone.utc)
 
     certs = get_certificates(limit * 3, days)
+    if certs is None:
+        return {
+            "error": "Certificate management (CertView) returned an error. "
+                     "This feature may require additional Qualys subscription modules or configuration.",
+            "total": 0,
+            "certs": [],
+        }
     if not certs:
-        return {"error": "CertView module not accessible on this tenant.", "total": 0, "certs": []}
+        return {"error": "No certificates found in CertView for this tenant.", "total": 0, "certs": []}
     all_certs = []
 
     for c in certs:
