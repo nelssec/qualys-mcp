@@ -5,7 +5,7 @@ import re
 
 import anthropic
 
-from .runner import JUDGE_MODEL
+from .runner import JUDGE_MODEL, _create_message_with_retry
 
 SCORE_WEIGHTS = {"correct": 1.0, "partial": 0.5, "wrong": 0.0, "tool-error": 0.0}
 
@@ -56,7 +56,7 @@ def judge_response(
 ## Assistant Response
 {response}"""
 
-    resp = client.messages.create(
+    resp = _create_message_with_retry(client,
         model=JUDGE_MODEL,
         max_tokens=256,
         system=JUDGE_SYSTEM,
@@ -126,7 +126,7 @@ def judge_conversation_turn(
 ## Assistant Response (this turn)
 {response}"""
 
-    resp = client.messages.create(
+    resp = _create_message_with_retry(client,
         model=JUDGE_MODEL,
         max_tokens=256,
         system=CONV_JUDGE_SYSTEM,
