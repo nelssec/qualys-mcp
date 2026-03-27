@@ -2,16 +2,37 @@
 
 import os
 import sys
+import time
 from pathlib import Path
 
 import anthropic
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-_DEFAULT_MODEL = "claude-haiku-3-5-20241022"
+_DEFAULT_MODEL = "claude-haiku-4-5"
 
 RUNNER_MODEL = os.environ.get("EVAL_RUNNER_MODEL") or os.environ.get("EVAL_MODEL") or _DEFAULT_MODEL
 JUDGE_MODEL = os.environ.get("EVAL_JUDGE_MODEL") or os.environ.get("EVAL_MODEL") or _DEFAULT_MODEL
+
+def _create_message_with_retry(client: anthropic.Anthropic, **kwargs):
+    """Wrap client.messages.create with retry logic for transient 401/429 errors."""
+    max_attempts = 5
+    for attempt in range(max_attempts):
+        try:
+            return client.messages.create(**kwargs)
+        except anthropic.AuthenticationError:
+            if attempt == max_attempts - 1:
+                raise
+            wait = 2 * (2 ** attempt)
+            print(f"[retry] 401 AuthenticationError (transient), waiting {wait}s (attempt {attempt + 1}/{max_attempts})")
+            time.sleep(wait)
+        except anthropic.RateLimitError:
+            if attempt == max_attempts - 1:
+                raise
+            wait = 5 * (2 ** attempt)
+            print(f"[retry] 429 RateLimitError, waiting {wait}s (attempt {attempt + 1}/{max_attempts})")
+            time.sleep(wait)
+
 
 SYSTEM_PROMPT = (
     "You are a security analyst assistant with access to Qualys security tools. "
@@ -64,7 +85,7 @@ async def run_question(
     assistant_text = ""
 
     for _ in range(10):  # max iterations
-        resp = client.messages.create(
+        resp = _create_message_with_retry(client,
             model=RUNNER_MODEL,
             max_tokens=4096,
             system=SYSTEM_PROMPT,
@@ -152,7 +173,7 @@ async def run_conversation(
         assistant_text = ""
 
         for _ in range(10):  # max iterations per turn
-            resp = client.messages.create(
+            resp = _create_message_with_retry(client,
                 model=RUNNER_MODEL,
                 max_tokens=4096,
                 system=SYSTEM_PROMPT,
