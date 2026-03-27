@@ -27,11 +27,14 @@ KB_CONFLICT_MAX_RETRIES = 3
 KB_CONFLICT_BASE_DELAY = 3  # seconds
 KB_BUSY_MSG = "Knowledge base export is currently busy (concurrent request in progress). Please try again in a moment."
 CDR_UNAVAILABLE_MSG = "CDR findings currently unavailable"
-CSAM_MAX_RETRIES = int(os.environ.get("CSAM_MAX_RETRIES", "6"))
+CSAM_MAX_RETRIES = int(os.environ.get("CSAM_MAX_RETRIES", "3"))
+CSAM_RATE_LIMITED_MSG = "Asset search temporarily unavailable due to rate limiting. Please try again in a moment."
 # Cap concurrent CSAM requests to avoid 429 floods at high worker concurrency
 _CSAM_SEM = Semaphore(int(os.environ.get("CSAM_MAX_CONCURRENT", "2")))
 _CSAM_COUNT_CACHE = {}
 _CSAM_COUNT_CACHE_TTL = 300
+_CSAM_SEARCH_CACHE = {}
+_CSAM_SEARCH_CACHE_TTL = 300
 
 
 def compact(d):
@@ -683,12 +686,16 @@ def _csam_request(url, body, timeout=30):
                 _log(f"CSAM retry {attempt + 1}/{CSAM_MAX_RETRIES} after {e.code} (wait {delay:.1f}s)")
                 time.sleep(delay)
                 continue
+            if e.code in RETRY_STATUS:
+                _log(f"CSAM rate-limited after {CSAM_MAX_RETRIES} retries — returning degraded response")
+                return {"_degraded": True, "_message": CSAM_RATE_LIMITED_MSG}
             _log(f"csam_search error: HTTP Error {e.code}: {e.reason}")
             return None
         except Exception as e:
             _log(f"csam_search error: {e}")
             return None
-    return None
+    _log(f"CSAM rate-limited after {CSAM_MAX_RETRIES} retries — returning degraded response")
+    return {"_degraded": True, "_message": CSAM_RATE_LIMITED_MSG}
 
 
 def csam_count(filters=None):
@@ -703,7 +710,7 @@ def csam_count(filters=None):
         url = f"{GATEWAY_URL}/rest/2.0/count/am/asset"
         body = json.dumps({"filters": filters or []})
         data = _csam_request(url, body)
-        if data is not None:
+        if data is not None and not data.get("_degraded"):
             count = data.get('count', 0)
             _CSAM_COUNT_CACHE[cache_key] = (count, time.time())
             return count
@@ -717,6 +724,12 @@ def csam_search(filters=None, limit=100, fields=None, fetch_all=True):
     When fetch_all=True (default), paginates using lastSeenAssetId cursor until all pages exhausted.
     """
     with _CSAM_SEM:
+        # Session-level result cache keyed by query params
+        cache_key = json.dumps({"filters": filters, "limit": limit, "fields": fields, "fetch_all": fetch_all}, sort_keys=True)
+        cached = _CSAM_SEARCH_CACHE.get(cache_key)
+        if cached and (time.time() - cached[1]) < _CSAM_SEARCH_CACHE_TTL:
+            _log("CSAM search: returning cached result")
+            return cached[0]
         # Always include tagList so every asset response has tagList[]
         if fields:
             if 'tagList' not in fields:
@@ -743,6 +756,9 @@ def csam_search(filters=None, limit=100, fields=None, fetch_all=True):
             data = _csam_request(url, body)
             if data is None:
                 break
+            if data.get("_degraded"):
+                _log(f"CSAM search: degraded — {data['_message']}")
+                return all_assets if all_assets else []
             assets = data.get('assetListData', {}).get('asset', [])
             if not assets:
                 break
@@ -753,9 +769,10 @@ def csam_search(filters=None, limit=100, fields=None, fetch_all=True):
             last_id = assets[-1].get('assetId')
         if pages > 1:
             _log(f"CSAM search: fetched {len(all_assets)} assets across {pages} pages")
-        if not fetch_all:
-            return all_assets[:limit]
-        return all_assets
+        result = all_assets[:limit] if not fetch_all else all_assets
+        if result:
+            _CSAM_SEARCH_CACHE[cache_key] = (result, time.time())
+        return result
 
 
 def get_asset_by_id(asset_id):
