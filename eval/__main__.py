@@ -51,8 +51,10 @@ def _load_variants() -> dict[str, list[str]] | None:
 
 async def run_eval(args):
     """Main evaluation loop."""
-    # Parse questions
+    # Parse questions — assign stable indices before any filtering
     questions = parse_questions()
+    for i, q in enumerate(questions):
+        q["_index"] = i
     total_parsed = len(questions)
 
     # Filter by category
@@ -165,8 +167,7 @@ async def run_eval(args):
                     return result
 
             # MCP stdio transport is single-connection, so questions run sequentially
-            for qi, q in enumerate(questions):
-                q["_index"] = qi
+            for q in questions:
                 result = await process_question(q)
                 results.append(result)
 
