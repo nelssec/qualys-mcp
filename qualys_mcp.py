@@ -882,7 +882,8 @@ def get_connectors(provider='aws', limit=50):
 def get_evaluations(account_id, provider='aws', limit=500):
     url = f"{GATEWAY_URL}/cloudview-api/rest/v1/{provider}/evaluations/{account_id}"
     return _paginate_json(url, limit, data_key='content', count_key='totalElements',
-                          page_param='pageNo', size_param='pageSize', page_start=0)
+                          page_param='pageNo', size_param='pageSize', page_start=0,
+                          not_found_ok=True)
 
 
 def get_cdr(days=7, limit=100, severity=None, cloud_provider=None, category=None):
@@ -897,7 +898,8 @@ def get_cdr(days=7, limit=100, severity=None, cloud_provider=None, category=None
         url += f"&category={category}"
     results = _paginate_json(url, limit, data_key='content', count_key='totalElements',
                               page_param='pageNumber', size_param='limit',
-                              server_error_sentinel='CDR_UNAVAILABLE')
+                              server_error_sentinel='CDR_UNAVAILABLE',
+                              not_found_ok=True)
     return results
 
 
@@ -1017,9 +1019,11 @@ def get_was_findings(limit=100, severity=None, days=None, app_name=None):
 
 def get_pm_jobs(platform='Windows', limit=10):
     """Get Patch Management deployment jobs"""
-    data = api_get(f"{GATEWAY_URL}/pm/v1/deploymentjobs?platform={platform}&pageSize={limit}", gateway=True)
+    data = api_get(f"{GATEWAY_URL}/pm/v1/deploymentjobs?platform={platform}&pageSize={limit}", gateway=True, not_found_ok=True)
+    if data is None:
+        return []
     try:
-        return json.loads(data) if data else []
+        return json.loads(data)
     except (json.JSONDecodeError, TypeError):
         return []
 
@@ -1029,18 +1033,22 @@ def get_pm_patches_count(platform='Windows', group_by=None):
     url = f"{GATEWAY_URL}/pm/v1/patches/count?platform={platform}"
     if group_by:
         url += f"&groupBy={group_by}"
-    data = api_get(url, gateway=True)
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return {}
     try:
-        return json.loads(data) if data else {}
+        return json.loads(data)
     except (json.JSONDecodeError, TypeError):
         return {}
 
 
 def get_pm_assets(platform='Windows', limit=10):
     """Get Patch Management enabled assets"""
-    data = api_get(f"{GATEWAY_URL}/pm/v1/assets?platform={platform}&pageSize={limit}", gateway=True)
+    data = api_get(f"{GATEWAY_URL}/pm/v1/assets?platform={platform}&pageSize={limit}", gateway=True, not_found_ok=True)
+    if data is None:
+        return []
     try:
-        return json.loads(data) if data else []
+        return json.loads(data)
     except (json.JSONDecodeError, TypeError):
         return []
 
@@ -1056,9 +1064,11 @@ def get_pm_job_summary(job_id):
 
 def get_mtg_jobs(platform='Windows', limit=10):
     """Get TruRisk Mitigate deployment jobs"""
-    data = api_get(f"{GATEWAY_URL}/mtg/v1/deploymentjobs?platform={platform}&pageSize={limit}", gateway=True)
+    data = api_get(f"{GATEWAY_URL}/mtg/v1/deploymentjobs?platform={platform}&pageSize={limit}", gateway=True, not_found_ok=True)
+    if data is None:
+        return []
     try:
-        return json.loads(data) if data else []
+        return json.loads(data)
     except (json.JSONDecodeError, TypeError):
         return []
 
@@ -1081,7 +1091,7 @@ def _is_etm_401(val):
     return isinstance(val, dict) and val.get('_etm_401')
 
 def etm_api(method, path, body=None, timeout=60):
-    """Call ETM API. Returns parsed JSON, ETM_401_SENTINEL on 401, or None on other errors."""
+    """Call ETM API. Returns parsed JSON, ETM_401_SENTINEL on 401, None on 404 or other errors."""
     token = get_bearer_token()
     url = f"{GATEWAY_URL}{path}"
     data = json.dumps(body).encode() if body else None
@@ -1097,6 +1107,9 @@ def etm_api(method, path, body=None, timeout=60):
         if e.code == 401:
             _log(f"ETM API 401 Unauthorized: {path}")
             return ETM_401_SENTINEL
+        if e.code == 404:
+            _log(f"ETM API 404 Not Found: {path}")
+            return None
         _log(f"ETM API error: {e}")
         return None
     except Exception as e:
@@ -2955,6 +2968,25 @@ def get_eliminate_status() -> dict:
         linux_assets=lambda: get_pm_assets('Linux', 5),
     )
 
+    # Detect if PM module is not enabled (all calls returned empty)
+    all_empty = all(
+        not concurrent.get(k)
+        for k in ('windows_pm_jobs', 'linux_pm_jobs', 'windows_mtg_jobs', 'linux_mtg_jobs',
+                  'windows_patches', 'linux_patches', 'windows_assets', 'linux_assets')
+    )
+    if all_empty:
+        return _with_meta({
+            'message': (
+                'Patch Management (PM) and TruRisk Mitigate (MTG) modules are not enabled '
+                'on this Qualys subscription, or no deployment jobs have been configured yet. '
+                'Contact your Qualys administrator to enable these modules.'
+            ),
+            'patchManagement': {'windows': {}, 'linux': {}},
+            'mitigations': {'windows': {}, 'linux': {}},
+            'patchCatalog': {},
+            'summary': 'TruRisk Eliminate modules not available on this subscription.',
+        })
+
     total_patch_jobs = 0
     total_mtg_jobs = 0
     active_patch_jobs = 0
@@ -3282,6 +3314,24 @@ def get_etm_findings(qql: str = "", report_id: str = "") -> dict:
     if reports:
         # Look for a recent completed JSON report (prefer matching name/filter)
         completed = [r for r in reports if r.get('status') == 'COMPLETED' and r.get('reportFormat') == 'JSON']
+
+        # Detect pattern: all recent reports are FAILED/REQUESTED — backend not processing
+        if not completed:
+            recent = reports[:10]
+            stuck_statuses = {'FAILED', 'REQUESTED', 'RUNNING', 'QUEUED'}
+            if recent and all(r.get('status', '') in stuck_statuses for r in recent):
+                result['reportStatus'] = 'backend_issue'
+                result['summary'] = {
+                    'error': (
+                        'ETM report generation is currently unavailable on this account — '
+                        'reports are being created but not processing. This may be a Qualys '
+                        'backend configuration issue. Please check ETM module status in the '
+                        'Qualys admin console or contact Qualys support.'
+                    ),
+                    'recentReportStatuses': [r.get('status', '') for r in recent[:5]],
+                }
+                return _with_meta(result, 'findings')
+
         # If no specific QQL, use the most recent completed report
         if not qql and completed:
             target = completed[0]
@@ -4377,8 +4427,8 @@ def get_expiring_certs(days: int = 90, include_expired: bool = True, weak_only: 
     certs = get_certificates(limit * 3, days)
     if certs is None:
         return {
-            "error": "Certificate management (CertView) returned an error. "
-                     "This feature may require additional Qualys subscription modules or configuration.",
+            "error": "Certificate management (CertView) is not enabled on this Qualys subscription. "
+                     "Contact your Qualys administrator to enable the CertView module.",
             "total": 0,
             "certs": [],
         }
