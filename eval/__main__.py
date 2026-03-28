@@ -11,9 +11,12 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json as _json
 import os
+import random
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -34,6 +37,16 @@ from .reporter import (
 )
 from .runner import JUDGE_MODEL, RUNNER_MODEL, get_mcp_tools, get_server_params, run_conversation, run_question
 from .updater import update_questions_file
+
+
+VARIANTS_PATH = Path(__file__).parent / "question_variants.json"
+
+
+def _load_variants() -> dict[str, list[str]] | None:
+    """Load question_variants.json if it exists."""
+    if VARIANTS_PATH.exists():
+        return _json.loads(VARIANTS_PATH.read_text())
+    return None
 
 
 async def run_eval(args):
@@ -57,6 +70,18 @@ async def run_eval(args):
     # Apply limit
     if args.limit:
         questions = questions[: args.limit]
+
+    # Load and apply variants
+    variant_map: dict[str, list[str]] | None = None
+    variant_rng: random.Random | None = None
+    if args.variants:
+        variant_map = _load_variants()
+        if not variant_map:
+            print("Error: --variants requires eval/question_variants.json (run: python eval/generate_variants.py)")
+            sys.exit(1)
+        seed = args.variant_seed if args.variant_seed is not None else random.randint(0, 2**31)
+        variant_rng = random.Random(seed)
+        print(f"Variants: ON (seed={seed})")
 
     print(f"Eval: {len(questions)} questions (of {total_parsed} total)")
     if args.category:
@@ -88,16 +113,27 @@ async def run_eval(args):
 
             async def process_question(q: dict) -> dict:
                 async with sem:
+                    # Pick variant if enabled
+                    variant_index = 0
+                    question_text = q["question"]
+                    if variant_map and variant_rng:
+                        sid = str(q.get("_index", q["id"]))
+                        if sid in variant_map:
+                            choices = variant_map[sid]
+                            variant_index = variant_rng.randint(0, len(choices) - 1)
+                            question_text = choices[variant_index]
+
                     prefix = f"[{q['id']:>3}/{questions[-1]['id']}]"
-                    print(f"{prefix} {q['category']} — {q['question'][:60]}...")
+                    variant_tag = f" (v{variant_index})" if variant_index > 0 else ""
+                    print(f"{prefix} {q['category']} — {question_text[:60]}...{variant_tag}")
 
                     try:
                         resp = await run_question(
-                            client, session, tools, q["question"]
+                            client, session, tools, question_text
                         )
                         judgment = judge_response(
                             client,
-                            q["question"],
+                            question_text,
                             resp["tool_calls"],
                             resp["response"],
                         )
@@ -112,7 +148,9 @@ async def run_eval(args):
                         "id": q["id"],
                         "category": q["category"],
                         "subcategory": q["subcategory"],
-                        "question": q["question"],
+                        "question": question_text,
+                        "original_question": q["question"],
+                        "variant_index": variant_index,
                         "coverage_tag": q["coverage"],
                         "score": judgment["score"],
                         "reasoning": judgment["reasoning"],
@@ -127,7 +165,8 @@ async def run_eval(args):
                     return result
 
             # MCP stdio transport is single-connection, so questions run sequentially
-            for q in questions:
+            for qi, q in enumerate(questions):
+                q["_index"] = qi
                 result = await process_question(q)
                 results.append(result)
 
@@ -162,9 +201,6 @@ async def run_eval(args):
 
 async def run_conversation_eval(args):
     """Run multi-turn conversation evaluation."""
-    import json as _json
-    from pathlib import Path
-
     conv_path = Path(__file__).parent / "conversations.json"
     with open(conv_path) as f:
         conversations = _json.load(f)
@@ -424,6 +460,17 @@ def main():
         "--conversations",
         action="store_true",
         help="Run multi-turn conversation eval instead of single-question eval",
+    )
+    parser.add_argument(
+        "--variants",
+        action="store_true",
+        help="Randomly replace questions with natural language variants",
+    )
+    parser.add_argument(
+        "--variant-seed",
+        type=int,
+        default=None,
+        help="Seed for variant selection (default: random)",
     )
 
     args = parser.parse_args()
