@@ -3224,53 +3224,28 @@ def get_etm_findings(qql: str = "", report_id: str = "") -> dict:
     Performance: ~2s warm (cached) / 1-3 min cold (VMDR API fetch + KB enrichment). Results cached for 1 hour."""
     global ETM_RESULT_CACHE, ETM_RESULT_CACHE_TIME
     now = datetime.now(timezone.utc)
-    result = {'findings': [], 'summary': {}, 'reportStatus': ''}
+    import re
 
-    # If report_id provided, check its status and download if ready
-    if report_id:
-        detail = etm_api('GET', f'/etm/api/rest/v1/reports/{report_id}')
-        if _is_etm_401(detail):
-            result['reportStatus'] = 'unavailable'
-            result['summary'] = {'error': ETM_401_MSG}
-            return _with_meta(result, 'findings')
-        if not detail:
-            result['reportStatus'] = 'error'
-            result['summary'] = {'error': 'Could not retrieve report status'}
-            return _with_meta(result, 'findings')
+    # Parse QQL filters
+    severities = [3, 4, 5]  # default: sev 3+ (medium, high, critical)
+    cve_filter = None
+    qid_filter = None
+    patch_filter = None
 
-        result['reportStatus'] = detail.get('status', 'UNKNOWN')
-        if detail['status'] == 'COMPLETED':
-            resources = detail.get('resources', [])
-            all_findings = []
-            # NOTE: sequential ETM resource downloads could be parallelized with
-            # _run_concurrent() but left as-is — typically 1-2 resources (#17)
-            for res_name in resources[:5]:  # Cap at 5 resource files
-                findings = etm_download(detail['id'], res_name)
-                if _is_etm_401(findings):
-                    result['reportStatus'] = 'unavailable'
-                    result['summary'] = {'error': ETM_401_MSG}
-                    return _with_meta(result, 'findings')
-                if findings:
-                    all_findings.extend(findings)
+    if qql:
+        sev_match = re.search(r'vulnerabilities\.vulnerability\.severity[:\s]*(\d)', qql)
+        if sev_match:
+            severities = [int(sev_match.group(1))]
+        cve_match = re.search(r'vulnerabilities\.vulnerability\.cveIds[:\s]*(CVE-[\d-]+)', qql, re.IGNORECASE)
+        if cve_match:
+            cve_filter = cve_match.group(1).upper()
+        qid_match = re.search(r'vulnerabilities\.vulnerability\.qid[:\s]*(\d+)', qql)
+        if qid_match:
+            qid_filter = int(qid_match.group(1))
+        if 'ispatchavailable:true' in qql.lower().replace(' ', ''):
+            patch_filter = True
 
-            formatted = _format_etm_findings(all_findings, detail)
-            # Cache completed unfiltered reports for 1 hour
-            if not qql:
-                ETM_RESULT_CACHE = formatted
-                ETM_RESULT_CACHE_TIME = now
-            return _with_meta(formatted, 'findings', formatted.get('totalFindings', len(formatted.get('findings', []))))
-
-        elif detail['status'] == 'FAILED':
-            result['summary'] = {'error': 'Report generation failed', 'reportId': report_id}
-            return _with_meta(result, 'findings')
-        else:
-            result['summary'] = {
-                'message': f'Report is still processing (status: {detail["status"]}). Try again in 30-60 seconds.',
-                'reportId': report_id,
-            }
-            return _with_meta(result, 'findings')
-
-    # For unfiltered queries: check in-memory cache first (1-hour TTL)
+    # Check cache for unfiltered queries (1-hour TTL)
     if not qql and ETM_RESULT_CACHE is not None and ETM_RESULT_CACHE_TIME:
         age = (now - ETM_RESULT_CACHE_TIME).total_seconds()
         if age < 3600:
@@ -3279,202 +3254,123 @@ def get_etm_findings(qql: str = "", report_id: str = "") -> dict:
             cached['cacheAge'] = int(age)
             return compact(cached)
 
-    # No report_id — check for a recent completed report matching the query
-    reports = etm_api('POST', '/etm/api/rest/v1/reports/list', {'pageSize': 50})
-    if _is_etm_401(reports):
-        result['reportStatus'] = 'unavailable'
-        result['summary'] = {'error': ETM_401_MSG}
-        return _with_meta(result, 'findings')
-    if reports:
-        # Look for a recent completed JSON report (prefer matching name/filter)
-        completed = [r for r in reports if r.get('status') == 'COMPLETED' and r.get('reportFormat') == 'JSON']
+    # Fetch VMDR detections for each severity level
+    all_dets = []
+    for sev in severities:
+        dets = get_detections(severity=sev, days=30)
+        all_dets.extend(dets)
 
-        # Detect pattern: all recent reports are FAILED/REQUESTED — backend not processing
-        if not completed:
-            recent = reports[:10]
-            stuck_statuses = {'FAILED', 'REQUESTED', 'RUNNING', 'QUEUED'}
-            if recent and all(r.get('status', '') in stuck_statuses for r in recent):
-                result['reportStatus'] = 'backend_issue'
-                result['summary'] = {
-                    'error': (
-                        'ETM report generation is currently unavailable on this account — '
-                        'reports are being created but not processing. This may be a Qualys '
-                        'backend configuration issue. Please check ETM module status in the '
-                        'Qualys admin console or contact Qualys support.'
-                    ),
-                    'recentReportStatuses': [r.get('status', '') for r in recent[:5]],
-                }
-                return _with_meta(result, 'findings')
-
-        # If no specific QQL, use the most recent completed report
-        if not qql and completed:
-            target = completed[0]
-            detail = etm_api('GET', f'/etm/api/rest/v1/reports/{target["id"]}')
-            if _is_etm_401(detail):
-                result['reportStatus'] = 'unavailable'
-                result['summary'] = {'error': ETM_401_MSG}
-                return _with_meta(result, 'findings')
-            if detail and detail.get('resources'):
-                all_findings = []
-                # NOTE: sequential downloads — same as above, left as-is (#17)
-                for res_name in detail['resources'][:5]:
-                    findings = etm_download(detail['id'], res_name)
-                    if _is_etm_401(findings):
-                        result['reportStatus'] = 'unavailable'
-                        result['summary'] = {'error': ETM_401_MSG}
-                        return _with_meta(result, 'findings')
-                    if findings:
-                        all_findings.extend(findings)
-                if all_findings:
-                    formatted = _format_etm_findings(all_findings, detail)
-                    # Cache for 1 hour
-                    ETM_RESULT_CACHE = formatted
-                    ETM_RESULT_CACHE_TIME = now
-                    return formatted
-
-    # Create a new report
-    body = {
-        'reportName': f'mcp-{int(now.timestamp())}',
-        'reportFormat': 'JSON',
-    }
-    if qql:
-        body['findingFilter'] = {'qql': qql}
-
-    new_report = etm_api('POST', '/etm/api/rest/v1/reports/findings', body)
-    if _is_etm_401(new_report):
-        result['reportStatus'] = 'unavailable'
-        result['summary'] = {'error': ETM_401_MSG}
-        return _with_meta(result, 'findings')
-    if not new_report:
-        result['reportStatus'] = 'error'
-        result['summary'] = {'error': 'Failed to create ETM report. ETM module may not be enabled.'}
+    if not all_dets:
+        result = {
+            'findings': [],
+            'reportStatus': 'COMPLETED',
+            'summary': {'totalFindings': 0, 'uniqueAssets': 0, 'uniqueCVEs': 0, 'patchable': 0, 'bySeverity': {}},
+            'topCVEs': [],
+        }
         return _with_meta(result, 'findings')
 
-    rid = new_report.get('id', '')
-    result['reportStatus'] = 'creating'
-    result['summary'] = {
-        'message': 'ETM report requested. Reports typically take 1-5 minutes to generate. Call get_etm_findings(report_id="' + rid + '") to check status and retrieve results.',
-        'reportId': rid,
-        'qql': qql or '(all findings)',
-    }
-    return _with_meta(result, 'findings')
+    # Apply QID filter before KB enrichment to reduce KB lookups
+    if qid_filter:
+        all_dets = [d for d in all_dets if d.get('qid') == qid_filter]
+
+    # Enrich with KB data (title, CVEs, patch status, CVSS)
+    unique_qids = list({d.get('qid', 0) for d in all_dets if d.get('qid')})
+    kb_data = get_kb_batch(unique_qids[:200]) if unique_qids else {}
+
+    # Apply CVE and patch filters post-enrichment
+    filtered_dets = []
+    for d in all_dets:
+        kb = kb_data.get(d.get('qid', 0)) or {}
+        cves = kb.get('cves', [])
+        is_patchable = kb.get('patch_available', False)
+        if cve_filter and cve_filter not in cves:
+            continue
+        if patch_filter and not is_patchable:
+            continue
+        filtered_dets.append((d, kb, cves, is_patchable))
+
+    formatted = _format_vmdr_as_etm_findings(filtered_dets)
+
+    # Cache unfiltered results for 1 hour
+    if not qql:
+        ETM_RESULT_CACHE = formatted
+        ETM_RESULT_CACHE_TIME = now
+
+    return _with_meta(formatted, 'findings', formatted.get('totalFindings', len(formatted.get('findings', []))))
 
 
-def _format_etm_findings(all_findings, report_detail):
-    """Format ETM findings into a structured response."""
-    # Aggregate stats
+def _format_vmdr_as_etm_findings(det_tuples):
+    """Format VMDR detections (enriched with KB data) into the ETM findings response format.
+    det_tuples: list of (detection_dict, kb_dict, cves_list, is_patchable)."""
     by_severity = {}
-    by_status = {}
     by_cve = {}
-    by_category = {}
-    by_source = {}
-    by_misconfig_type = {}
     assets_seen = set()
     patchable = 0
+    findings = []
 
-    vulns = []
-    misconfigs = []
-    for f in all_findings:
-        sev = f.get('severity', 0)
+    for d, kb, cves, is_patchable in det_tuples:
+        sev = d.get('severity', 0)
         by_severity[sev] = by_severity.get(sev, 0) + 1
-        status = f.get('status', 'Unknown')
-        by_status[status] = by_status.get(status, 0) + 1
 
-        category = f.get('category', 'VULNERABILITY')
-        by_category[category] = by_category.get(category, 0) + 1
-        source = f.get('vendorProductName', 'Unknown')
-        by_source[source] = by_source.get(source, 0) + 1
+        hostname = d.get('hostname', '') or d.get('ip', '')
+        if hostname:
+            assets_seen.add(hostname)
 
-        cve = f.get('cveId', '')
-        if cve:
-            if cve not in by_cve:
-                by_cve[cve] = {'count': 0, 'severity': sev, 'title': f.get('title', ''), 'qid': f.get('vendorId', '')}
-            by_cve[cve]['count'] += 1
-
-        asset = f.get('asset', {})
-        asset_name = asset.get('assetName', '') or f.get('assetName', '')
-        if asset_name:
-            assets_seen.add(asset_name)
-
-        if f.get('isPatchAvailable'):
+        if is_patchable:
             patchable += 1
 
-        trurisk = f.get('truRiskScore') or 0
-        qid = f.get('vendorId', '')
-        qds = f.get('qds', 0)
-        qvss_raw = f.get('qvss')
-        qvss = qvss_raw if isinstance(qvss_raw, (int, float)) else (qvss_raw.get('score') or qvss_raw.get('base') if isinstance(qvss_raw, dict) else None)
+        qid = d.get('qid', 0)
+        title = kb.get('title', '')
+        qds = d.get('qds', 0) or kb.get('qds', 0)
+        cvss_v3 = kb.get('cvss_v3')
 
-        entry = {
-            'cveId': cve,
-            'qid': qid,
-            'title': f.get('title', '')[:80],
-            'severity': sev,
-            'qds': qds,
-            'qvss': qvss,
-            'truRiskScore': trurisk,
-            'status': status,
-            'category': category,
-            'assetName': asset_name,
-            'assetId': asset.get('internalAssetId', ''),
-            'isPatchAvailable': f.get('isPatchAvailable', False),
-            'isQualysPatchable': f.get('isQualysPatchable', False),
-            'cvss': f.get('cvss', {}),
-            'source': source,
-            'firstFound': short_date(f.get('firstFound')),
-            'lastFound': short_date(f.get('lastFound')),
-        }
+        # Map each CVE to a separate finding entry (or one entry if no CVEs)
+        cve_list = cves if cves else ['']
+        for cve in cve_list:
+            if cve:
+                if cve not in by_cve:
+                    by_cve[cve] = {'count': 0, 'severity': sev, 'title': title, 'qid': str(qid)}
+                by_cve[cve]['count'] += 1
 
-        if category == 'MISCONFIGURATION':
-            sub = f.get('subCategory', '')
-            entry['subCategory'] = sub
-            by_misconfig_type[sub] = by_misconfig_type.get(sub, 0) + 1
-            misconfigs.append(entry)
-        else:
-            vulns.append(entry)
+            findings.append({
+                'cveId': cve,
+                'qid': str(qid),
+                'title': title[:80],
+                'severity': sev,
+                'qds': qds,
+                'status': d.get('status', 'Active'),
+                'category': 'VULNERABILITY',
+                'assetName': short_host(hostname) or '',
+                'isPatchAvailable': is_patchable,
+                'cvss': {'v3_base': cvss_v3} if cvss_v3 else {},
+                'source': 'Qualys VMDR',
+                'firstFound': short_date(d.get('first_found', '')),
+                'has_exploit': kb.get('has_exploit', False),
+                'ransomware': kb.get('ransomware', False),
+            })
 
-    # Sort vulns and misconfigs separately by severity/TruRisk
-    vulns.sort(key=lambda x: (-x['severity'], -(x['truRiskScore'] or 0)))
-    misconfigs.sort(key=lambda x: (-x['severity'], -(x['truRiskScore'] or 0)))
+    # Sort by severity desc, then QDS desc
+    findings.sort(key=lambda x: (-x['severity'], -x.get('qds', 0)))
 
-    # Include top vulns + top misconfigs (ensure both are represented)
-    findings = vulns[:150] + misconfigs[:50]
+    # Cap output
+    capped_findings = findings[:200]
 
     # Top CVEs by affected asset count
     top_cves = sorted(by_cve.items(), key=lambda x: (-x[1]['count'], -x[1]['severity']))[:20]
 
     result = {
         'reportStatus': 'COMPLETED',
-        'reportId': report_detail.get('id', ''),
-        'reportName': report_detail.get('name', ''),
-        'findings': findings,
-        'totalFindings': len(all_findings),
+        'findings': capped_findings,
+        'totalFindings': len(findings),
         'summary': {
-            'totalFindings': len(all_findings),
+            'totalFindings': len(findings),
             'uniqueAssets': len(assets_seen),
             'uniqueCVEs': len(by_cve),
             'patchable': patchable,
             'bySeverity': {f'sev{k}': v for k, v in sorted(by_severity.items(), reverse=True)},
-            'byStatus': by_status,
-            'byCategory': by_category,
-            'bySource': by_source,
         },
         'topCVEs': [{'cve': cve, 'qid': info.get('qid', ''), 'assets': info['count'], 'severity': info['severity'], 'title': info['title'][:80]} for cve, info in top_cves],
     }
-
-    # Add misconfiguration breakdown if any exist
-    if misconfigs:
-        result['misconfigurations'] = {
-            'total': len(misconfigs),
-            'byType': by_misconfig_type,
-            'topFindings': [{
-                'title': m['title'][:80],
-                'assetName': m['assetName'],
-                'severity': m['severity'],
-                'truRiskScore': m['truRiskScore'],
-                'subCategory': m.get('subCategory', ''),
-            } for m in misconfigs[:10]],
-        }
 
     # Growth engine: next suggestions for ETM results
     result['_next'] = _build_next(result, 'get_etm_findings')
@@ -4085,26 +3981,13 @@ def get_asset(asset_id: str, detail: str = "summary") -> dict:
         result['riskScore'] = result['csam']['riskScore']
         result['truriskScore'] = result['csam']['riskScore']
 
-        # Fetch ETM findings and VMDR detections in parallel
+        # Fetch ETM findings (from VMDR cache) and VMDR detections in parallel
         def _fetch_etm():
             if ETM_RESULT_CACHE:
                 all_findings = ETM_RESULT_CACHE.get('findings', [])
+                hn_lower = hostname.lower() if hostname else ''
                 return [f for f in all_findings if
-                        f.get('assetId') == asset_id or
-                        f.get('assetName', '').lower() == hostname.lower()][:50]
-            if hostname:
-                qql = f'asset.name:{hostname}'
-                body = {
-                    'reportName': f'mcp-profile-{int(datetime.now(timezone.utc).timestamp())}',
-                    'reportFormat': 'JSON',
-                    'findingFilter': {'qql': qql},
-                }
-                new_report = etm_api('POST', '/etm/api/rest/v1/reports/findings', body)
-                if _is_etm_401(new_report):
-                    return [{'message': ETM_401_MSG}]
-                if new_report:
-                    return [{'_async': True, 'reportId': new_report.get('id', ''),
-                             'message': 'ETM report requested — call get_etm_findings(report_id=...) to retrieve'}]
+                        f.get('assetName', '').lower() == hn_lower][:50]
             return []
 
         def _fetch_vmdr():
@@ -4117,25 +4000,19 @@ def get_asset(asset_id: str, detail: str = "summary") -> dict:
         etm_raw = parallel.get('etm') or []
         vmdr_raw = parallel.get('vmdr') or []
 
-        # Format ETM findings
+        # Format ETM findings (now sourced from VMDR detections cache)
         etm_findings = []
-        etm_async = False
         for f in etm_raw:
-            if f.get('_async'):
-                etm_async = True
-                result['etmAsync'] = f
-                break
             etm_findings.append({
                 'title': f.get('title', '')[:100],
                 'cveId': f.get('cveId', ''),
                 'severity': f.get('severity', 0),
                 'qds': f.get('qds', 0),
-                'truRiskScore': f.get('truRiskScore', 0),
                 'isPatchAvailable': f.get('isPatchAvailable', False),
                 'status': f.get('status', ''),
                 'category': f.get('category', ''),
             })
-        etm_findings.sort(key=lambda x: (-x['severity'], -(x['truRiskScore'] or 0)))
+        etm_findings.sort(key=lambda x: (-x['severity'], -x.get('qds', 0)))
         result['etmFindings'] = etm_findings[:30]
 
         # Format VMDR detections — enrich with KB data
@@ -4174,7 +4051,6 @@ def get_asset(asset_id: str, detail: str = "summary") -> dict:
             'etmPatchable': patchable_etm,
             'vmdrDetections': len(vmdr_dets),
             'eolSoftware': len(eol_software),
-            'etmAsync': etm_async,
         }
 
         return compact(result)
@@ -6371,13 +6247,16 @@ def summarize_investigation(findings: str, audience: str = "technical") -> str:
 
 
 def _warmup_vmdr_cache():
-    """Background thread: pre-fetch VMDR detections for severity 3-5 to warm cache."""
+    """Background thread: pre-fetch VMDR detections for severity 3-5 to warm cache.
+    Uses use_cache=False to bypass _inflight deduplication so user requests are
+    never blocked waiting for warm-up to complete. Both may fetch in parallel on
+    a cold start, but the user gets their answer immediately."""
     import time
     time.sleep(2)  # brief delay to let server finish startup
     for sev in (5, 4, 3):
         try:
             _log(f"Cache warm-up: fetching severity {sev} detections...")
-            get_detections(severity=sev)
+            get_detections(severity=sev, use_cache=False)
             _log(f"Cache warm-up: severity {sev} done")
         except Exception as e:
             _log(f"Cache warm-up: severity {sev} failed: {e}")
