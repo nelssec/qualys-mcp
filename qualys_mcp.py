@@ -3205,49 +3205,23 @@ def get_scanner_health() -> dict:
 
 @mcp.tool()
 def get_etm_findings(qql: str = "", report_id: str = "") -> dict:
-    """[Enterprise TruRisk] Confirmed vulnerability and misconfiguration findings in YOUR environment — from VMDR, TotalCloud, and third-party scanners. Returns per-asset findings with TruRisk, QDS, CVSS, patch status. @slow
+    """[Enterprise TruRisk] Confirmed vulnerability findings in YOUR environment from VMDR scans. Returns per-asset findings with QDS, CVSS, patch status, CVE mapping. @slow
 
-    USE WHEN: User asks what vulns exist on their assets — "show me all critical vulns on PCI assets", "find Log4Shell across the environment", "what's confirmed in our scans?". Best for rich QQL filtering across confirmed detections.
+    USE WHEN: User asks what vulns exist on their assets — "show me all critical vulns", "find Log4Shell across the environment", "what's confirmed in our scans?". Supports QQL-style filtering.
     DO NOT USE WHEN: Searching the KB for newly published vulns (not yet scanned), doing single-CVE investigation with asset software search, or checking cloud misconfigs.
     PREFER INSTEAD: search_vulns for KB-only search (published vulns, not your detections); investigate_cve for single-CVE deep-dive with asset impact; get_cloud_risk for cloud misconfigurations.
 
     Parameters:
-    qql: Qualys Query Language filter string (optional). Use to filter findings.
-    report_id: resume polling an async ETM report (optional).
+    qql: Filter string (optional). Supports severity, CVE, and QID filters:
+      - `vulnerabilities.vulnerability.severity:5` — critical findings only
+      - `vulnerabilities.vulnerability.cveIds:CVE-2021-44228` — specific CVE
+      - `vulnerabilities.vulnerability.qid:38580` — specific QID
+      - `vulnerabilities.vulnerability.isPatchAvailable:true` — patchable only
+    report_id: Ignored (kept for backward compatibility).
 
-    Use qql to filter findings with Qualys Query Language (QQL):
+    Returns: findings (per-asset entries with cveId, qid, severity, qds, isPatchAvailable), summary (totalFindings, uniqueAssets, uniqueCVEs, patchable, bySeverity), topCVEs.
 
-    **CVE and vulnerability filters:**
-      - `vulnerabilities.vulnerability.cveIds:CVE-2021-44228`  — Log4Shell across all assets
-      - `vulnerabilities.vulnerability.severity:5`  — critical findings only
-      - `vulnerabilities.vulnerability.isPatchAvailable:true`  — patchable findings
-      - `vulnerabilities.vulnerability.qds:[70 TO 100]`  — high QDS range (range syntax)
-      - `vulnerabilities.vulnerability.qid:38580`  — specific QID
-      - `vulnerabilities.vulnerability.cvss3Base:[9.0 TO 10.0]`  — CVSS v3 critical
-
-    **Asset filters:**
-      - `asset.name:web-server`  — findings for a specific asset
-      - `asset.tags.name:PCI`  — assets with a specific tag
-      - `asset.operatingSystem:Windows`  — OS filter
-      - `asset.criticality:[8 TO 10]`  — business-critical assets only
-
-    **Status and source filters:**
-      - `status:ACTIVE`  — confirmed active findings (default)
-      - `vendorProductName:Qualys VMDR`  — source filter
-      - `category:MISCONFIGURATION`  — misconfigs only
-      - `category:VULNERABILITY`  — vulns only
-
-    **Combining filters (AND/OR/NOT):**
-      - `vulnerabilities.vulnerability.severity:5 AND asset.tags.name:PCI`
-      - `vulnerabilities.vulnerability.cveIds:CVE-2024-3400 OR vulnerabilities.vulnerability.cveIds:CVE-2023-20198`
-
-    For full QQL operator reference, see docs/query-languages.md.
-
-    Returns: findings (per-asset entries with cveId, qid, severity, qds, truRiskScore, isPatchAvailable, category), summary (totalFindings, uniqueAssets, uniqueCVEs, patchable, bySeverity), topCVEs.
-
-    **How async reports work:** ETM reports are async — completed reports are cached in-memory for 1 hour for instant warm retrieval. If no cached result exists, a new report is created and `{status: "creating", reportId: "..."}` is returned — call again with that reportId to poll for completion (typically 1–5 minutes). Filtered QQL queries always create a fresh report.
-
-    Performance: ~2s warm (cached report) / 1-5 min cold (async report generation). Unfiltered queries reuse cached reports for 1 hour."""
+    Performance: ~2s warm (cached) / 1-3 min cold (VMDR API fetch + KB enrichment). Results cached for 1 hour."""
     global ETM_RESULT_CACHE, ETM_RESULT_CACHE_TIME
     now = datetime.now(timezone.utc)
     result = {'findings': [], 'summary': {}, 'reportStatus': ''}
