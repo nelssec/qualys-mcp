@@ -251,15 +251,23 @@ async def run_conversation(
 
 def get_server_params() -> StdioServerParameters:
     """Build MCP server parameters from environment."""
+    env = {
+        **os.environ,
+        "QUALYS_USERNAME": os.environ["QUALYS_USERNAME"],
+        "QUALYS_PASSWORD": os.environ["QUALYS_PASSWORD"],
+        "QUALYS_SSL_VERIFY": os.environ.get("QUALYS_SSL_VERIFY", ""),
+    }
+    # Support both POD-based and explicit URL configuration
+    if os.environ.get("QUALYS_POD"):
+        env["QUALYS_POD"] = os.environ["QUALYS_POD"]
+    if os.environ.get("QUALYS_BASE_URL"):
+        env["QUALYS_BASE_URL"] = os.environ["QUALYS_BASE_URL"]
+    if os.environ.get("QUALYS_GATEWAY_URL"):
+        env["QUALYS_GATEWAY_URL"] = os.environ["QUALYS_GATEWAY_URL"]
+    if not env.get("QUALYS_POD") and not env.get("QUALYS_BASE_URL"):
+        raise EnvironmentError("Set QUALYS_POD or QUALYS_BASE_URL in environment")
     return StdioServerParameters(
         command=sys.executable,
         args=[str(Path(__file__).parent.parent / "qualys_mcp.py")],
-        env={
-            **os.environ,
-            "QUALYS_USERNAME": os.environ["QUALYS_USERNAME"],
-            "QUALYS_PASSWORD": os.environ["QUALYS_PASSWORD"],
-            "QUALYS_BASE_URL": os.environ["QUALYS_BASE_URL"],
-            "QUALYS_GATEWAY_URL": os.environ.get("QUALYS_GATEWAY_URL", ""),
-            "QUALYS_SSL_VERIFY": os.environ.get("QUALYS_SSL_VERIFY", ""),
-        },
+        env=env,
     )
