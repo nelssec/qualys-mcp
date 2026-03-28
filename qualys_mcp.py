@@ -17,6 +17,12 @@ from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock, Thread, Event, Semaphore
 from fastmcp import FastMCP
+from qualys.aggregators import (
+    aggregate_assets_list, aggregate_vulns_list,
+    aggregate_pm_jobs_list, aggregate_cloud_findings_list,
+    aggregate_edr_events_list, aggregate_was_findings_list,
+    aggregate_certs_list, _validate_detail, DETAIL_LEVELS,
+)
 
 mcp = FastMCP("qualys-mcp")
 
@@ -1641,7 +1647,7 @@ def _track_usage(tool_name: str, params: dict, result_summary: dict):
 
 
 @mcp.tool()
-def get_weekly_priorities(limit: int = 10, sort_by: str = "trurisk", tag: str = "", asset_group: str = "") -> dict:
+def get_weekly_priorities(limit: int = 10, sort_by: str = "trurisk", tag: str = "", asset_group: str = "", detail: str = "standard") -> dict:
     """[Risk Management] Weekly priorities — top high-risk assets ranked by TruRisk, risk distribution across severity tiers, and container risks. @slow
 
     USE WHEN: "what should I work on this week?", "top priorities", "what should we fix first?", sprint planning, or risk-ranked remediation lists.
@@ -1779,6 +1785,7 @@ def get_weekly_priorities(limit: int = 10, sort_by: str = "trurisk", tag: str = 
     _track_usage('get_weekly_priorities', {'limit': limit, 'tag': tag, 'asset_group': asset_group},
                  {'gaps_found': len(gaps), 'next_suggestions': len(result['_next'].get('investigate_deeper', []))})
 
+    result['topRiskAssets'] = aggregate_assets_list(result['topRiskAssets'], detail)
     return _with_meta(result, 'topRiskAssets')
 
 
@@ -2539,7 +2546,7 @@ def get_patch_status(limit: int = 20, tag: str = "", asset_group: str = "") -> d
 
 
 @mcp.tool()
-def search_vulns(days: int = 7, threat_type: str = "", software: str = "", limit: int = 50, tag: str = "", asset_group: str = "") -> dict:
+def search_vulns(days: int = 7, threat_type: str = "", software: str = "", limit: int = 50, tag: str = "", asset_group: str = "", detail: str = "standard") -> dict:
     """[Vulnerability Intelligence] KB search — newly published vulns, threat intel (RTI) filtering, and software-specific vuln lookups from the Qualys Knowledge Base.
 
     USE WHEN: Searching for new vulns ("what was published this week?"), threat intel queries ("any ransomware vulns?", "CISA KEV additions?"), or software-specific lookups ("what vulns affect Apache?"). This searches the KB (published vulns), NOT your detections.
@@ -2672,6 +2679,7 @@ def search_vulns(days: int = 7, threat_type: str = "", software: str = "", limit
         })
 
     result['totalMatching'] = len(matching)
+    result['vulns'] = aggregate_vulns_list(result['vulns'], detail)
     filters = []
     if threat_type:
         filters.append(f"threat_type='{threat_type}'")
@@ -3751,7 +3759,7 @@ def get_compliance_gaps(limit: int = 20) -> dict:
 
 
 @mcp.tool()
-def get_cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7) -> dict:
+def get_cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7, detail: str = "standard") -> dict:
     """[Cloud Security] Cloud security posture + CDR threat findings across AWS, Azure, and GCP — connected accounts, CIS benchmark control failures, and detailed CDR threats. @slow
 
     USE WHEN: "how are our cloud accounts doing?", cloud security posture overview, CIS benchmark compliance, cloud risk summary, investigating active cloud threats, lateral movement, suspicious network activity, or cloud incident response.
@@ -3885,6 +3893,8 @@ def get_cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7)
             f"Providers: {providers_str}. Top categories: {top_cats}."
         )
 
+    result['threats'] = aggregate_cloud_findings_list(result['threats'], detail)
+    result['failedControls'] = aggregate_cloud_findings_list(result['failedControls'], detail)
     total_threats = len(result['threats'])
     total_controls = len(result['failedControls'])
     result['_meta'] = {
@@ -3913,7 +3923,7 @@ def get_cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7)
 
 
 @mcp.tool()
-def get_cdr_findings(days: int = 7, limit: int = 50, severity: str = "", cloud_provider: str = "") -> dict:
+def get_cdr_findings(days: int = 7, limit: int = 50, severity: str = "", cloud_provider: str = "", detail: str = "standard") -> dict:
     """DEPRECATED: Use get_cloud_risk(include_threats=True, days=N) instead. CDR findings are now included in get_cloud_risk."""
     return {'error': "get_cdr_findings has been removed. Use get_cloud_risk(include_threats=True, days=...) instead.", 'replacement': 'get_cloud_risk'}
 
@@ -4237,7 +4247,7 @@ def get_image_vulns(image_id: str, limit: int = 50) -> dict:
 
 
 @mcp.tool()
-def get_expiring_certs(days: int = 90, include_expired: bool = True, weak_only: bool = False, limit: int = 100) -> dict:
+def get_expiring_certs(days: int = 90, include_expired: bool = True, weak_only: bool = False, limit: int = 100, detail: str = "standard") -> dict:
     """[CertView] SSL/TLS certificate expiry monitoring and configuration issue detection — expiring/expired certs, weak keys, SHA-1, self-signed, and TLS 1.0/1.1 usage.
 
     USE WHEN: "which SSL certs expire soon?", certificate expiry audit, weak cipher detection, self-signed cert inventory, TLS version compliance, or outage prevention.
@@ -4418,7 +4428,7 @@ def get_expiring_certs(days: int = 90, include_expired: bool = True, weak_only: 
 
     # Sort by daysRemaining ascending (expired first, then nearest expiry)
     all_certs.sort(key=lambda x: x.get('daysRemaining') if x.get('daysRemaining') is not None else 9999)
-    result['expiringSoon'] = all_certs[:limit]
+    result['expiringSoon'] = aggregate_certs_list(all_certs[:limit], detail)
 
     # Sort issues by severity
     severity_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3}
@@ -4489,7 +4499,7 @@ def get_threats(days: int = 7, limit: int = 50) -> dict:
 
 
 @mcp.tool()
-def get_webapp_vulns(severity: int = 0, days: int = 0, app_name: str = "", owasp_category: str = "", limit: int = 50) -> dict:
+def get_webapp_vulns(severity: int = 0, days: int = 0, app_name: str = "", owasp_category: str = "", limit: int = 50, detail: str = "standard") -> dict:
     """[Web Application Security] Web application vulnerabilities from Qualys WAS / TotalAppSec — severity breakdown per app, OWASP Top 10 classification, and vuln categories.
 
     USE WHEN: "what web app vulns do we have?", OWASP Top 10 findings, XSS/SQLi/CSRF issues, per-app vulnerability posture, or web application security audit.
@@ -4645,7 +4655,8 @@ def get_webapp_vulns(severity: int = 0, days: int = 0, app_name: str = "", owasp
 
     result['stats']['total'] = len(result['findings'])
     result['stats']['webApps'] = len(webapp_vulns)
-    result['findings'] = sorted(result['findings'], key=lambda x: x['severity'], reverse=True)[:limit]
+    result['findings'] = aggregate_was_findings_list(
+        sorted(result['findings'], key=lambda x: x['severity'], reverse=True)[:limit], detail)
     result['byWebApp'] = sorted(
         webapp_vulns.values(),
         key=lambda x: (x['critical'], x['high'], x['total']),
@@ -4817,7 +4828,7 @@ def cache_status(clear: bool = False) -> dict:
 
 
 @mcp.tool()
-def get_edr_events(days: int = 7, severity: str = "", category: str = "", host: str = "", limit: int = 50) -> dict:
+def get_edr_events(days: int = 7, severity: str = "", category: str = "", host: str = "", limit: int = 50, detail: str = "standard") -> dict:
     """[EDR] Endpoint Detection & Response events — malware, ransomware, C2 beaconing, process injection, lateral movement, and suspicious executions.
 
     USE WHEN: Investigating endpoint threats, malware detections, suspicious process executions, or host-level incident response. Filter by severity, category, or specific host.
@@ -4923,7 +4934,7 @@ def get_edr_events(days: int = 7, severity: str = "", category: str = "", host: 
         },
         'byCategory': by_category,
         'topHosts': top_hosts,
-        'events': events_out,
+        'events': aggregate_edr_events_list(events_out, detail),
     }
     return _with_meta(_r, 'events', total)
 
@@ -5085,7 +5096,7 @@ def _parse_duration(duration_str):
 
 
 @mcp.tool()
-def get_scan_status(state: str = "Running,Paused,Queued,Error", days: int = 7, limit: int = 50) -> dict:
+def get_scan_status(state: str = "Running,Paused,Queued,Error", days: int = 7, limit: int = 50, detail: str = "standard") -> dict:
     """[VM] Scan status — running, queued, and failed scans with duration and target info.
 
     USE WHEN: "are any scans running?", checking scan progress, troubleshooting failed scans, or reviewing scan history for the week.
@@ -5208,7 +5219,8 @@ def get_pm_status(platform: str = "Windows", days: int = 30, status: str = "", l
 @mcp.tool()
 def get_asset_inventory(query: str = "", tag: str = "", os: str = "", days_since_seen: int = 0,
                         eol_only: bool = False, limit: int = 50,
-                        list_tags: bool = False, list_groups: bool = False) -> dict:
+                        list_tags: bool = False, list_groups: bool = False,
+                        detail: str = "standard") -> dict:
     """[CSAM] Asset inventory search — find assets by OS, tag, keyword, EOL status, or staleness. Also lists tags and asset groups.
 
     USE WHEN: Searching for assets by name/OS/tag, finding stale assets, building asset lists for remediation, finding container image IDs for get_image_vulns, browsing available tags, or listing asset groups.
@@ -5344,6 +5356,7 @@ def get_asset_inventory(query: str = "", tag: str = "", os: str = "", days_since
         })
 
     result_assets.sort(key=lambda x: -x['truRiskScore'])
+    result_assets = aggregate_assets_list(result_assets, detail)
     return compact({
         'summary': summary, 'assets': result_assets,
         '_meta': {'returned': len(result_assets), 'total': total_count, 'truncated': len(result_assets) < total_count},
