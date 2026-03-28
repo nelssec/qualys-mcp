@@ -68,7 +68,7 @@ async def run_eval(args):
     print()
 
     # Validate env vars
-    for var in ["QUALYS_USERNAME", "QUALYS_PASSWORD", "QUALYS_BASE_URL", "ANTHROPIC_API_KEY"]:
+    for var in ["QUALYS_USERNAME", "QUALYS_PASSWORD", "ANTHROPIC_API_KEY"]:
         if not os.environ.get(var):
             print(f"Error: {var} not set")
             sys.exit(1)
@@ -177,7 +177,7 @@ async def run_conversation_eval(args):
     print()
 
     # Validate env vars
-    for var in ["QUALYS_USERNAME", "QUALYS_PASSWORD", "QUALYS_BASE_URL", "ANTHROPIC_API_KEY"]:
+    for var in ["QUALYS_USERNAME", "QUALYS_PASSWORD", "ANTHROPIC_API_KEY"]:
         if not os.environ.get(var):
             print(f"Error: {var} not set")
             sys.exit(1)
