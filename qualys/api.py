@@ -18,6 +18,14 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock, Thread, Event, Semaphore
+from qualys.cache import (
+    disk_cache,
+    TTL_VMDR as DISK_TTL_VMDR,
+    TTL_WAS as DISK_TTL_WAS,
+    TTL_SCANNERS as DISK_TTL_SCANNERS,
+    TTL_ETM as DISK_TTL_ETM,
+    TTL_CSAM as DISK_TTL_CSAM,
+)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -251,14 +259,26 @@ def _log(msg):
 # ---------------------------------------------------------------------------
 
 
-def _get_or_fetch(cache_dict, cache_time_dict, key, fetch_fn, ttl):
+def _get_or_fetch(cache_dict, cache_time_dict, key, fetch_fn, ttl, disk_ttl=None):
     """Thread-safe cache get-or-fetch with in-flight request deduplication.
     If a fetch is already in progress for *key*, subsequent callers wait on a
-    threading.Event instead of issuing a duplicate API call."""
+    threading.Event instead of issuing a duplicate API call.
+
+    When *disk_ttl* is set, the SQLite L2 cache is checked on L1 miss and
+    written after a successful fetch."""
     now = datetime.now(timezone.utc)
     cached_time = cache_time_dict.get(key)
     if key in cache_dict and cached_time and (now - cached_time).total_seconds() < ttl:
         return cache_dict[key]
+
+    # L2 disk cache check (before acquiring inflight lock)
+    if disk_ttl is not None:
+        disk_hit = disk_cache.get(key)
+        if disk_hit is not None:
+            cache_dict[key] = disk_hit
+            cache_time_dict[key] = datetime.now(timezone.utc)
+            _log(f"Disk cache hit for {key}")
+            return disk_hit
 
     with _inflight_lock:
         # Re-check cache inside lock (another thread may have just finished)
@@ -283,11 +303,37 @@ def _get_or_fetch(cache_dict, cache_time_dict, key, fetch_fn, ttl):
         result = fetch_fn()
         cache_dict[key] = result
         cache_time_dict[key] = datetime.now(timezone.utc)
+        if disk_ttl is not None:
+            disk_cache.set(key, result, disk_ttl)
         return result
     finally:
         with _inflight_lock:
             _inflight.pop(key, None)
         evt.set()  # wake up any waiters
+
+
+def clear_memory_cache(key=None):
+    """Clear in-memory L1 caches. If *key* is given, clear only that key."""
+    global SCANNER_CACHE, SCANNER_CACHE_TIME, ETM_RESULT_CACHE, ETM_RESULT_CACHE_TIME
+    if key:
+        DETECTION_CACHE.pop(key, None)
+        DETECTION_CACHE_TIME.pop(key, None)
+        KB_CACHE.pop(key, None)
+        KB_CACHE_TIME.pop(key, None)
+        WAS_CACHE.pop(key, None)
+        WAS_CACHE_TIME.pop(key, None)
+    else:
+        DETECTION_CACHE.clear()
+        DETECTION_CACHE_TIME.clear()
+        KB_CACHE.clear()
+        KB_CACHE_TIME.clear()
+        WAS_CACHE.clear()
+        WAS_CACHE_TIME.clear()
+        QDS_CACHE.clear()
+        SCANNER_CACHE = None
+        SCANNER_CACHE_TIME = None
+        ETM_RESULT_CACHE = None
+        ETM_RESULT_CACHE_TIME = None
 
 
 # ---------------------------------------------------------------------------
@@ -574,9 +620,10 @@ def get_detections(severity=5, limit=0, use_cache=True, days=30, qds_min=0, fetc
         result = _fetch()
         DETECTION_CACHE[cache_key] = result
         DETECTION_CACHE_TIME[cache_key] = datetime.now(timezone.utc)
+        disk_cache.set(cache_key, result, DISK_TTL_VMDR)
         return result[:limit] if limit > 0 else result
 
-    dets = _get_or_fetch(DETECTION_CACHE, DETECTION_CACHE_TIME, cache_key, _fetch, VMDR_CACHE_TTL)
+    dets = _get_or_fetch(DETECTION_CACHE, DETECTION_CACHE_TIME, cache_key, _fetch, VMDR_CACHE_TTL, disk_ttl=DISK_TTL_VMDR)
     return dets[:limit] if limit > 0 else dets
 
 
@@ -1122,7 +1169,7 @@ def get_was_findings(limit=100, severity=None, days=None, app_name=None):
             _log(f"WAS findings error: {e}")
             return []
 
-    return _get_or_fetch(WAS_CACHE, WAS_CACHE_TIME, cache_key, _fetch, 600)
+    return _get_or_fetch(WAS_CACHE, WAS_CACHE_TIME, cache_key, _fetch, 600, disk_ttl=DISK_TTL_WAS)
 
 
 # ---------------------------------------------------------------------------
@@ -1201,7 +1248,7 @@ def get_mtg_job_detail(job_id):
 
 
 def get_scanner_list():
-    """Get scanner appliance list with status and health metrics. Uses 5-minute cache."""
+    """Get scanner appliance list with status and health metrics. Uses 5-minute L1 / 12-hour disk cache."""
     global SCANNER_CACHE, SCANNER_CACHE_TIME
     now = datetime.now(timezone.utc)
 
@@ -1209,6 +1256,15 @@ def get_scanner_list():
         age = (now - SCANNER_CACHE_TIME).total_seconds()
         if age < 300:
             return SCANNER_CACHE
+
+    # L2 disk cache check
+    _SCANNER_DISK_KEY = "scanner_list"
+    disk_hit = disk_cache.get(_SCANNER_DISK_KEY)
+    if disk_hit is not None:
+        SCANNER_CACHE = disk_hit
+        SCANNER_CACHE_TIME = now
+        _log("Disk cache hit for scanner_list")
+        return SCANNER_CACHE
 
     data = api_get(f"{BASE_URL}/api/2.0/fo/appliance/?action=list&output_mode=full", timeout=30)
     if not data:
@@ -1238,6 +1294,7 @@ def get_scanner_list():
         pass
     SCANNER_CACHE = scanners
     SCANNER_CACHE_TIME = now
+    disk_cache.set("scanner_list", scanners, DISK_TTL_SCANNERS)
     return scanners
 
 
@@ -1385,6 +1442,13 @@ def _warmup_vmdr_cache():
     time.sleep(2)  # brief delay to let server finish startup
     for sev in (5, 4, 3):
         try:
+            cache_key = f"detections_{sev}_30_0"
+            disk_hit = disk_cache.get(cache_key)
+            if disk_hit is not None:
+                DETECTION_CACHE[cache_key] = disk_hit
+                DETECTION_CACHE_TIME[cache_key] = datetime.now(timezone.utc)
+                _log(f"Disk cache hit during warmup for {cache_key}")
+                continue
             _log(f"Cache warm-up: fetching severity {sev} detections...")
             get_detections(severity=sev, use_cache=False)
             _log(f"Cache warm-up: severity {sev} done")
