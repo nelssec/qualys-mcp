@@ -15,6 +15,7 @@ import json as _json
 import os
 import random
 import sys
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -30,9 +31,12 @@ from .judge import CONV_SCORE_WEIGHTS, judge_conversation_turn, judge_response
 from .parser import QUESTIONS_PATH, parse_questions
 from .reporter import (
     RESULTS_DIR,
+    cleanup_checkpoints,
     compute_summary,
     get_previous_run,
+    load_latest_checkpoint,
     print_summary,
+    save_checkpoint,
     save_results,
 )
 from .runner import JUDGE_MODEL, RUNNER_MODEL, get_mcp_tools, get_server_params, run_conversation, run_question
@@ -85,6 +89,21 @@ async def run_eval(args):
         variant_rng = random.Random(seed)
         print(f"Variants: ON (seed={seed})")
 
+    # Generate run_id for this run
+    run_id = uuid.uuid4().hex[:8]
+
+    # Resume from checkpoint if requested
+    skipped_ids: set[int] = set()
+    resumed_results: list[dict] = []
+    if args.resume:
+        skipped_ids, resumed_results, prev_run_id = load_latest_checkpoint()
+        if skipped_ids:
+            run_id = prev_run_id or run_id
+            print(f"Resuming: loaded {len(skipped_ids)} completed questions from checkpoint (run {run_id})")
+            questions = [q for q in questions if q["id"] not in skipped_ids]
+        else:
+            print("Resume: no checkpoint found, starting fresh")
+
     print(f"Eval: {len(questions)} questions (of {total_parsed} total)")
     if args.category:
         print(f"Category filter: {args.category}")
@@ -92,6 +111,8 @@ async def run_eval(args):
     print(f"Judge model:  {JUDGE_MODEL}")
     print(f"Concurrency: {args.concurrency}")
     print(f"Threshold: {args.threshold}")
+    print(f"Checkpoint interval: {args.checkpoint_interval}")
+    print(f"Run ID: {run_id}")
     print()
 
     # Validate env vars
@@ -184,12 +205,27 @@ async def run_eval(args):
                 result = await process_question(q)
                 results.append(result)
 
+                # Checkpoint after every N questions
+                all_results = resumed_results + results
+                if len(results) % args.checkpoint_interval == 0:
+                    now_ts = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H%M%S")
+                    cp = save_checkpoint(all_results, now_ts, run_id, RUNNER_MODEL)
+                    print(f"  💾 Checkpoint saved ({len(all_results)} questions) → {cp.name}")
+
+    # Merge resumed results with new results for final output
+    results = resumed_results + results
+
     # Summarize and save
     summary = compute_summary(results)
     now = datetime.now(timezone.utc)
     run_date = now.strftime("%Y-%m-%d_%H%M%S")
     result_file = save_results(results, summary, run_date, RUNNER_MODEL)
     print(f"\nResults saved to {result_file}")
+
+    # Clean up checkpoint files from this run on success
+    cleaned = cleanup_checkpoints(run_id)
+    if cleaned:
+        print(f"Cleaned up {cleaned} checkpoint file(s) for run {run_id}")
 
     # Print summary
     prev_run = get_previous_run(result_file)
@@ -485,6 +521,17 @@ def main():
         type=int,
         default=None,
         help="Seed for variant selection (default: random)",
+    )
+    parser.add_argument(
+        "--checkpoint-interval",
+        type=int,
+        default=10,
+        help="Save checkpoint every N questions (default: 10)",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume from the most recent checkpoint file",
     )
 
     args = parser.parse_args()
