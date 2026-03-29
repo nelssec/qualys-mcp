@@ -92,16 +92,21 @@ async def run_eval(args):
     # Generate run_id for this run
     run_id = uuid.uuid4().hex[:8]
 
-    # Resume from checkpoint if requested
+    # Resume from checkpoint: auto-detect today's checkpoint unless --fresh
     skipped_ids: set[int] = set()
     resumed_results: list[dict] = []
-    if args.resume:
-        skipped_ids, resumed_results, prev_run_id = load_latest_checkpoint()
+    if not args.fresh:
+        if args.resume:
+            skipped_ids, resumed_results, prev_run_id = load_latest_checkpoint()
+        else:
+            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            skipped_ids, resumed_results, prev_run_id = load_latest_checkpoint(date_prefix=today)
         if skipped_ids:
             run_id = prev_run_id or run_id
-            print(f"Resuming: loaded {len(skipped_ids)} completed questions from checkpoint (run {run_id})")
+            auto = "" if args.resume else " (auto-detected)"
+            print(f"Resuming{auto}: loaded {len(skipped_ids)} completed questions from checkpoint (run {run_id})")
             questions = [q for q in questions if q["id"] not in skipped_ids]
-        else:
+        elif args.resume:
             print("Resume: no checkpoint found, starting fresh")
 
     print(f"Eval: {len(questions)} questions (of {total_parsed} total)")
@@ -525,13 +530,19 @@ def main():
     parser.add_argument(
         "--checkpoint-interval",
         type=int,
-        default=10,
-        help="Save checkpoint every N questions (default: 10)",
+        default=1,
+        help="Save checkpoint every N questions (default: 1)",
     )
     parser.add_argument(
         "--resume",
         action="store_true",
         help="Resume from the most recent checkpoint file",
+    )
+    parser.add_argument(
+        "--fresh",
+        "--no-resume",
+        action="store_true",
+        help="Ignore any existing checkpoints and start from scratch",
     )
 
     args = parser.parse_args()
