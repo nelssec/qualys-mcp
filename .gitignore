@@ -25,6 +25,7 @@ __pycache__/
 
 # Eval results
 eval_results/
+eval/results/
 
 # Build artifacts
 dist/
@@ -41,4 +42,6 @@ discovery/
 benchmark_results.json
 eval_results/
 !eval_results/.gitkeep
+eval/results/
+!eval/results/.gitkeep
 .venv/

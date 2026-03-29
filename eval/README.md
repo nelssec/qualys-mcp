@@ -51,7 +51,7 @@ python -m eval --concurrency 10
 
 ## Output
 
-Results are saved to `eval_results/YYYY-MM-DD_HHMMSS.json` with:
+Results are saved to `eval/results/YYYY-MM-DD_HHMMSS.json` with:
 - Metadata: timestamp, model, total questions, overall score
 - Per-question detail: category, question, score, reasoning, tool calls, response snippet
 - Per-category breakdown with scores

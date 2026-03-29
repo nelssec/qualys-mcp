@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .judge import SCORE_WEIGHTS
 
-RESULTS_DIR = Path(__file__).parent.parent / "eval_results"
+RESULTS_DIR = Path(__file__).parent / "results"
 
 
 def compute_summary(results: list[dict]) -> dict:
@@ -133,6 +133,17 @@ def save_checkpoint(
 
     result_file.write_text(json.dumps(output, indent=2))
     return result_file
+
+
+def find_today_checkpoint() -> Path | None:
+    """Return the most recent checkpoint file written today (UTC), or None."""
+    if not RESULTS_DIR.exists():
+        return None
+    from datetime import datetime, timezone
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    # checkpoint files are named: checkpoint_YYYY-MM-DD_HHMMSS_<run_id>.json
+    candidates = sorted(RESULTS_DIR.glob(f"checkpoint_{today}_*.json"))
+    return candidates[-1] if candidates else None
 
 
 def load_latest_checkpoint(run_id: str | None = None) -> tuple[set[int], list[dict], str | None]:

@@ -323,7 +323,7 @@ def main():
     print()
 
     # Save results
-    out_path = ROOT / "eval_results" / "routing_eval_latest.json"
+    out_path = ROOT / "eval" / "results" / "routing_eval_latest.json"
     out_path.parent.mkdir(exist_ok=True)
     with open(out_path, "w") as f:
         json.dump({
