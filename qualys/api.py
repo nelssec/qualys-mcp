@@ -1053,6 +1053,35 @@ def get_evaluations(account_id, provider='aws', limit=500):
                           not_found_ok=True)
 
 
+def get_evaluation_count(account_id, provider='aws', filter_str=''):
+    """Fetch pageSize=1 to get just totalElements (fast count). Returns {total, failed} or None."""
+    url = f"{GATEWAY_URL}/cloudview-api/rest/v1/{provider}/evaluations/{account_id}?pageSize=1&pageNo=0"
+    if filter_str:
+        url += f"&filter={filter_str}"
+    data = api_get(url, gateway=True, timeout=15, not_found_ok=True)
+    if not data:
+        return None
+    try:
+        parsed = json.loads(data) if isinstance(data, (str, bytes)) else {}
+        total = parsed.get('totalElements', 0)
+        # Count failed from the single item if present
+        content = parsed.get('content', [])
+        return {'total': total, 'content': content}
+    except (json.JSONDecodeError, TypeError):
+        return None
+
+
+def get_evaluations_filtered(account_id, provider='aws', limit=500, filter_str=''):
+    """Fetch evaluations with optional filter string (e.g. 'service:S3')."""
+    url = f"{GATEWAY_URL}/cloudview-api/rest/v1/{provider}/evaluations/{account_id}"
+    if filter_str:
+        sep = '&' if '?' in url else '?'
+        url += f"{sep}filter={filter_str}"
+    return _paginate_json(url, limit, data_key='content', count_key='totalElements',
+                          page_param='pageNo', size_param='pageSize', page_start=0,
+                          not_found_ok=True)
+
+
 def get_cdr(days=7, limit=100, severity=None, cloud_provider=None, category=None):
     end = datetime.now(timezone.utc)
     start = end - timedelta(days=days)
