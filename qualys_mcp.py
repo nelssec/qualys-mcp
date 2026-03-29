@@ -22,6 +22,9 @@ from qualys.aggregators import (
     asset_detail,
     tech_debt,
     image_vulns,
+    image_vulns_list,
+    container_vuln_summary,
+    running_containers,
     expiring_certs,
     webapp_vulns,
     risk_by_tag,
@@ -333,21 +336,59 @@ def get_tech_debt(limit: int = 100, days: int = 30, detail: str = "standard") ->
 
 
 @mcp.tool()
-def get_image_vulns(image_id: str, limit: int = 50, detail: str = "standard") -> dict:
-    """[Container Security] Vulnerabilities for a specific container image — severity breakdown and individual vuln details with fix versions.
+def get_container_vuln_summary(limit: int = 20, detail: str = "standard") -> dict:
+    """[Container Security] Top container images ranked by critical vulnerability count — severity breakdown across all images with patch availability. @fast
 
-    USE WHEN: Investigating vulnerabilities in a specific container image, pre-deployment image scanning review, or container remediation planning.
-    DO NOT USE WHEN: Listing all container images, checking host-based vulnerabilities, or viewing cloud posture.
-    PREFER INSTEAD: get_asset_inventory for listing container images; get_asset for host-based vulnerabilities; get_cloud_risk for cloud posture overview.
+    USE WHEN: "show me vulnerability counts by image", "which container images have the most critical vulns?", container security overview, image risk ranking, or container vulnerability audit.
+    DO NOT USE WHEN: Investigating a single specific image (use get_image_vulns instead), looking at host-level vulnerabilities, or checking cloud posture.
+    PREFER INSTEAD: get_image_vulns for single-image deep dive; get_running_containers for running container context; get_etm_findings for host-level vulnerabilities.
 
     Parameters:
-        image_id: TotalCloud imageId (from get_asset_inventory or get_weekly_priorities container risk section)
-        limit: max vulns to return (default 50)
+        limit: max images to return (default 20). Use higher for full inventory.
 
-    Returns: imageId, repo, tag, created, stats (critical/high/medium/low/total), vulns (list with qid, cve, severity, title, fixVersion).
+    Returns: summary (critical/high/medium/low/total/patchable across all images), imageCount, images (list ranked by critical vulns with repo, tag, severity counts, patchable).
+
+    Performance: ~3s (single paginated API call)."""
+    return container_vuln_summary(limit=limit, detail=detail)
+
+
+@mcp.tool()
+def get_image_vulns(image_id: str = "", limit: int = 50, detail: str = "standard") -> dict:
+    """[Container Security] Vulnerabilities for a specific container image — severity breakdown and individual vuln details with fix versions. Without image_id, lists top images by critical vuln count.
+
+    USE WHEN: Investigating vulnerabilities in a specific container image, pre-deployment image scanning review, or container remediation planning. Also use without image_id to list top vulnerable images.
+    DO NOT USE WHEN: Checking host-based vulnerabilities or viewing cloud posture.
+    PREFER INSTEAD: get_container_vuln_summary for image ranking overview; get_asset for host-based vulnerabilities; get_cloud_risk for cloud posture overview.
+
+    Parameters:
+        image_id: TotalCloud imageId (from get_asset_inventory or get_weekly_priorities container risk section). Leave empty to list top images by critical vuln count.
+        limit: max vulns/images to return (default 50)
+
+    Returns: With image_id: imageId, repo, tag, created, stats (critical/high/medium/low/total), vulns (list with qid, cve, severity, title, fixVersion). Without image_id: ranked list of images with severity counts.
 
     Performance: ~3s (parallel image details + vulns API)."""
+    if not image_id:
+        return image_vulns_list(limit=limit, detail=detail)
     return image_vulns(image_id=image_id, limit=limit, detail=detail)
+
+
+@mcp.tool()
+def get_running_containers(limit: int = 50, detail: str = "standard") -> dict:
+    """[Container Security] Running containers with image vulnerability context — identifies containers with unpatched critical vulns. @slow
+
+    USE WHEN: "show me all running containers with unpatched critical vulns", "which containers are most at risk?", container runtime security audit, or finding containers that need immediate patching.
+    DO NOT USE WHEN: Looking at container images without runtime context (use get_container_vuln_summary), investigating a single image (use get_image_vulns), or checking host-level vulns.
+    PREFER INSTEAD: get_container_vuln_summary for image-level vuln ranking without runtime context; get_image_vulns for single-image deep dive.
+
+    NOTE: Kubernetes namespace/pod-level data (namespaces, pods) is not available on all tenants. This tool returns container and image-level data. For K8s questions, it will indicate when namespace/pod data is unavailable.
+
+    Parameters:
+        limit: max containers to return (default 50)
+
+    Returns: summary (totalRunning, withCriticalVulns, withUnpatchedCritical), containers (list sorted by critical vuln count with containerId, name, imageRepo, imageTag, host, critical/high/medium/patchable counts).
+
+    Performance: ~5s (parallel containers + images API)."""
+    return running_containers(limit=limit, detail=detail)
 
 
 @mcp.tool()
