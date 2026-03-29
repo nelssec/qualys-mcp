@@ -113,6 +113,11 @@ async def run_eval(args):
             results = []
             sem = asyncio.Semaphore(args.concurrency)
 
+            # Per-question wall-clock timeout (seconds). Heavy tools like
+            # investigate_cve can take 3-5 min; 300s gives headroom while
+            # preventing an infinite hang.
+            QUESTION_TIMEOUT = int(os.environ.get("EVAL_QUESTION_TIMEOUT", "300"))
+
             async def process_question(q: dict) -> dict:
                 async with sem:
                     # Pick variant if enabled
@@ -130,8 +135,9 @@ async def run_eval(args):
                     print(f"{prefix} {q['category']} — {question_text[:60]}...{variant_tag}")
 
                     try:
-                        resp = await run_question(
-                            client, session, tools, question_text
+                        resp = await asyncio.wait_for(
+                            run_question(client, session, tools, question_text),
+                            timeout=QUESTION_TIMEOUT,
                         )
                         judgment = await judge_response(
                             client,
@@ -139,6 +145,13 @@ async def run_eval(args):
                             resp["tool_calls"],
                             resp["response"],
                         )
+                    except asyncio.TimeoutError:
+                        print(f"{prefix} ⏱ TIMEOUT after {QUESTION_TIMEOUT}s")
+                        resp = {"response": "", "tool_calls": []}
+                        judgment = {
+                            "score": "tool-error",
+                            "reasoning": f"Question timed out after {QUESTION_TIMEOUT}s",
+                        }
                     except Exception as e:
                         resp = {"response": "", "tool_calls": []}
                         judgment = {
