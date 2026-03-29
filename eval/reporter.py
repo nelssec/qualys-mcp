@@ -135,16 +135,25 @@ def save_checkpoint(
     return result_file
 
 
-def load_latest_checkpoint(run_id: str | None = None) -> tuple[set[int], list[dict], str | None]:
+def load_latest_checkpoint(
+    run_id: str | None = None, date_prefix: str | None = None
+) -> tuple[set[int], list[dict], str | None]:
     """Find and load the most recent checkpoint file.
 
     If run_id is given, only consider checkpoints for that run.
+    If date_prefix is given (e.g. "2026-03-29"), only consider checkpoints
+    whose filename starts with ``checkpoint_{date_prefix}``.
     Returns (set of completed question IDs, results list, run_id or None).
     """
     if not RESULTS_DIR.exists():
         return set(), [], None
 
-    pattern = f"checkpoint_*_{run_id}.json" if run_id else "checkpoint_*.json"
+    if run_id:
+        pattern = f"checkpoint_*_{run_id}.json"
+    elif date_prefix:
+        pattern = f"checkpoint_{date_prefix}_*.json"
+    else:
+        pattern = "checkpoint_*.json"
     checkpoint_files = sorted(RESULTS_DIR.glob(pattern))
     if not checkpoint_files:
         return set(), [], None
