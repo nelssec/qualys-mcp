@@ -19,6 +19,8 @@ from qualys.aggregators import (
     cve_details,
     qid_details,
     cloud_risk,
+    cloud_account_summary,
+    cloud_controls,
     asset_detail,
     tech_debt,
     image_vulns,
@@ -290,12 +292,48 @@ def get_cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7,
         include_threats: include detailed CDR threat findings (default True). Set False for posture-only.
         days: CDR look-back window in days (default 7). Only used when include_threats=True.
 
-    Returns: accounts (list with id, provider, name), failedControls (CIS benchmark failures by controlId), threats (CDR findings with severity, category, resourceId, provider, account, region), stats (total accounts, critical threats).
+    Returns: accounts (list with id, provider, name, connectorState, lastSyncedOn), failedControls (CIS benchmark failures ranked by failedResources across ALL accounts), threats (CDR findings with severity, category, resourceId, provider, account, region), stats (total accounts, critical threats).
 
-    Note: CIS evaluations fetched from first account per provider. For multi-account evaluation, use Qualys TotalCloud console.
-
-    Performance: ~6s cold / ~3s warm (parallel: 3 provider connectors + evaluations + CDR)."""
+    Performance: ~6s cold / ~3s warm (parallel: 3 provider connectors + evaluations + CDR). Cached 6h."""
     return cloud_risk(limit=limit, include_threats=include_threats, days=days, detail=detail)
+
+
+@mcp.tool()
+def get_cloud_account_summary(provider: str = "all", detail: str = "standard") -> dict:
+    """[Cloud Security] Per-account cloud security evaluation summary — failure rate ranked by worst across all providers. @fast
+
+    USE WHEN: "which cloud accounts have the most issues?", "cloud account risk ranking", per-account breakdown, "worst cloud accounts", multi-account comparison, connector health status, "which connectors are failing?", "when was the last evaluation?".
+    DO NOT USE WHEN: Looking for specific service failures (use get_cloud_controls) or CDR threat findings (use get_cloud_risk with include_threats=True).
+    PREFER INSTEAD: get_cloud_risk for overall posture + threats; get_cloud_controls for service-level drill-down.
+
+    Parameters:
+        provider: 'all', 'aws', 'azure', or 'gcp' (default 'all')
+
+    Returns: accounts (ranked by failRate with totalControls, failedControls, passedControls, connectorState, lastSyncedOn), summary (totalAccounts, overallFailRate).
+
+    Performance: ~3s (parallel evaluation fetch across accounts). Cached 6h."""
+    return cloud_account_summary(provider=provider, detail=detail)
+
+
+@mcp.tool()
+def get_cloud_controls(provider: str = "aws", service: str = None, result: str = None, account_id: str = None, limit: int = 50, detail: str = "standard") -> dict:
+    """[Cloud Security] Cloud CIS benchmark controls filtered by service (S3, IAM, EC2, etc.) — failed resources ranked across accounts. @slow
+
+    USE WHEN: "which S3 controls are failing?", "IAM security issues", "show me EC2 misconfigurations", service-level cloud drill-down, investigating specific cloud service security, "publicly accessible RDS/S3/snapshots", "encryption at rest", "logging disabled", "open ports", "load balancers without TLS".
+    DO NOT USE WHEN: Looking for overall cloud posture (use get_cloud_risk) or per-account summary (use get_cloud_account_summary).
+    PREFER INSTEAD: get_cloud_risk for overview; get_cloud_account_summary for account ranking.
+
+    Parameters:
+        provider: 'all', 'aws', 'azure', or 'gcp' (default 'aws'). Use 'all' to query across all providers.
+        service: filter by service name — S3, IAM, EC2, RDS, Lambda, CloudTrail, VPC, ELB, KMS, etc. (case-insensitive, partial match)
+        result: filter by result — 'FAIL' or 'PASS' (default: all)
+        account_id: filter to a specific account (default: all accounts for provider)
+        limit: max controls to return (default 50)
+
+    Returns: controls (ranked by failedResources with service, criticality, accountCount), byService distribution, summary (totalControls, failingControls).
+
+    Performance: ~4s (parallel evaluation fetch across accounts). Cached 6h."""
+    return cloud_controls(provider=provider, service=service, result_filter=result, account_id=account_id, limit=limit, detail=detail)
 
 
 @mcp.tool()

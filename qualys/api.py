@@ -1053,6 +1053,38 @@ def get_evaluations(account_id, provider='aws', limit=500):
                           not_found_ok=True)
 
 
+def get_evaluation_count(account_id, provider='aws'):
+    """Fetch pageSize=1 to get just totalElements (fast count)."""
+    url = f"{GATEWAY_URL}/cloudview-api/rest/v1/{provider}/evaluations/{account_id}?pageSize=1&pageNo=0"
+    data = api_get(url, gateway=True, not_found_ok=True, timeout=15)
+    try:
+        parsed = json.loads(data) if data else {}
+    except json.JSONDecodeError:
+        return {'total': 0, 'failed': 0}
+    total = parsed.get('totalElements', 0)
+    # Count failures from the single returned element (approximation)
+    content = parsed.get('content', [])
+    failed = sum(1 for e in content if e.get('result') in ('FAIL', 'FAILED'))
+    return {'total': total, 'failed': failed, 'content': content}
+
+
+def get_evaluations_filtered(account_id, provider='aws', limit=500, service=None, result_filter=None):
+    """Fetch evaluations with optional service/result filtering."""
+    url = f"{GATEWAY_URL}/cloudview-api/rest/v1/{provider}/evaluations/{account_id}"
+    evals = _paginate_json(url, limit, data_key='content', count_key='totalElements',
+                            page_param='pageNo', size_param='pageSize', page_start=0,
+                            not_found_ok=True)
+    if not evals or not isinstance(evals, list):
+        return []
+    if service:
+        svc_upper = service.upper()
+        evals = [e for e in evals if svc_upper in (e.get('service', '') or '').upper()]
+    if result_filter:
+        rf_upper = result_filter.upper()
+        evals = [e for e in evals if (e.get('result', '') or '').upper() in (rf_upper, rf_upper + 'ED')]
+    return evals
+
+
 def get_cdr(days=7, limit=100, severity=None, cloud_provider=None, category=None):
     end = datetime.now(timezone.utc)
     start = end - timedelta(days=days)

@@ -8,14 +8,14 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 
 1. ✅ Investigate CVE-2021-44228 (Log4Shell) completely — affected assets, patch status, exceptions
 2. ✅ Give me a full deep-dive on why our TruRisk score increased this week
-3. ✅ Investigate our ransomware exposure end-to-end
+3. ⚠️ Investigate our ransomware exposure end-to-end
 4. ✅ Do a complete investigation of asset server-prod-01
 5. ✅ Tell me everything about CVE-2024-3400 and our exposure
 6. ✅ Why is our risk score high? Give me the full picture
-7. ✅ Investigate our compliance posture thoroughly
+7. ⚠️ Investigate our compliance posture thoroughly
 8. ⚠️ Chain: investigate Log4Shell → then show patch status for affected assets
-9. ⚠️ Investigate this week's top vulnerability priorities in depth
-10. ⚠️ Give me a complete cloud security investigation
+9. ✅ Investigate this week's top vulnerability priorities in depth
+10. ✅ Give me a complete cloud security investigation
 
 ---
 
@@ -24,12 +24,12 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 ### Daily operations
 1. ✅ What new vulnerabilities were detected overnight?
 2. ✅ What's my morning security summary?
-3. ✅ What changed in my vulnerability posture this week?
+3. ⚠️ What changed in my vulnerability posture this week?
 4. ✅ What are my top 10 riskiest vulnerabilities right now?
 5. ✅ Show me all vulnerabilities with active ransomware associations.
 6. ✅ What vulnerabilities have public exploits available?
-7. ✅ What zero-days are we currently exposed to?
-8. ✅ Show me all Critical severity vulnerabilities detected in the last 7 days.
+7. ⚠️ What zero-days are we currently exposed to?
+8. ⚠️ Show me all Critical severity vulnerabilities detected in the last 7 days.
 9. ✅ What's my overall vulnerability count by severity?
 10. ✅ How many High/Critical vulns do I have that aren't patched?
 
@@ -240,77 +240,77 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 175. ✅ Show me all failed cloud controls for our Azure subscription.
 176. ✅ What's our cloud compliance pass rate?
 177. ⚠️ Which S3 buckets are publicly accessible?
-178. ⚠️ Are any of our cloud storage accounts exposed to the internet?
-179. ⚠️ Which cloud IAM policies grant excessive permissions?
-180. ⚠️ Are any cloud resources missing encryption?
-181. ⚠️ Which cloud security groups allow unrestricted inbound access?
-182. ❌ Show me cloud compliance by account and region.
-183. ❌ What's the trend in cloud security posture over the past month?
-184. ❌ Which cloud resources are not tagged properly?
-185. ❌ What's our cloud security score by provider (AWS/Azure/GCP)?
-186. ❌ Show me all resources failing the "encryption at rest" control.
-187. ❌ Which cloud accounts have MFA disabled for root?
-188. ❌ Are any cloud VMs running without endpoint protection?
-189. ❌ Show me cloud resources with open RDP or SSH ports.
-190. ❌ What cloud assets have no backups configured?
+178. ✅ Are any of our cloud storage accounts exposed to the internet?
+179. ✅ Which cloud IAM policies grant excessive permissions?
+180. ✅ Are any cloud resources missing encryption?
+181. ✅ Which cloud security groups allow unrestricted inbound access?
+182. ⚠️ Show me cloud compliance by account and region.
+183. ⚠️ What's the trend in cloud security posture over the past month?
+184. ✅ Which cloud resources are not tagged properly?
+185. ✅ What's our cloud security score by provider (AWS/Azure/GCP)?
+186. ⚠️ Show me all resources failing the "encryption at rest" control.
+187. ⚠️ Which cloud accounts have MFA disabled for root?
+188. ⚠️ Are any cloud VMs running without endpoint protection?
+189. ⚠️ Show me cloud resources with open RDP or SSH ports.
+190. ✅ What cloud assets have no backups configured?
 
 ### Cloud Detection & Response (CDR)
 191. ✅ What cloud threats were detected in the last 7 days?
-192. ✅ Show me all critical CDR findings in AWS.
-193. ✅ Are there any crypto-mining activities detected in our cloud?
-194. ✅ What malware was detected in cloud workloads this week?
-195. ✅ Show me C2 callback attempts from our cloud VMs.
-196. ✅ What lateral movement was detected in our cloud?
+192. ⚠️ Show me all critical CDR findings in AWS.
+193. ⚠️ Are there any crypto-mining activities detected in our cloud?
+194. ⚠️ What malware was detected in cloud workloads this week?
+195. ⚠️ Show me C2 callback attempts from our cloud VMs.
+196. ⚠️ What lateral movement was detected in our cloud?
 197. ✅ Are there any ransomware indicators in our cloud environment?
-198. ✅ Show me CDR findings by category.
+198. ❌ Show me CDR findings by category.
 199. ⚠️ What external IPs are communicating with our cloud workloads?
 200. ⚠️ Which CDR findings involve data exfiltration attempts?
 201. ❌ Show me CDR findings for a specific EC2 instance.
-202. ❌ What's the CDR trend over the past 30 days?
-203. ❌ Which cloud accounts have the most CDR alerts?
-204. ❌ Show me all CDR findings with CVE associations.
-205. ❌ What CDR findings involved privilege escalation?
+202. ⚠️ What's the CDR trend over the past 30 days?
+203. ⚠️ Which cloud accounts have the most CDR alerts?
+204. ⚠️ Show me all CDR findings with CVE associations.
+205. ⚠️ What CDR findings involved privilege escalation?
 
 ### Cloud connectors and inventory
 206. ⚠️ How many cloud connectors are configured and healthy?
-207. ⚠️ Which cloud connectors are failing?
-208. ❌ Show me all connected AWS accounts.
-209. ❌ What Azure subscriptions are monitored?
-210. ❌ Which GCP projects are connected to Qualys?
-211. ❌ Are there any cloud accounts without connectors?
-212. ❌ When was the last cloud evaluation run?
-213. ❌ Show me the cloud asset inventory by provider.
-214. ❌ How many cloud VMs are we monitoring?
-215. ❌ Which cloud resources are new this week?
+207. ✅ Which cloud connectors are failing?
+208. ✅ Show me all connected AWS accounts.
+209. ✅ What Azure subscriptions are monitored?
+210. ✅ Which GCP projects are connected to Qualys?
+211. ✅ Are there any cloud accounts without connectors?
+212. ✅ When was the last cloud evaluation run?
+213. ✅ Show me the cloud asset inventory by provider.
+214. ✅ How many cloud VMs are we monitoring?
+215. ⚠️ Which cloud resources are new this week?
 
 ### Compliance frameworks
 216. ❌ What's our CIS AWS Benchmark score?
-217. ❌ Show me our Azure CIS compliance percentage.
-218. ❌ What's our GCP CIS compliance pass rate?
-219. ❌ Which cloud resources fail PCI-DSS cloud controls?
-220. ❌ What SOC 2 relevant cloud controls are failing?
-221. ❌ Show me our NIST CSF cloud compliance status.
-222. ❌ Which HIPAA cloud controls are we failing?
-223. ❌ What cloud controls map to ISO 27001?
-224. ❌ Show me cloud compliance trend by framework.
-225. ❌ Which cloud accounts need remediation to achieve CIS Level 1?
+217. ⚠️ Show me our Azure CIS compliance percentage.
+218. ✅ What's our GCP CIS compliance pass rate?
+219. ✅ Which cloud resources fail PCI-DSS cloud controls?
+220. ✅ What SOC 2 relevant cloud controls are failing?
+221. ⚠️ Show me our NIST CSF cloud compliance status.
+222. ⚠️ Which HIPAA cloud controls are we failing?
+223. ⚠️ What cloud controls map to ISO 27001?
+224. ⚠️ Show me cloud compliance trend by framework.
+225. ✅ Which cloud accounts need remediation to achieve CIS Level 1?
 
 ### Cloud-specific
-226. ❌ What AWS Lambda functions have excessive permissions?
-227. ❌ Which RDS instances are publicly accessible?
-228. ❌ Are any Kubernetes clusters exposed without authentication?
-229. ❌ What cloud load balancers are missing TLS?
-230. ❌ Which cloud functions have hardcoded credentials?
-231. ❌ Are any cloud snapshots shared publicly?
-232. ❌ Show me all internet-facing cloud resources.
-233. ❌ Which cloud services have logging disabled?
-234. ❌ What cloud resources have default credentials?
-235. ❌ Are any cloud key management services misconfigured?
-236. ❌ Show me all cloud resources in non-compliant regions.
-237. ❌ Which cloud resources are missing network segmentation?
-238. ❌ Are any auto-scaling groups misconfigured?
+226. ✅ What AWS Lambda functions have excessive permissions?
+227. ⚠️ Which RDS instances are publicly accessible?
+228. ⚠️ Are any Kubernetes clusters exposed without authentication?
+229. ✅ What cloud load balancers are missing TLS?
+230. ⚠️ Which cloud functions have hardcoded credentials?
+231. ✅ Are any cloud snapshots shared publicly?
+232. ⚠️ Show me all internet-facing cloud resources.
+233. ✅ Which cloud services have logging disabled?
+234. ⚠️ What cloud resources have default credentials?
+235. ✅ Are any cloud key management services misconfigured?
+236. ⚠️ Show me all cloud resources in non-compliant regions.
+237. ✅ Which cloud resources are missing network segmentation?
+238. ✅ Are any auto-scaling groups misconfigured?
 239. ❌ What cloud secrets are exposed in environment variables?
-240. ❌ Which cloud VMs are missing vulnerability scanning?
+240. ⚠️ Which cloud VMs are missing vulnerability scanning?
 
 ---
 
