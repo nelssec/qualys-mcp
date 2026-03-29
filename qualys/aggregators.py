@@ -2709,6 +2709,127 @@ def image_vulns(image_id: str, limit: int = 50, detail: str = "standard") -> dic
 
 
 # ---------------------------------------------------------------------------
+# container_vuln_summary
+# ---------------------------------------------------------------------------
+
+def container_vuln_summary(limit: int = 20, detail: str = "standard") -> dict:
+    """Top container images ranked by critical vulnerability count with severity breakdown."""
+    images = get_images_by_vulns(limit=limit)
+    if not images:
+        return compact({'error': 'No container images found — Container Security may not be enabled.',
+                        'images': [], 'summary': {}})
+
+    ranked = []
+    totals = {'critical': 0, 'high': 0, 'medium': 0, 'low': 0, 'total': 0, 'patchable': 0}
+
+    for img in images:
+        vulns = img.get('vulnerabilities', {}) or {}
+        sev = vulns.get('severity', {}) or {}
+        crit = sev.get('5', 0)
+        high = sev.get('4', 0)
+        med = sev.get('3', 0)
+        low = sev.get('2', 0) + sev.get('1', 0)
+        img_total = crit + high + med + low
+        patchable = vulns.get('patchAvailable', 0)
+        totals['critical'] += crit
+        totals['high'] += high
+        totals['medium'] += med
+        totals['low'] += low
+        totals['total'] += img_total
+        totals['patchable'] += patchable
+
+        ranked.append(compact({
+            'imageId': img.get('imageId', ''),
+            'repo': img.get('repo', ''),
+            'tag': img.get('tag', ''),
+            'created': short_date(img.get('created', '')),
+            'critical': crit, 'high': high, 'medium': med, 'low': low,
+            'total': img_total, 'patchable': patchable,
+        }))
+
+    result = {
+        'summary': totals,
+        'imageCount': len(ranked),
+        'images': ranked,
+    }
+    out = _with_meta(result, 'images', len(ranked))
+    return _apply_detail_level(out, detail, list_keys=['images'])
+
+
+# ---------------------------------------------------------------------------
+# image_vulns_list  (list mode — no image_id)
+# ---------------------------------------------------------------------------
+
+def image_vulns_list(limit: int = 20, detail: str = "standard") -> dict:
+    """List container images ranked by critical vuln count (no specific image_id needed)."""
+    return container_vuln_summary(limit=limit, detail=detail)
+
+
+# ---------------------------------------------------------------------------
+# running_containers
+# ---------------------------------------------------------------------------
+
+def running_containers(limit: int = 50, detail: str = "standard") -> dict:
+    """Running containers with image vulnerability context."""
+    concurrent = _run_concurrent(
+        containers=lambda: get_containers(limit=limit),
+        images=lambda: get_images_by_vulns(limit=200),
+    )
+
+    containers = concurrent.get('containers') or []
+    images_list = concurrent.get('images') or []
+
+    # Build image vuln lookup by imageId
+    img_vulns = {}
+    for img in images_list:
+        iid = img.get('imageId', '')
+        if iid:
+            vulns = img.get('vulnerabilities', {}) or {}
+            sev = vulns.get('severity', {}) or {}
+            img_vulns[iid] = {
+                'critical': sev.get('5', 0), 'high': sev.get('4', 0),
+                'medium': sev.get('3', 0),
+                'patchable': vulns.get('patchAvailable', 0),
+            }
+
+    rows = []
+    for c in containers:
+        iid = c.get('imageId', '')
+        vuln_info = img_vulns.get(iid, {})
+        rows.append(compact({
+            'containerId': c.get('containerId', ''),
+            'name': c.get('name', ''),
+            'imageId': iid,
+            'imageRepo': c.get('imageRepo', '') or c.get('repo', ''),
+            'imageTag': c.get('imageTag', '') or c.get('tag', ''),
+            'state': c.get('state', ''),
+            'host': c.get('hostName', '') or c.get('hostname', ''),
+            'critical': vuln_info.get('critical', 0),
+            'high': vuln_info.get('high', 0),
+            'medium': vuln_info.get('medium', 0),
+            'patchable': vuln_info.get('patchable', 0),
+        }))
+
+    # Sort by critical desc, then high desc
+    rows.sort(key=lambda r: (-r.get('critical', 0), -r.get('high', 0)))
+
+    unpatched_critical = [r for r in rows if r.get('critical', 0) > 0 and r.get('patchable', 0) > 0]
+
+    result = {
+        'summary': {
+            'totalRunning': len(rows),
+            'withCriticalVulns': sum(1 for r in rows if r.get('critical', 0) > 0),
+            'withUnpatchedCritical': len(unpatched_critical),
+        },
+        'containers': rows[:limit],
+        '_k8sNote': 'Kubernetes namespace/pod data is not available on this tenant. '
+                    'Showing container and image-level data instead.',
+    }
+    out = _with_meta(result, 'containers', len(rows))
+    return _apply_detail_level(out, detail, list_keys=['containers'])
+
+
+# ---------------------------------------------------------------------------
 # expiring_certs
 # ---------------------------------------------------------------------------
 
