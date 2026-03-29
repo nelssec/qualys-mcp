@@ -15,6 +15,10 @@ _DEFAULT_MODEL = "claude-haiku-4-5"
 RUNNER_MODEL = os.environ.get("EVAL_RUNNER_MODEL") or os.environ.get("EVAL_MODEL") or _DEFAULT_MODEL
 JUDGE_MODEL = os.environ.get("EVAL_JUDGE_MODEL") or os.environ.get("EVAL_MODEL") or _DEFAULT_MODEL
 
+# Per-question timeout in seconds — prevents slow tool calls (e.g. investigate_cve)
+# from hanging the entire eval run.
+QUESTION_TIMEOUT = int(os.environ.get("EVAL_QUESTION_TIMEOUT", "180"))
+
 def _create_message_with_retry(client: anthropic.Anthropic, **kwargs):
     """Wrap client.messages.create with retry logic for transient 401/429 errors."""
     max_attempts = 5
@@ -86,14 +90,17 @@ async def run_question(
     assistant_text = ""
 
     for _ in range(10):  # max iterations
-        resp = await asyncio.to_thread(
-            _create_message_with_retry,
-            client,
-            model=RUNNER_MODEL,
-            max_tokens=4096,
-            system=SYSTEM_PROMPT,
-            tools=tools,
-            messages=messages,
+        resp = await asyncio.wait_for(
+            asyncio.to_thread(
+                _create_message_with_retry,
+                client,
+                model=RUNNER_MODEL,
+                max_tokens=4096,
+                system=SYSTEM_PROMPT,
+                tools=tools,
+                messages=messages,
+            ),
+            timeout=QUESTION_TIMEOUT,
         )
 
         # Collect assistant content
@@ -114,8 +121,9 @@ async def run_question(
         tool_results = []
         for block in tool_use_blocks:
             try:
-                result_text = await call_mcp_tool(
-                    session, block.name, block.input
+                result_text = await asyncio.wait_for(
+                    call_mcp_tool(session, block.name, block.input),
+                    timeout=QUESTION_TIMEOUT,
                 )
                 tool_calls_log.append(
                     {
@@ -131,6 +139,23 @@ async def run_question(
                         "type": "tool_result",
                         "tool_use_id": block.id,
                         "content": result_text,
+                    }
+                )
+            except asyncio.TimeoutError:
+                tool_calls_log.append(
+                    {
+                        "tool": block.name,
+                        "input": block.input,
+                        "output_preview": None,
+                        "error": f"Timeout after {QUESTION_TIMEOUT}s",
+                    }
+                )
+                tool_results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": f"Error: tool call timed out after {QUESTION_TIMEOUT}s",
+                        "is_error": True,
                     }
                 )
             except Exception as e:
@@ -176,14 +201,17 @@ async def run_conversation(
         assistant_text = ""
 
         for _ in range(10):  # max iterations per turn
-            resp = await asyncio.to_thread(
-                _create_message_with_retry,
-                client,
-                model=RUNNER_MODEL,
-                max_tokens=4096,
-                system=SYSTEM_PROMPT,
-                tools=tools,
-                messages=messages,
+            resp = await asyncio.wait_for(
+                asyncio.to_thread(
+                    _create_message_with_retry,
+                    client,
+                    model=RUNNER_MODEL,
+                    max_tokens=4096,
+                    system=SYSTEM_PROMPT,
+                    tools=tools,
+                    messages=messages,
+                ),
+                timeout=QUESTION_TIMEOUT,
             )
 
             assistant_text = ""
@@ -203,15 +231,16 @@ async def run_conversation(
             tool_results = []
             for block in tool_use_blocks:
                 try:
-                    result_text = await call_mcp_tool(
-                        session, block.name, block.input
+                    result_text = await asyncio.wait_for(
+                        call_mcp_tool(session, block.name, block.input),
+                        timeout=QUESTION_TIMEOUT,
                     )
                     tool_calls_log.append(
                         {
                             "tool": block.name,
                             "input": block.input,
                             "output": result_text,
-                        "output_preview": result_text[:500],
+                            "output_preview": result_text[:500],
                             "error": None,
                         }
                     )
@@ -220,6 +249,23 @@ async def run_conversation(
                             "type": "tool_result",
                             "tool_use_id": block.id,
                             "content": result_text,
+                        }
+                    )
+                except asyncio.TimeoutError:
+                    tool_calls_log.append(
+                        {
+                            "tool": block.name,
+                            "input": block.input,
+                            "output_preview": None,
+                            "error": f"Timeout after {QUESTION_TIMEOUT}s",
+                        }
+                    )
+                    tool_results.append(
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": f"Error: tool call timed out after {QUESTION_TIMEOUT}s",
+                            "is_error": True,
                         }
                     )
                 except Exception as e:
