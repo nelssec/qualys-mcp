@@ -3709,6 +3709,80 @@ def compliance_posture(framework: str = "", platform: str = "", limit: int = 20,
 
         return compact(res)
 
+    def _parse_controls_from_instances(data, fw_filter, plat_filter, lim):
+        """Parse JSON from /rest/4.0/compliance/posture/instances into standard result."""
+        # The instances endpoint may return various JSON shapes; try common ones
+        records = []
+        if isinstance(data, dict):
+            records = data.get('data', data.get('instances', data.get('controls', [])))
+        if isinstance(data, list):
+            records = data
+        if not records or not isinstance(records, list):
+            return None
+
+        passed = 0
+        failed = 0
+        failing = []
+        frameworks_seen = set()
+        by_fw = {}
+
+        for rec in records:
+            status = str(rec.get('status', rec.get('result', ''))).upper()
+            ctrl_fw = rec.get('framework', rec.get('policy', ''))
+            ctrl_id = str(rec.get('controlId', rec.get('id', rec.get('cid', ''))))
+            ctrl_name = rec.get('title', rec.get('controlName', rec.get('statement', '')))
+            ctrl_sev = str(rec.get('severity', rec.get('criticality', 'MEDIUM'))).upper()
+            ctrl_plat = rec.get('platform', rec.get('technology', ''))
+            host_count = int(rec.get('failingAssets', rec.get('hostCount', rec.get('assetCount', 0))) or 0)
+
+            if fw_filter and fw_filter.lower() not in str(ctrl_fw).lower():
+                continue
+            if plat_filter and plat_filter.lower() not in str(ctrl_plat).lower():
+                continue
+
+            if 'PASS' in status:
+                passed += 1
+            elif 'FAIL' in status or 'ERROR' in status:
+                failed += 1
+                failing.append({
+                    'controlId': ctrl_id,
+                    'title': ctrl_name,
+                    'framework': ctrl_fw,
+                    'failingAssets': host_count,
+                    'severity': ctrl_sev or 'MEDIUM',
+                })
+
+            if ctrl_fw:
+                frameworks_seen.add(str(ctrl_fw).split()[0].upper().rstrip(','))
+                if ctrl_fw not in by_fw:
+                    by_fw[ctrl_fw] = {'pass': 0, 'fail': 0}
+                if 'PASS' in status:
+                    by_fw[ctrl_fw]['pass'] += 1
+                elif 'FAIL' in status or 'ERROR' in status:
+                    by_fw[ctrl_fw]['fail'] += 1
+
+        total_ctrl = passed + failed
+        if total_ctrl == 0:
+            return None
+
+        sev_order = {'CRITICAL': 0, 'HIGH': 1, 'URGENT': 1, 'MEDIUM': 2, 'LOW': 3}
+        failing.sort(key=lambda x: (-x['failingAssets'], sev_order.get(x['severity'], 9)))
+
+        res = _empty_result()
+        res['summary']['controls'] = total_ctrl
+        res['summary']['passing'] = passed
+        res['summary']['failing'] = failed
+        res['summary']['pass_pct'] = round(passed / total_ctrl * 100, 1)
+        res['summary']['frameworks'] = sorted(frameworks_seen)
+        res['topFailingControls'] = failing[:lim]
+        for fw_name, counts in by_fw.items():
+            fw_total = counts['pass'] + counts['fail']
+            res['byFramework'][fw_name] = {
+                'pass_pct': round(counts['pass'] / fw_total * 100, 1) if fw_total else 0,
+                'failing': counts['fail'],
+            }
+        return compact(res)
+
     def _add_compliance_followups(res):
         followups = []
         summary = res.get('summary', {})
@@ -3727,23 +3801,59 @@ def compliance_posture(framework: str = "", platform: str = "", limit: int = 20,
         res['_followups'] = followups
         return res
 
+    # --- Disk cache check ---
+    from qualys.cache import disk_cache, TTL_COMPLIANCE
+    _cache_key = f"compliance_posture_{framework or 'all'}_{platform or 'all'}"
+    disk_hit = disk_cache.get(_cache_key)
+    if disk_hit is not None:
+        _log("Compliance posture: disk cache hit")
+        cached = dict(disk_hit)
+        cached['cacheAge'] = disk_cache.age(_cache_key) or 0
+        return compact(cached)
+
+    # --- Strategy 0: PC v4 posture instances summary (fast) ---
+    _log("Compliance posture: trying v4 posture instances summary...")
+    instances_url = f"{BASE_URL}/rest/4.0/compliance/posture/instances"
+    if framework:
+        instances_url += f"?filter=framework:{framework}"
+    instances_data = api_get(instances_url, timeout=60)
+    if instances_data:
+        try:
+            import json as _json
+            instances_json = _json.loads(instances_data if isinstance(instances_data, str) else instances_data.decode())
+            parsed = _parse_controls_from_instances(instances_json, framework, platform, limit)
+            if parsed:
+                parsed['source'] = 'pc_instances_v4'
+                out = _add_compliance_followups(parsed)
+                result = _apply_detail_level(out, detail, list_keys=['topFailingControls'])
+                disk_cache.set(_cache_key, result, TTL_COMPLIANCE)
+                return result
+        except Exception:
+            _log("Compliance posture: instances endpoint did not return usable JSON")
+
     # --- Strategy 1: PC v4 — list policies, then get posture per policy ---
     _log("Compliance posture: listing policies via v4 API...")
-    policy_data = api_get(f"{BASE_URL}/api/4.0/fo/compliance/policy/?action=list", timeout=120)
+    policy_list_url = f"{BASE_URL}/api/4.0/fo/compliance/policy/?action=list"
+    if framework:
+        policy_list_url += f"&search_keyword={framework}"
+    policy_data = api_get(policy_list_url, timeout=120)
     policy_ids = []
     if policy_data:
         try:
             policy_root = ET.fromstring(policy_data if isinstance(policy_data, (str, bytes)) else policy_data)
             for policy in (policy_root.findall('.//POLICY') or policy_root.findall('.//COMPLIANCE_POLICY') or []):
                 pid = policy.findtext('ID', '') or policy.findtext('POLICY_ID', '')
+                ptitle = policy.findtext('TITLE', '') or policy.findtext('NAME', '') or ''
                 if pid:
+                    if framework and framework.lower() not in ptitle.lower():
+                        continue
                     policy_ids.append(pid)
         except ET.ParseError:
             _log("Compliance posture: policy list returned non-XML")
 
     if policy_ids:
-        _log(f"Compliance posture: found {len(policy_ids)} policies, fetching posture...")
-        for pid in policy_ids[:10]:
+        _log(f"Compliance posture: found {len(policy_ids)} policies, fetching posture (max 5)...")
+        for pid in policy_ids[:5]:
             posture_data = api_get(
                 f"{BASE_URL}/api/2.0/fo/compliance/posture/info/?action=list&policy_id={pid}",
                 timeout=120
@@ -3755,7 +3865,9 @@ def compliance_posture(framework: str = "", platform: str = "", limit: int = 20,
                     if parsed:
                         parsed['source'] = 'pc_posture_v4'
                         out = _add_compliance_followups(parsed)
-                        return _apply_detail_level(out, detail, list_keys=['topFailingControls'])
+                        result = _apply_detail_level(out, detail, list_keys=['topFailingControls'])
+                        disk_cache.set(_cache_key, result, TTL_COMPLIANCE)
+                        return result
                 except ET.ParseError:
                     continue
 
@@ -3769,7 +3881,9 @@ def compliance_posture(framework: str = "", platform: str = "", limit: int = 20,
             if parsed:
                 parsed['source'] = 'pc_posture'
                 out = _add_compliance_followups(parsed)
-                return _apply_detail_level(out, detail, list_keys=['topFailingControls'])
+                result = _apply_detail_level(out, detail, list_keys=['topFailingControls'])
+                disk_cache.set(_cache_key, result, TTL_COMPLIANCE)
+                return result
         except ET.ParseError:
             _log("Compliance posture: posture/info returned non-XML")
 
@@ -3783,7 +3897,9 @@ def compliance_posture(framework: str = "", platform: str = "", limit: int = 20,
             if parsed2:
                 parsed2['source'] = 'pc_control_list'
                 out = _add_compliance_followups(parsed2)
-                return _apply_detail_level(out, detail, list_keys=['topFailingControls'])
+                result = _apply_detail_level(out, detail, list_keys=['topFailingControls'])
+                disk_cache.set(_cache_key, result, TTL_COMPLIANCE)
+                return result
         except ET.ParseError:
             _log("Compliance posture: control list returned non-XML")
 
@@ -3816,7 +3932,9 @@ def compliance_posture(framework: str = "", platform: str = "", limit: int = 20,
             res['source'] = 'cloud_compliance_fallback'
             res['note'] = 'Data from cloud compliance evaluations (TotalCloud). Enable Policy Compliance module for on-prem/endpoint posture.'
             out = _add_compliance_followups(_with_meta(res, 'topFailingControls'))
-            return _apply_detail_level(out, detail, list_keys=['topFailingControls'])
+            result = _apply_detail_level(out, detail, list_keys=['topFailingControls'])
+            disk_cache.set(_cache_key, result, TTL_COMPLIANCE)
+            return result
     except Exception as e:
         _log(f"Compliance posture: cloud fallback failed: {e}")
 
