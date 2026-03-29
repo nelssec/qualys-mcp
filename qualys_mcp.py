@@ -741,6 +741,19 @@ def delete_report(report_id: str) -> dict:
     return {'error': "delete_report has been removed. Use reports(action='delete', report_id='...') instead.", 'replacement': 'reports'}
 
 
+@mcp.tool()
+def qualys_cache_clear(key: str = "") -> str:
+    """Clear the qualys-mcp cache (both in-memory L1 and disk L2).
+    key: optional specific cache key; if empty, clears everything."""
+    from qualys.cache import disk_cache
+    from qualys.api import clear_memory_cache
+    clear_memory_cache(key if key else None)
+    disk_cache.clear(key if key else None)
+    if key:
+        return f"Cache cleared for key: {key}"
+    return "Cache cleared (all keys, both memory and disk)"
+
+
 # ---------------------------------------------------------------------------
 # Startup
 # ---------------------------------------------------------------------------
