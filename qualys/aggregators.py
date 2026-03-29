@@ -2288,7 +2288,178 @@ def qid_details(qids: str, detail: str = "standard") -> dict:
     return _apply_detail_level(result, detail, list_keys=['qids'])
 
 
-def cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7, detail: str = "standard") -> dict:
+def cloud_account_summary(provider: str = 'all', detail: str = "standard") -> dict:
+    """Per-account evaluation counts across all cloud providers. Fast (pageSize=1 per account)."""
+    from qualys.cache import disk_cache, TTL_CLOUD
+    cache_key = f"cloud_account_summary_{provider}"
+    cached = disk_cache.get(cache_key)
+    if cached is not None:
+        _log("cloud_account_summary: disk cache hit")
+        cached = dict(cached)
+        cached['cacheAge'] = disk_cache.age(cache_key) or 0
+        return compact(cached)
+
+    providers = ['aws', 'azure', 'gcp'] if provider == 'all' else [provider.lower()]
+    acc_key_map = {'aws': 'awsAccountId', 'azure': 'azureSubscriptionId', 'gcp': 'gcpProjectId'}
+
+    # Fetch connectors
+    conn_tasks = {p: (lambda p=p: get_connectors(p, 50)) for p in providers}
+    conn_results = _run_concurrent(**conn_tasks)
+
+    # Build account list
+    accounts = []
+    for p in providers:
+        conns = conn_results.get(p) or []
+        acc_key = acc_key_map.get(p, 'awsAccountId')
+        for c in conns:
+            acc_id = c.get(acc_key, '')
+            if acc_id:
+                accounts.append({'id': acc_id, 'provider': p, 'name': c.get('name', '')})
+
+    if not accounts:
+        return compact({'accounts': [], 'message': 'No cloud connectors configured.', '_meta': {'returned': 0, 'total': 0, 'truncated': False}})
+
+    # Fetch eval counts concurrently (pageSize=1 for speed)
+    count_tasks = {
+        f"{a['provider']}_{a['id']}": (lambda a=a: get_evaluation_count(a['id'], a['provider']))
+        for a in accounts
+    }
+    count_results = _run_concurrent(**count_tasks)
+
+    ranked = []
+    for a in accounts:
+        key = f"{a['provider']}_{a['id']}"
+        counts = count_results.get(key)
+        total = counts.get('total', 0) if counts else 0
+        ranked.append({
+            'accountId': a['id'],
+            'provider': a['provider'].upper(),
+            'name': a['name'],
+            'totalEvaluations': total,
+        })
+
+    ranked.sort(key=lambda x: -x['totalEvaluations'])
+
+    result = {
+        'accounts': ranked,
+        'totalAccounts': len(ranked),
+        '_meta': {'returned': len(ranked), 'total': len(ranked), 'truncated': False},
+        '_followups': [
+            f"{len(ranked)} cloud accounts found — use get_cloud_controls(provider, service, account_id) to drill into specific services.",
+        ],
+    }
+    result = compact(result)
+    disk_cache.set(cache_key, result, TTL_CLOUD)
+    return _apply_detail_level(result, detail, list_keys=['accounts'])
+
+
+def cloud_controls(provider: str = 'all', service: str = '', result_filter: str = 'FAIL',
+                   account_id: str = '', limit: int = 50, detail: str = "standard") -> dict:
+    """Service-level cloud control evaluations with filtering (S3, IAM, EC2, etc.)."""
+    from qualys.cache import disk_cache, TTL_CLOUD
+    cache_key = f"cloud_controls_{provider}_{service}_{result_filter}_{account_id}_{limit}"
+    cached = disk_cache.get(cache_key)
+    if cached is not None:
+        _log("cloud_controls: disk cache hit")
+        cached = dict(cached)
+        cached['cacheAge'] = disk_cache.age(cache_key) or 0
+        return compact(cached)
+
+    providers = ['aws', 'azure', 'gcp'] if provider == 'all' else [provider.lower()]
+    acc_key_map = {'aws': 'awsAccountId', 'azure': 'azureSubscriptionId', 'gcp': 'gcpProjectId'}
+
+    # If account_id given, use it directly; otherwise discover accounts
+    if account_id:
+        target_accounts = [{'id': account_id, 'provider': providers[0]}]
+    else:
+        conn_tasks = {p: (lambda p=p: get_connectors(p, 50)) for p in providers}
+        conn_results = _run_concurrent(**conn_tasks)
+        target_accounts = []
+        for p in providers:
+            conns = conn_results.get(p) or []
+            acc_key = acc_key_map.get(p, 'awsAccountId')
+            for c in conns:
+                acc = c.get(acc_key, '')
+                if acc:
+                    target_accounts.append({'id': acc, 'provider': p})
+
+    if not target_accounts:
+        return compact({'controls': [], 'message': 'No cloud accounts found.', '_meta': {'returned': 0, 'total': 0, 'truncated': False}})
+
+    # Build filter string
+    filter_str = ''
+    if service:
+        filter_str = f"service:{service}"
+
+    # Fetch evaluations (use first account per provider if no account_id, to stay fast)
+    seen_providers = set()
+    fetch_accounts = []
+    for a in target_accounts:
+        if account_id or a['provider'] not in seen_providers:
+            fetch_accounts.append(a)
+            seen_providers.add(a['provider'])
+
+    eval_tasks = {
+        f"evals_{a['provider']}_{a['id']}": (lambda a=a, fs=filter_str: get_evaluations_filtered(a['id'], a['provider'], limit=limit * 2, filter_str=fs))
+        for a in fetch_accounts
+    }
+    eval_results = _run_concurrent(**eval_tasks)
+
+    controls = []
+    for a in fetch_accounts:
+        key = f"evals_{a['provider']}_{a['id']}"
+        evals = eval_results.get(key) or []
+        for e in evals:
+            r = (e.get('result') or '').upper()
+            if result_filter and r != result_filter.upper():
+                continue
+            controls.append({
+                'controlId': e.get('controlId', ''),
+                'controlName': (e.get('controlName', '') or '')[:120],
+                'service': e.get('service', ''),
+                'criticality': e.get('criticality', ''),
+                'result': r,
+                'failedResources': e.get('failedResources', 0),
+                'passedResources': e.get('passedResources', 0),
+                'accountId': a['id'],
+                'provider': a['provider'].upper(),
+            })
+
+    controls.sort(key=lambda x: (-x.get('failedResources', 0), x.get('controlName', '')))
+    controls = controls[:limit]
+
+    # Service filter note
+    note = ''
+    if service and not controls:
+        note = f"No evaluations found for service '{service}' with result={result_filter}. Try without service filter or with result_filter='PASS'."
+
+    by_service = {}
+    for c in controls:
+        svc = c.get('service', 'Unknown')
+        by_service[svc] = by_service.get(svc, 0) + 1
+    by_service = dict(sorted(by_service.items(), key=lambda x: -x[1]))
+
+    res = {
+        'controls': controls,
+        'byService': by_service,
+        'totalReturned': len(controls),
+        'filters': {'provider': provider, 'service': service or 'all', 'result': result_filter, 'accountId': account_id or 'all'},
+        '_meta': {'returned': len(controls), 'total': len(controls), 'truncated': False},
+    }
+    if note:
+        res['note'] = note
+    followups = []
+    if controls:
+        top_svc = list(by_service.keys())[:3]
+        followups.append(f"Top failing services: {', '.join(top_svc)}. Drill into a specific service with get_cloud_controls(service='...').")
+    res['_followups'] = followups
+
+    res = compact(res)
+    disk_cache.set(cache_key, res, TTL_CLOUD)
+    return _apply_detail_level(res, detail, list_keys=['controls'])
+
+
+def cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7, per_account: bool = False, detail: str = "standard") -> dict:
     result = {'accounts': [], 'failedControls': [], 'threats': [], 'stats': {'total': 0, 'critical': 0, 'high': 0, 'medium': 0, 'low': 0}}
 
     connector_results = _run_concurrent(
@@ -2297,6 +2468,7 @@ def cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7, det
         gcp=lambda: get_connectors('gcp', 50),
     )
 
+    all_accounts = []
     first_accounts = {}
     for provider, conns in connector_results.items():
         if not conns:
@@ -2305,6 +2477,8 @@ def cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7, det
         for c in conns:
             acc = c.get(acc_key, '')
             result['accounts'].append({'id': acc, 'provider': provider.upper(), 'name': c.get('name', '')})
+            if acc:
+                all_accounts.append({'id': acc, 'provider': provider})
         first_acc = conns[0].get(acc_key, '')
         if first_acc:
             first_accounts[provider] = first_acc
@@ -2314,6 +2488,32 @@ def cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7, det
     if not result['accounts']:
         result['message'] = 'No cloud connectors configured. Connect AWS, Azure, or GCP accounts in Qualys TotalCloud to see cloud risk data.'
         return compact(result)
+
+    # Per-account summary: fast counts via pageSize=1 for ALL accounts
+    if per_account and all_accounts:
+        count_tasks = {
+            f"count_{a['provider']}_{a['id']}": (lambda a=a: get_evaluation_count(a['id'], a['provider'], 'result:FAIL'))
+            for a in all_accounts
+        }
+        count_results = _run_concurrent(**count_tasks)
+        per_acct = []
+        for a in all_accounts:
+            key = f"count_{a['provider']}_{a['id']}"
+            counts = count_results.get(key)
+            total_fails = counts.get('total', 0) if counts else 0
+            name = ''
+            for ra in result['accounts']:
+                if ra['id'] == a['id']:
+                    name = ra.get('name', '')
+                    break
+            per_acct.append({
+                'accountId': a['id'],
+                'provider': a['provider'].upper(),
+                'name': name,
+                'failedEvaluations': total_fails,
+            })
+        per_acct.sort(key=lambda x: -x['failedEvaluations'])
+        result['perAccount'] = per_acct
 
     eval_tasks = {
         f'evals_{p}': (lambda p=p, a=a: get_evaluations(a, p, 500))
@@ -2418,14 +2618,16 @@ def cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7, det
         followups.append(f"{high_threats} high-severity cloud findings \u2014 investigate affected resources?")
     failed_controls = len(result.get('failedControls', []))
     if failed_controls:
-        followups.append(f"{failed_controls} CIS benchmark controls failing \u2014 get_compliance_posture() for full compliance view?")
+        followups.append(f"{failed_controls} CIS benchmark controls failing \u2014 get_cloud_controls(service='S3') to drill into specific services.")
     total_accounts = result['stats'].get('total', 0)
     if total_accounts == 0:
         followups.append("No cloud accounts connected \u2014 configure cloud connectors in Qualys TotalCloud?")
+    if total_accounts > 1:
+        followups.append(f"{total_accounts} cloud accounts \u2014 get_cloud_account_summary() for per-account fail breakdown.")
     result['_followups'] = followups
 
     result = compact(result)
-    return _apply_detail_level(result, detail, list_keys=['threats', 'failedControls', 'accounts'])
+    return _apply_detail_level(result, detail, list_keys=['threats', 'failedControls', 'accounts', 'perAccount'])
 
 
 def asset_detail(asset_id: str, detail_level: str = "summary", detail: str = "standard") -> dict:
