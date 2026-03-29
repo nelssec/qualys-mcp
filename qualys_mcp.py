@@ -561,6 +561,27 @@ def get_compliance_posture(framework: str = "", platform: str = "", limit: int =
 
 
 @mcp.tool()
+def get_compliance_summary(framework: str = "") -> dict:
+    """[PC] Quick compliance summary — pass/fail rates per framework without full control detail.
+
+    USE WHEN: "what's our compliance score?", "how are we doing on CIS/PCI/HIPAA?", quick compliance overview, dashboard-style summary.
+    DO NOT USE WHEN: Need full failing control details or remediation guidance.
+    PREFER INSTEAD: get_compliance_posture for detailed failing controls and per-control breakdown.
+
+    Parameters:
+        framework: filter by framework name substring (e.g. 'CIS', 'PCI', 'HIPAA', 'NIST'). Empty = all.
+
+    Returns: summary (totalControls, passing, failing, passRate, frameworks), byFramework (pass rate per framework).
+
+    Performance: <5s (cached). Uses v4 instances summary endpoint."""
+    result = compliance_posture(framework=framework, limit=5, detail="brief")
+    if isinstance(result, dict):
+        # Strip detailed control list for summary view
+        result.pop('topFailingControls', None)
+    return result
+
+
+@mcp.tool()
 def get_trurisk_score(days: int = 30, breakdown_by: str = "tag", detail: str = "standard") -> dict:
     """[Risk Management] Org-level TruRisk score with trending and breakdown — aggregate risk, trend direction, top assets, top QIDs, and tag breakdown.
 
