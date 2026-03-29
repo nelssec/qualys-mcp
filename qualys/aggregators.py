@@ -1924,6 +1924,19 @@ def etm_findings(qql: str = "", report_id: str = "", detail: str = "standard") -
             cached['cacheAge'] = int(age)
             return compact(cached)
 
+    # L2 disk cache check for ETM (no qql filter only)
+    if not qql:
+        from qualys.cache import disk_cache, TTL_ETM as DISK_TTL_ETM
+        _ETM_DISK_KEY = "etm_result"
+        disk_hit = disk_cache.get(_ETM_DISK_KEY)
+        if disk_hit is not None:
+            ETM_RESULT_CACHE = disk_hit
+            ETM_RESULT_CACHE_TIME = now
+            _log("Disk cache hit for etm_result")
+            cached = dict(disk_hit)
+            cached['cacheAge'] = 0
+            return compact(cached)
+
     all_dets = []
     for sev in severities:
         dets = get_detections(severity=sev, days=30)
@@ -1960,6 +1973,8 @@ def etm_findings(qql: str = "", report_id: str = "", detail: str = "standard") -
     if not qql:
         ETM_RESULT_CACHE = formatted
         ETM_RESULT_CACHE_TIME = now
+        from qualys.cache import disk_cache, TTL_ETM as DISK_TTL_ETM
+        disk_cache.set("etm_result", formatted, DISK_TTL_ETM)
 
     result = _with_meta(formatted, 'findings', formatted.get('totalFindings', len(formatted.get('findings', []))))
     return _apply_detail_level(result, detail, list_keys=['findings', 'topCVEs'])
@@ -4269,6 +4284,8 @@ def summarize_investigation_agg(findings: str, audience: str = "technical") -> s
 
 def cache_status_agg(clear: bool = False) -> dict:
     """Show cache stats or clear all caches."""
+    from qualys.cache import disk_cache, DB_PATH
+    from qualys.api import clear_memory_cache
     global ETM_RESULT_CACHE, ETM_RESULT_CACHE_TIME
     global SCANNER_CACHE, SCANNER_CACHE_TIME
 
@@ -4284,7 +4301,14 @@ def cache_status_agg(clear: bool = False) -> dict:
         'etm_result_cached': ETM_RESULT_CACHE is not None,
         'etm_cache_age_seconds': None,
         'bearer_token_age_seconds': None,
+        'disk_cache_path': str(DB_PATH),
+        'disk_cache_size_kb': disk_cache.size_kb(),
     }
+
+    # Disk age per cached key
+    disk_keys = disk_cache.keys()
+    if disk_keys:
+        result['disk_age_s'] = {k: disk_cache.age(k) for k in disk_keys}
 
     if DETECTION_CACHE_TIME:
         newest = max(DETECTION_CACHE_TIME.values())
@@ -4297,17 +4321,8 @@ def cache_status_agg(clear: bool = False) -> dict:
         result['etm_cache_age_seconds'] = int((now - ETM_RESULT_CACHE_TIME).total_seconds())
 
     if clear:
-        KB_CACHE.clear()
-        KB_CACHE_TIME.clear()
-        DETECTION_CACHE.clear()
-        DETECTION_CACHE_TIME.clear()
-        QDS_CACHE.clear()
-        WAS_CACHE.clear()
-        WAS_CACHE_TIME.clear()
-        SCANNER_CACHE = None
-        SCANNER_CACHE_TIME = None
-        ETM_RESULT_CACHE = None
-        ETM_RESULT_CACHE_TIME = None
+        clear_memory_cache()
+        disk_cache.clear()
         result['cleared'] = True
         result['kb_entries'] = 0
         result['detection_entries'] = 0
@@ -4318,6 +4333,8 @@ def cache_status_agg(clear: bool = False) -> dict:
         result['cache_age_s'] = None
         result['scanner_cache_age_seconds'] = None
         result['etm_cache_age_seconds'] = None
+        result['disk_cache_size_kb'] = 0
+        result.pop('disk_age_s', None)
 
     result['_meta'] = {'returned': 1, 'total': 1, 'truncated': False}
     return compact(result)
