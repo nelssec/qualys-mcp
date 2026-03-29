@@ -1,5 +1,6 @@
 """Send questions to the MCP server via Claude API with tools enabled."""
 
+import asyncio
 import os
 import sys
 import time
@@ -85,7 +86,9 @@ async def run_question(
     assistant_text = ""
 
     for _ in range(10):  # max iterations
-        resp = _create_message_with_retry(client,
+        resp = await asyncio.to_thread(
+            _create_message_with_retry,
+            client,
             model=RUNNER_MODEL,
             max_tokens=4096,
             system=SYSTEM_PROMPT,
@@ -173,7 +176,9 @@ async def run_conversation(
         assistant_text = ""
 
         for _ in range(10):  # max iterations per turn
-            resp = _create_message_with_retry(client,
+            resp = await asyncio.to_thread(
+                _create_message_with_retry,
+                client,
                 model=RUNNER_MODEL,
                 max_tokens=4096,
                 system=SYSTEM_PROMPT,

@@ -133,7 +133,7 @@ async def run_eval(args):
                         resp = await run_question(
                             client, session, tools, question_text
                         )
-                        judgment = judge_response(
+                        judgment = await judge_response(
                             client,
                             question_text,
                             resp["tool_calls"],
@@ -273,7 +273,7 @@ async def run_conversation_eval(args):
                     history_text = "\n".join(history_lines) if history_lines else "(start of conversation)"
 
                     try:
-                        judgment = judge_conversation_turn(
+                        judgment = await judge_conversation_turn(
                             client,
                             history_text,
                             tr["question"],

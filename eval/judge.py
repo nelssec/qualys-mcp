@@ -1,5 +1,6 @@
 """Claude-as-judge scoring logic."""
 
+import asyncio
 import json
 import re
 
@@ -35,7 +36,7 @@ Respond with JSON only:
 {"score": "<label>", "reasoning": "<1-2 sentence explanation>"}"""
 
 
-def judge_response(
+async def judge_response(
     client: anthropic.Anthropic,
     question: str,
     tool_calls: list[dict],
@@ -56,7 +57,9 @@ def judge_response(
 ## Assistant Response
 {response}"""
 
-    resp = _create_message_with_retry(client,
+    resp = await asyncio.to_thread(
+        _create_message_with_retry,
+        client,
         model=JUDGE_MODEL,
         max_tokens=256,
         system=JUDGE_SYSTEM,
@@ -101,7 +104,7 @@ Respond with JSON only:
 {"score": "<label>", "reasoning": "<1-2 sentence explanation>"}"""
 
 
-def judge_conversation_turn(
+async def judge_conversation_turn(
     client: anthropic.Anthropic,
     conversation_history: str,
     current_question: str,
@@ -126,7 +129,9 @@ def judge_conversation_turn(
 ## Assistant Response (this turn)
 {response}"""
 
-    resp = _create_message_with_retry(client,
+    resp = await asyncio.to_thread(
+        _create_message_with_retry,
+        client,
         model=JUDGE_MODEL,
         max_tokens=256,
         system=CONV_JUDGE_SYSTEM,
