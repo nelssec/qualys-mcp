@@ -3085,5 +3085,399 @@
     "When get_morning_report is called, does it log usage to ~/.qualys-mcp/usage.jsonl if QUALYS_MCP_NO_TRACKING isn't set?",
     "Does the get_morning_report function record a usage entry in ~/.qualys-mcp/usage.jsonl when tracking is enabled?",
     "Is a usage log entry written to ~/.qualys-mcp/usage.jsonl by get_morning_report unless QUALYS_MCP_NO_TRACKING is configured?"
-  ]
+  ],
+  "515": [
+    "Are we affected by CVE-2024-3400 (PAN-OS command injection)? Show all vulnerable Palo Alto devices.",
+    "Which Palo Alto devices do we have that are vulnerable to CVE-2024-3400?",
+    "List all our PAN-OS systems affected by the CVE-2024-3400 command injection flaw.",
+    "Do any of our Palo Alto firewalls have the CVE-2024-3400 vulnerability?",
+    "Show vulnerable Palo Alto devices for CVE-2024-3400 across our environment."
+  ],
+  "516": [
+    "What's our exposure to CVE-2024-6387 (regreSSHion)? List all OpenSSH servers at risk.",
+    "Which OpenSSH servers in our environment are at risk from CVE-2024-6387?",
+    "List all systems running vulnerable versions of OpenSSH for regreSSHion.",
+    "What's our exposure to the regreSSHion vulnerability across OpenSSH deployments?",
+    "Identify OpenSSH servers vulnerable to CVE-2024-6387 in our infrastructure."
+  ],
+  "517": [
+    "How many assets are vulnerable to CVE-2024-21762 (FortiOS out-of-bound write)?",
+    "How many of our assets have the CVE-2024-21762 FortiOS vulnerability?",
+    "Count vulnerable assets affected by the CVE-2024-21762 out-of-bound write flaw.",
+    "What's the total number of FortiOS systems vulnerable to CVE-2024-21762?",
+    "How many assets in our environment are exposed to CVE-2024-21762?"
+  ],
+  "518": [
+    "Are any of our JetBrains TeamCity instances affected by CVE-2024-27198 (auth bypass)?",
+    "Do we have any TeamCity instances vulnerable to CVE-2024-27198?",
+    "Are our JetBrains TeamCity deployments affected by the CVE-2024-27198 auth bypass?",
+    "Check if any TeamCity servers have the CVE-2024-27198 vulnerability.",
+    "Are we running TeamCity versions vulnerable to CVE-2024-27198?"
+  ],
+  "519": [
+    "Do we have ASUS routers vulnerable to CVE-2024-3080 (authentication bypass)?",
+    "Do we have ASUS routers with the CVE-2024-3080 authentication bypass vulnerability?",
+    "Are any of our ASUS routers vulnerable to CVE-2024-3080?",
+    "Check our inventory for ASUS routers affected by CVE-2024-3080.",
+    "Do we use ASUS routers that are vulnerable to the CVE-2024-3080 flaw?"
+  ],
+  "520": [
+    "What's our patch status for CVE-2024-3400 across all PAN-OS firewalls?",
+    "What's the patch status of CVE-2024-3400 on all our PAN-OS firewalls?",
+    "How many of our Palo Alto firewalls have been patched for CVE-2024-3400?",
+    "Show patching progress for CVE-2024-3400 across PAN-OS devices.",
+    "Are all our PAN-OS systems patched against CVE-2024-3400?"
+  ],
+  "521": [
+    "Show me all assets still vulnerable to regreSSHion after the latest patch cycle.",
+    "Which assets still have the regreSSHion vulnerability after our latest patching?",
+    "What systems remain vulnerable to CVE-2024-6387 despite recent patches?",
+    "Show any OpenSSH servers still vulnerable to regreSSHion post-patch cycle.",
+    "Are there any unpatched regreSSHion vulnerabilities in our environment?"
+  ],
+  "522": [
+    "Which FortiGate devices are missing the fix for CVE-2024-21762?",
+    "Which FortiGate devices haven't been patched for CVE-2024-21762?",
+    "Show all FortiGate systems missing the CVE-2024-21762 fix.",
+    "What FortiGate devices are still vulnerable to CVE-2024-21762?",
+    "List FortiGate firewalls lacking the patch for CVE-2024-21762."
+  ],
+  "523": [
+    "Are there any CVE-2024-27198 exploits detected in our environment?",
+    "Have we detected any CVE-2024-27198 exploitation attempts in our network?",
+    "Are there active exploits of CVE-2024-27198 in our environment?",
+    "Show any detected CVE-2024-27198 exploit activity.",
+    "Is there evidence of CVE-2024-27198 exploitation against our systems?"
+  ],
+  "524": [
+    "Give me a timeline of when CVE-2024-3400 was first detected vs when we patched.",
+    "When was CVE-2024-3400 first detected versus when did we deploy the patch?",
+    "Show the detection date and remediation timeline for CVE-2024-3400.",
+    "Create a timeline comparing CVE-2024-3400 detection and patching dates.",
+    "What was the time gap between discovering CVE-2024-3400 and applying fixes?"
+  ],
+  "525": [
+    "What's our overall NIST CSF 2.0 maturity score across all six functions?",
+    "What's our current maturity score across all six NIST CSF 2.0 functions?",
+    "How are we scoring on overall NIST CSF 2.0 maturity?",
+    "Calculate our NIST CSF 2.0 maturity level across all functional areas.",
+    "What's our NIST CSF 2.0 maturity rating?"
+  ],
+  "526": [
+    "How are we performing on the new GOVERN function in NIST CSF 2.0?",
+    "How's our performance on NIST CSF 2.0's new GOVERN function?",
+    "What's our maturity level for the GOVERN function in NIST CSF 2.0?",
+    "Show our NIST CSF 2.0 GOVERN function assessment results.",
+    "How well are we performing against the GOVERN function of NIST CSF 2.0?"
+  ],
+  "527": [
+    "Show me gaps between our current NIST CSF 1.1 posture and the 2.0 requirements.",
+    "What gaps exist between our NIST CSF 1.1 posture and NIST CSF 2.0 requirements?",
+    "Show the difference between our current CSF 1.1 maturity and CSF 2.0 requirements.",
+    "Identify control gaps when moving from NIST CSF 1.1 to 2.0.",
+    "What new requirements in NIST CSF 2.0 aren't covered by our CSF 1.1 controls?"
+  ],
+  "528": [
+    "Which NIST CSF 2.0 categories have the most failing controls?",
+    "Which NIST CSF 2.0 categories have the most failing controls in our environment?",
+    "Show NIST CSF 2.0 categories with the highest control failure rates.",
+    "What NIST CSF 2.0 categories are we struggling with the most?",
+    "Which NIST CSF 2.0 categories have the most control deficiencies?"
+  ],
+  "529": [
+    "Map our Qualys compliance findings to NIST CSF 2.0 subcategories.",
+    "Map our Qualys findings to NIST CSF 2.0 subcategories.",
+    "Show how our Qualys compliance gaps align with NIST CSF 2.0 subcategories.",
+    "Link Qualys compliance issues to relevant NIST CSF 2.0 subcategories.",
+    "What NIST CSF 2.0 subcategories are impacted by our Qualys findings?"
+  ],
+  "530": [
+    "What's our NIST CSF 2.0 PROTECT function score for cloud assets?",
+    "What's our PROTECT function score in NIST CSF 2.0 for cloud assets?",
+    "How are we scoring on NIST CSF 2.0 PROTECT for cloud infrastructure?",
+    "Show our maturity level for NIST CSF 2.0 PROTECT in cloud environments.",
+    "What's our NIST CSF 2.0 PROTECT function maturity for cloud-based systems?"
+  ],
+  "531": [
+    "Show me NIST CSF 2.0 DETECT function coverage gaps.",
+    "Where do we have gaps in NIST CSF 2.0 DETECT function coverage?",
+    "What DETECT function controls are we missing in NIST CSF 2.0?",
+    "Show coverage gaps for NIST CSF 2.0 DETECT function.",
+    "Which NIST CSF 2.0 DETECT subcategories lack adequate controls?"
+  ],
+  "532": [
+    "What PCI-DSS v4.0 requirements are we failing that were not in v3.2.1?",
+    "Which PCI-DSS v4.0 requirements are we failing that didn't exist in v3.2.1?",
+    "What new PCI-DSS v4.0 requirements are we not meeting?",
+    "Show PCI-DSS v4.0 requirements we're failing that are unique to the new version.",
+    "Identify PCI-DSS v4.0 compliance failures for requirements not in v3.2.1."
+  ],
+  "533": [
+    "Show me our PCI-DSS v4.0 readiness — which new requirements take effect this year?",
+    "What's our readiness for the new PCI-DSS v4.0 requirements coming this year?",
+    "Which PCI-DSS v4.0 requirements take effect soon and where are we falling short?",
+    "Show our PCI-DSS v4.0 readiness status for upcoming mandatory requirements.",
+    "How prepared are we for this year's new PCI-DSS v4.0 requirements?"
+  ],
+  "534": [
+    "Are we meeting PCI-DSS v4.0 requirement 6.4.3 (client-side script management)?",
+    "Are we compliant with PCI-DSS v4.0 requirement 6.4.3 for client-side script management?",
+    "Do we meet PCI-DSS v4.0's client-side script management requirement 6.4.3?",
+    "Show our compliance status for PCI-DSS v4.0 requirement 6.4.3.",
+    "Is requirement 6.4.3 (client-side script management) met in our PCI-DSS v4.0 assessment?"
+  ],
+  "535": [
+    "What's our compliance status for PCI-DSS v4.0 requirement 8.3.6 (password complexity)?",
+    "Are we compliant with PCI-DSS v4.0 requirement 8.3.6 on password complexity?",
+    "What's our current standing on password complexity under PCI-DSS v4.0 8.3.6?",
+    "Do we meet PCI-DSS v4.0 8.3.6 requirements for password complexity controls?",
+    "How compliant are we with the password complexity mandate in PCI-DSS v4.0 requirement 8.3.6?"
+  ],
+  "536": [
+    "Show me all PCI-DSS v4.0 future-dated requirements and our gap analysis.",
+    "Which PCI-DSS v4.0 requirements are future-dated and what gaps do we have?",
+    "Give me a breakdown of upcoming PCI-DSS v4.0 requirements and our gap analysis.",
+    "What PCI-DSS v4.0 requirements are scheduled for the future and where do we fall short?",
+    "Show me our gap analysis against all future-dated PCI-DSS v4.0 requirements."
+  ],
+  "537": [
+    "Which systems in our cardholder data environment fail PCI-DSS v4.0 scans?",
+    "Which systems in the cardholder data environment are failing PCI-DSS v4.0 scans?",
+    "What assets in our CDE are not passing PCI-DSS v4.0 compliance scans?",
+    "Show me which cardholder data environment systems have PCI-DSS v4.0 scan failures.",
+    "Are there any CDE systems that are failing their PCI-DSS v4.0 scans?"
+  ],
+  "538": [
+    "How many PCI-DSS v4.0 controls are we meeting vs failing vs not assessed?",
+    "What's the breakdown of our PCI-DSS v4.0 controls—how many are we passing, failing, or not yet assessed?",
+    "Give me a count of PCI-DSS v4.0 controls by status: met, failed, and not assessed.",
+    "How many PCI-DSS v4.0 controls are passing versus failing versus not yet assessed?",
+    "Show me our control status summary for PCI-DSS v4.0 across all three categories."
+  ],
+  "539": [
+    "What's our readiness posture for the EU Digital Operational Resilience Act (DORA)?",
+    "Where do we stand on DORA readiness?",
+    "What's our current readiness level for the EU Digital Operational Resilience Act?",
+    "How prepared are we for compliance with DORA?",
+    "Assess our readiness posture against the Digital Operational Resilience Act requirements."
+  ],
+  "540": [
+    "Which ICT third-party providers need risk assessment under DORA?",
+    "Which third-party ICT providers do we need to risk-assess under DORA?",
+    "What ICT third-party vendors require risk assessment per DORA?",
+    "Show me the third-party ICT providers that need DORA risk assessments.",
+    "Which of our ICT service providers are subject to DORA risk assessment requirements?"
+  ],
+  "541": [
+    "Show me our DORA incident classification and reporting readiness.",
+    "What's our status on DORA incident classification and reporting readiness?",
+    "Are we ready to classify and report incidents per DORA requirements?",
+    "How prepared are we for DORA-compliant incident classification and reporting?",
+    "Show me our incident classification and reporting readiness against DORA."
+  ],
+  "542": [
+    "Do we have continuous vulnerability monitoring in place as required by DORA Article 9?",
+    "Do we have continuous vulnerability monitoring set up as DORA Article 9 requires?",
+    "Are we implementing continuous vulnerability monitoring per DORA Article 9?",
+    "Is continuous vulnerability monitoring in place to meet DORA Article 9?",
+    "Does our vulnerability monitoring program comply with DORA Article 9 requirements?"
+  ],
+  "543": [
+    "What DORA resilience testing requirements are we currently not meeting?",
+    "Which DORA resilience testing requirements are we not currently meeting?",
+    "What DORA resilience testing requirements do we fail to meet?",
+    "Show me gaps in our DORA resilience testing compliance.",
+    "Where are we falling short on DORA resilience testing requirements?"
+  ],
+  "544": [
+    "Map our current security controls to DORA's ICT risk management framework.",
+    "Map our security controls to DORA's ICT risk management framework.",
+    "How do our current security controls align with DORA's ICT risk management framework?",
+    "Show me the mapping between our controls and DORA's ICT risk management requirements.",
+    "Where do our security controls sit within the DORA ICT risk management framework?"
+  ],
+  "545": [
+    "Are our ICT incident response procedures compliant with DORA reporting timelines?",
+    "Are our ICT incident response procedures aligned with DORA reporting timelines?",
+    "Do our incident response procedures meet DORA's reporting timeline requirements?",
+    "Is our ICT incident response process compliant with DORA reporting deadlines?",
+    "How well do our incident response timelines match DORA's reporting requirements?"
+  ],
+  "546": [
+    "Do we have any AI/ML model serving endpoints exposed to the internet?",
+    "Do we have any AI or ML model endpoints exposed to the internet?",
+    "Are any of our AI/ML model serving endpoints publicly accessible?",
+    "Which AI or ML inference endpoints are currently exposed to the internet?",
+    "Show me any internet-facing AI or ML model serving endpoints."
+  ],
+  "547": [
+    "Are there any known vulnerabilities in our deployed LLM frameworks (LangChain, vLLM, etc.)?",
+    "Are there any known vulnerabilities in the LLM frameworks we've deployed like LangChain or vLLM?",
+    "What known vulnerabilities exist in our deployed LLM frameworks?",
+    "Show me vulnerability data for LangChain, vLLM, and other LLM frameworks in use.",
+    "Do we have any unpatched vulnerabilities in our LLM framework deployments?"
+  ],
+  "548": [
+    "Show me all assets running AI inference services and their patch status.",
+    "What assets are running AI inference services and what's their patch status?",
+    "Show me all systems with AI inference services and their patch levels.",
+    "Which assets host AI inference workloads and are they up to date on patches?",
+    "List our AI inference service assets and their current patch status."
+  ],
+  "549": [
+    "What's our attack surface for prompt injection and LLM-specific vulnerabilities?",
+    "What's our current attack surface for prompt injection and other LLM-specific vulnerabilities?",
+    "How exposed are we to prompt injection and LLM-specific attack vectors?",
+    "Show me the attack surface related to prompt injection and LLM vulnerabilities.",
+    "Assess our exposure to prompt injection and other LLM-specific threats."
+  ],
+  "550": [
+    "Are any of our AI model APIs accessible without authentication?",
+    "Are any of our AI model APIs accessible without authentication?",
+    "Do we have any AI model APIs that don't require authentication?",
+    "Show me any unauthenticated AI model API endpoints.",
+    "Which AI model APIs lack authentication controls?"
+  ],
+  "551": [
+    "Which GPU-enabled instances have unpatched CUDA or driver vulnerabilities?",
+    "Which GPU-enabled instances have unpatched CUDA or driver vulnerabilities?",
+    "What GPU instances are running vulnerable CUDA or driver versions?",
+    "Show me GPU-enabled systems with known CUDA and driver vulnerabilities.",
+    "Are there any GPU instances with unpatched CUDA or driver issues?"
+  ],
+  "552": [
+    "Do we have visibility into AI supply chain dependencies (model registries, training data stores)?",
+    "Do we have visibility into our AI supply chain dependencies like model registries and training data stores?",
+    "Can we see our AI supply chain dependencies including model registries and data sources?",
+    "Show me our visibility into AI supply chain components like model registries.",
+    "What's our current visibility level for AI supply chain dependencies?"
+  ],
+  "553": [
+    "Are any of our cloud workloads vulnerable to SSRF attacks?",
+    "Are any of our cloud workloads vulnerable to SSRF attacks?",
+    "Do we have cloud workloads that could be exploited through SSRF?",
+    "Show me cloud workloads with potential SSRF vulnerabilities.",
+    "Which of our cloud assets have SSRF attack exposure?"
+  ],
+  "554": [
+    "Show me all container images with known supply chain vulnerabilities (compromised base images).",
+    "Show me container images that have supply chain vulnerabilities from compromised base images.",
+    "Which container images are using base images with known supply chain vulnerabilities?",
+    "Do we have container images deployed from compromised or vulnerable base images?",
+    "List container images affected by supply chain vulnerabilities in their base layers."
+  ],
+  "555": [
+    "Which Kubernetes pods can escape to the host via known container escape CVEs?",
+    "What Kubernetes pods have the potential to break out to the underlying host using documented container escape vulnerabilities?",
+    "Can any of our K8s pods exploit known container escape CVEs to reach the host?",
+    "Identify which pods in our Kubernetes clusters are vulnerable to container escape exploits that could compromise the host.",
+    "Which of our running Kubernetes pods could potentially escape to the host leveraging existing CVEs?"
+  ],
+  "556": [
+    "Do we have any S3 buckets or Azure Blob containers with public access and sensitive data?",
+    "Do we have any publicly accessible S3 buckets or Azure Blob Storage containers that store sensitive information?",
+    "Are there S3 buckets or Azure Blob containers with public access settings that contain sensitive data?",
+    "What S3 or Azure Blob storage resources are publicly readable and contain data we should be protecting?",
+    "Can you identify any sensitive data in our S3 buckets or Azure Blob containers that are exposed to public access?"
+  ],
+  "557": [
+    "Are there any IAM roles with overly permissive policies that could enable lateral movement?",
+    "Which IAM roles have permissions that are too broad and could facilitate lateral movement attacks?",
+    "Do we have IAM roles with overly permissive access policies that attackers could abuse for privilege escalation?",
+    "Are there any IAM roles configured with excessive permissions that create lateral movement risks?",
+    "What IAM roles have permission sets that go beyond what's needed and enable lateral movement?"
+  ],
+  "558": [
+    "Show me all cloud workloads missing runtime protection agents.",
+    "Which cloud workloads are running without runtime protection agents deployed?",
+    "What workloads across our cloud infrastructure lack runtime security agents?",
+    "Identify cloud workloads that don't have runtime protection monitoring tools installed.",
+    "Which of our workloads are missing runtime defense agents?"
+  ],
+  "559": [
+    "Which CI/CD pipelines have dependency confusion or typosquatting risks?",
+    "Which of our CI/CD pipelines face dependency confusion or typosquatting attack risks?",
+    "Do any of our build pipelines have dependency confusion or typosquatting vulnerabilities?",
+    "What CI/CD pipelines could be compromised through dependency confusion or package name spoofing attacks?",
+    "Are there typosquatting or dependency confusion risks in our continuous integration and deployment systems?"
+  ],
+  "560": [
+    "Are any of our container registries accessible without authentication?",
+    "Are any of our container registries exposed and accessible without requiring authentication?",
+    "Do we have container registries that allow unauthenticated access?",
+    "Which container registries in our environment don't require authentication to pull images?",
+    "Can anyone access our container registries without proper credentials?"
+  ],
+  "561": [
+    "Give me a combined risk score across AWS, Azure, and GCP environments.",
+    "What's the aggregate risk score when we combine AWS, Azure, and GCP security findings?",
+    "Calculate a unified risk score across all our AWS, Azure, and GCP deployments.",
+    "Give me a single risk metric that incorporates security data from AWS, Azure, and GCP.",
+    "What's our overall risk score when analyzing AWS, Azure, and GCP together?"
+  ],
+  "562": [
+    "Which cloud provider has the most critical unpatched vulnerabilities?",
+    "Which cloud provider environment has the highest number of critical unpatched vulnerabilities?",
+    "Of AWS, Azure, and GCP, which one has the most serious unpatched security gaps?",
+    "Where do we see the most critical unpatched vulnerabilities — AWS, Azure, or GCP?",
+    "Which cloud platform has the worst critical vulnerability patch status?"
+  ],
+  "563": [
+    "Show me cross-cloud IAM misconfigurations — federated roles, excessive permissions.",
+    "What IAM misconfigurations exist across our cloud environments, particularly around federated roles and excessive permissions?",
+    "Show cross-cloud IAM issues including overly permissive federated roles and permission creep.",
+    "Identify IAM configuration problems spanning AWS, Azure, and GCP, focusing on federation and permission scope.",
+    "What IAM security gaps do we have across clouds regarding federated access and permissive policies?"
+  ],
+  "564": [
+    "Compare our security posture across AWS, Azure, and GCP side by side.",
+    "How does our security posture compare between AWS, Azure, and GCP in side-by-side analysis?",
+    "Provide a comparative security posture assessment across AWS, Azure, and GCP.",
+    "Compare the security health and risk levels of our AWS, Azure, and GCP environments.",
+    "What's the relative security maturity of each cloud platform we use — AWS vs. Azure vs. GCP?"
+  ],
+  "565": [
+    "What's our total cloud attack surface across all three providers?",
+    "What is the total cloud attack surface when we account for all deployments in AWS, Azure, and GCP?",
+    "How large is our combined attack surface across AWS, Azure, and GCP?",
+    "Calculate our total cloud attack surface spanning all three major cloud providers.",
+    "What's the aggregate attack surface footprint across our AWS, Azure, and GCP infrastructure?"
+  ],
+  "566": [
+    "Are there any cross-cloud network paths that bypass our security controls?",
+    "Do any network connections between our cloud environments bypass our established security controls?",
+    "Are there cross-cloud network paths that circumvent our security policies?",
+    "Identify any inter-cloud network routes that could evade our security monitoring.",
+    "What cross-cloud network traffic paths exist that might bypass our security defenses?"
+  ],
+  "567": [
+    "Show me multi-cloud compliance status for SOC 2 controls.",
+    "What is our multi-cloud compliance status specifically for SOC 2 control requirements?",
+    "How compliant are we with SOC 2 controls across AWS, Azure, and GCP?",
+    "Assess our SOC 2 compliance posture across all three cloud environments.",
+    "Which SOC 2 controls do we meet or fail across our multi-cloud infrastructure?"
+  ],
+  "568": [
+    "Which cloud accounts across all providers have no vulnerability scanning enabled?",
+    "Which cloud accounts across AWS, Azure, and GCP have vulnerability scanning disabled?",
+    "What accounts in our multi-cloud setup are missing vulnerability scanning coverage?",
+    "Identify any accounts without vulnerability scanning enabled across all cloud providers.",
+    "Which of our cloud accounts lack active vulnerability scanning tools?"
+  ],
+  "569": [
+    "Give me an executive summary of our multi-cloud security posture with top risks.",
+    "Provide an executive summary of our multi-cloud security posture highlighting the most critical risks.",
+    "Give me a high-level overview of our AWS, Azure, and GCP security status with key risk findings.",
+    "What should leadership know about our multi-cloud security position and top vulnerabilities?",
+    "Create a summary briefing on our multi-cloud security health and primary risk areas."
+  ],
+  "_metadata": {
+    "total_questions": 570,
+    "questions_with_variants": 569,
+    "variant_count_distribution": {
+      "0": 1,
+      "3": 514,
+      "4": 55
+    }
+  }
 }
