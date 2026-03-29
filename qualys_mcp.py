@@ -19,6 +19,8 @@ from qualys.aggregators import (
     cve_details,
     qid_details,
     cloud_risk,
+    cloud_account_summary,
+    cloud_controls,
     asset_detail,
     tech_debt,
     image_vulns,
@@ -278,24 +280,61 @@ def get_qid_details(qids: str, detail: str = "standard") -> dict:
 
 
 @mcp.tool()
-def get_cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7, detail: str = "standard") -> dict:
+def get_cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7, per_account: bool = False, detail: str = "standard") -> dict:
     """[Cloud Security] Cloud security posture + CDR threat findings across AWS, Azure, and GCP — connected accounts, CIS benchmark control failures, and detailed CDR threats. @slow
 
     USE WHEN: "how are our cloud accounts doing?", cloud security posture overview, CIS benchmark compliance, cloud risk summary, investigating active cloud threats, lateral movement, suspicious network activity, or cloud incident response.
     DO NOT USE WHEN: Looking at host-based vulnerabilities or checking on-prem compliance.
-    PREFER INSTEAD: get_etm_findings for host-based vulnerabilities; get_compliance_posture for on-prem/Policy Compliance posture; get_edr_events for host-based endpoint threats.
+    PREFER INSTEAD: get_cloud_account_summary for per-account breakdown; get_cloud_controls for service-level drill-down (S3, IAM, EC2); get_etm_findings for host-based vulnerabilities; get_compliance_posture for on-prem/Policy Compliance posture; get_edr_events for host-based endpoint threats.
 
     Parameters:
         limit: max failed controls and CDR threats to return (default 20)
         include_threats: include detailed CDR threat findings (default True). Set False for posture-only.
         days: CDR look-back window in days (default 7). Only used when include_threats=True.
+        per_account: include per-account fail counts for ALL accounts (default False). Adds perAccount list ranked by failedEvaluations.
 
-    Returns: accounts (list with id, provider, name), failedControls (CIS benchmark failures by controlId), threats (CDR findings with severity, category, resourceId, provider, account, region), stats (total accounts, critical threats).
+    Returns: accounts (list with id, provider, name), failedControls (CIS benchmark failures by controlId), threats (CDR findings with severity, category, resourceId, provider, account, region), stats (total accounts, critical threats). With per_account=True: perAccount (ranked list with failedEvaluations per account).
 
-    Note: CIS evaluations fetched from first account per provider. For multi-account evaluation, use Qualys TotalCloud console.
+    Performance: ~6s cold / ~3s warm (parallel: 3 provider connectors + evaluations + CDR). With per_account=True: +2s for account counts."""
+    return cloud_risk(limit=limit, include_threats=include_threats, days=days, per_account=per_account, detail=detail)
 
-    Performance: ~6s cold / ~3s warm (parallel: 3 provider connectors + evaluations + CDR)."""
-    return cloud_risk(limit=limit, include_threats=include_threats, days=days, detail=detail)
+
+@mcp.tool()
+def get_cloud_account_summary(provider: str = 'all', detail: str = "standard") -> dict:
+    """[Cloud Security] Per-account evaluation counts across AWS, Azure, and GCP — ranked by total evaluations. @fast
+
+    USE WHEN: "which cloud accounts have the most issues?", per-account cloud breakdown, multi-account visibility, or identifying which account needs attention.
+    DO NOT USE WHEN: Looking at specific service controls (use get_cloud_controls) or overall posture overview (use get_cloud_risk).
+    PREFER INSTEAD: get_cloud_risk for overall posture + CDR threats; get_cloud_controls for service-level drill-down (S3, IAM, EC2).
+
+    Parameters:
+        provider: 'all' (default), 'aws', 'azure', or 'gcp'
+
+    Returns: accounts (ranked list with accountId, provider, name, totalEvaluations), totalAccounts.
+
+    Performance: ~2s (pageSize=1 per account, parallel)."""
+    return cloud_account_summary(provider=provider, detail=detail)
+
+
+@mcp.tool()
+def get_cloud_controls(provider: str = 'all', service: str = '', result: str = 'FAIL', account_id: str = '', limit: int = 50, detail: str = "standard") -> dict:
+    """[Cloud Security] Service-level cloud control evaluations — filter by AWS/Azure/GCP service (S3, IAM, EC2, etc.) and result. @slow
+
+    USE WHEN: "show me S3 misconfigurations", "which IAM controls are failing?", service-specific cloud security drill-down, investigating specific cloud service risks, or filtering cloud controls by pass/fail.
+    DO NOT USE WHEN: Looking for overall cloud posture overview (use get_cloud_risk) or per-account summary (use get_cloud_account_summary).
+    PREFER INSTEAD: get_cloud_risk for high-level posture + CDR threats; get_cloud_account_summary for per-account breakdown.
+
+    Parameters:
+        provider: 'all' (default), 'aws', 'azure', or 'gcp'
+        service: filter by cloud service name — e.g. 'S3', 'IAM', 'EC2', 'Lambda', 'VPC', 'CloudTrail', 'RDS', 'KMS'. Leave empty for all services.
+        result: filter by evaluation result — 'FAIL' (default), 'PASS', or '' for both
+        account_id: filter to specific account ID. Leave empty for first account per provider.
+        limit: max controls to return (default 50)
+
+    Returns: controls (list ranked by failedResources with controlId, controlName, service, criticality, result, failedResources, passedResources, accountId, provider), byService (service distribution), filters.
+
+    Performance: ~4s (parallel evaluation fetch per provider)."""
+    return cloud_controls(provider=provider, service=service, result_filter=result, account_id=account_id, limit=limit, detail=detail)
 
 
 @mcp.tool()
