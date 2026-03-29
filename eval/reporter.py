@@ -115,6 +115,58 @@ def print_summary(
                 print(f"  {cat}: {prev_s:.0%} → {cur_s:.0%}")
 
 
+def save_checkpoint(
+    results: list[dict], run_date: str, run_id: str, model: str
+) -> Path:
+    """Save a partial checkpoint file to eval_results/."""
+    RESULTS_DIR.mkdir(exist_ok=True)
+    result_file = RESULTS_DIR / f"checkpoint_{run_date}_{run_id}.json"
+
+    output = {
+        "partial": True,
+        "checkpoint_at": len(results),
+        "run_date": run_date,
+        "run_id": run_id,
+        "model": model,
+        "questions": results,
+    }
+
+    result_file.write_text(json.dumps(output, indent=2))
+    return result_file
+
+
+def load_latest_checkpoint(run_id: str | None = None) -> tuple[set[int], list[dict], str | None]:
+    """Find and load the most recent checkpoint file.
+
+    If run_id is given, only consider checkpoints for that run.
+    Returns (set of completed question IDs, results list, run_id or None).
+    """
+    if not RESULTS_DIR.exists():
+        return set(), [], None
+
+    pattern = f"checkpoint_*_{run_id}.json" if run_id else "checkpoint_*.json"
+    checkpoint_files = sorted(RESULTS_DIR.glob(pattern))
+    if not checkpoint_files:
+        return set(), [], None
+
+    latest = checkpoint_files[-1]
+    data = json.loads(latest.read_text())
+    completed_ids = {q["id"] for q in data.get("questions", [])}
+    loaded_run_id = data.get("run_id")
+    return completed_ids, data.get("questions", []), loaded_run_id
+
+
+def cleanup_checkpoints(run_id: str) -> int:
+    """Delete checkpoint files for the given run_id. Returns count deleted."""
+    if not RESULTS_DIR.exists():
+        return 0
+    count = 0
+    for f in RESULTS_DIR.glob(f"checkpoint_*_{run_id}.json"):
+        f.unlink()
+        count += 1
+    return count
+
+
 def save_results(
     results: list[dict], summary: dict, run_date: str, model: str
 ) -> Path:
