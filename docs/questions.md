@@ -1,4 +1,4 @@
-# Qualys MCP — 500 Customer Questions by Category
+# Qualys MCP — 560 Customer Questions by Category
 
 Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 
@@ -660,6 +660,79 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 
 ---
 
+## 2026 Threat Landscape — 55 questions
+
+### Recent high-impact CVEs
+506. ⚠️ Are we affected by CVE-2024-3400 (PAN-OS command injection)? Show all vulnerable Palo Alto devices.
+507. ⚠️ What's our exposure to CVE-2024-6387 (regreSSHion)? List all OpenSSH servers at risk.
+508. ⚠️ How many assets are vulnerable to CVE-2024-21762 (FortiOS out-of-bound write)?
+509. ⚠️ Are any of our JetBrains TeamCity instances affected by CVE-2024-27198 (auth bypass)?
+510. ⚠️ Do we have ASUS routers vulnerable to CVE-2024-3080 (authentication bypass)?
+511. ⚠️ What's our patch status for CVE-2024-3400 across all PAN-OS firewalls?
+512. ⚠️ Show me all assets still vulnerable to regreSSHion after the latest patch cycle.
+513. ⚠️ Which FortiGate devices are missing the fix for CVE-2024-21762?
+514. ⚠️ Are there any CVE-2024-27198 exploits detected in our environment?
+515. ⚠️ Give me a timeline of when CVE-2024-3400 was first detected vs when we patched.
+
+### NIST CSF 2.0 compliance
+516. ❌ What's our overall NIST CSF 2.0 maturity score across all six functions?
+517. ❌ How are we performing on the new GOVERN function in NIST CSF 2.0?
+518. ❌ Show me gaps between our current NIST CSF 1.1 posture and the 2.0 requirements.
+519. ❌ Which NIST CSF 2.0 categories have the most failing controls?
+520. ❌ Map our Qualys compliance findings to NIST CSF 2.0 subcategories.
+521. ❌ What's our NIST CSF 2.0 PROTECT function score for cloud assets?
+522. ❌ Show me NIST CSF 2.0 DETECT function coverage gaps.
+
+### PCI-DSS v4.0 compliance
+523. ❌ What PCI-DSS v4.0 requirements are we failing that were not in v3.2.1?
+524. ❌ Show me our PCI-DSS v4.0 readiness — which new requirements take effect this year?
+525. ❌ Are we meeting PCI-DSS v4.0 requirement 6.4.3 (client-side script management)?
+526. ❌ What's our compliance status for PCI-DSS v4.0 requirement 8.3.6 (password complexity)?
+527. ❌ Show me all PCI-DSS v4.0 future-dated requirements and our gap analysis.
+528. ❌ Which systems in our cardholder data environment fail PCI-DSS v4.0 scans?
+529. ❌ How many PCI-DSS v4.0 controls are we meeting vs failing vs not assessed?
+
+### DORA compliance
+530. ❌ What's our readiness posture for the EU Digital Operational Resilience Act (DORA)?
+531. ❌ Which ICT third-party providers need risk assessment under DORA?
+532. ❌ Show me our DORA incident classification and reporting readiness.
+533. ❌ Do we have continuous vulnerability monitoring in place as required by DORA Article 9?
+534. ❌ What DORA resilience testing requirements are we currently not meeting?
+535. ❌ Map our current security controls to DORA's ICT risk management framework.
+536. ❌ Are our ICT incident response procedures compliant with DORA reporting timelines?
+
+### AI and LLM security posture
+537. ❌ Do we have any AI/ML model serving endpoints exposed to the internet?
+538. ❌ Are there any known vulnerabilities in our deployed LLM frameworks (LangChain, vLLM, etc.)?
+539. ❌ Show me all assets running AI inference services and their patch status.
+540. ❌ What's our attack surface for prompt injection and LLM-specific vulnerabilities?
+541. ❌ Are any of our AI model APIs accessible without authentication?
+542. ❌ Which GPU-enabled instances have unpatched CUDA or driver vulnerabilities?
+543. ❌ Do we have visibility into AI supply chain dependencies (model registries, training data stores)?
+
+### Cloud-native attack patterns
+544. ⚠️ Are any of our cloud workloads vulnerable to SSRF attacks?
+545. ⚠️ Show me all container images with known supply chain vulnerabilities (compromised base images).
+546. ⚠️ Which Kubernetes pods can escape to the host via known container escape CVEs?
+547. ⚠️ Do we have any S3 buckets or Azure Blob containers with public access and sensitive data?
+548. ⚠️ Are there any IAM roles with overly permissive policies that could enable lateral movement?
+549. ⚠️ Show me all cloud workloads missing runtime protection agents.
+550. ⚠️ Which CI/CD pipelines have dependency confusion or typosquatting risks?
+551. ⚠️ Are any of our container registries accessible without authentication?
+
+### Multi-cloud combined posture
+552. ⚠️ Give me a combined risk score across AWS, Azure, and GCP environments.
+553. ⚠️ Which cloud provider has the most critical unpatched vulnerabilities?
+554. ⚠️ Show me cross-cloud IAM misconfigurations — federated roles, excessive permissions.
+555. ⚠️ Compare our security posture across AWS, Azure, and GCP side by side.
+556. ⚠️ What's our total cloud attack surface across all three providers?
+557. ⚠️ Are there any cross-cloud network paths that bypass our security controls?
+558. ⚠️ Show me multi-cloud compliance status for SOC 2 controls.
+559. ⚠️ Which cloud accounts across all providers have no vulnerability scanning enabled?
+560. ⚠️ Give me an executive summary of our multi-cloud security posture with top risks.
+
+---
+
 ## Coverage Summary
 
 | Category | Total | ✅ Full | ⚠️ Partial | ❌ Gap | Coverage % |
@@ -677,6 +750,7 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 | Compliance | 45 | 7 | 4 | 34 | 20% |
 | Scanner / Infrastructure | 20 | 9 | 4 | 7 | 55% |
 | Growth Engine | 5 | 4 | 1 | 0 | 90% |
-| **Total** | **515** | **170** | **98** | **247** | **43%** |
+| 2026 Threat Landscape | 55 | 0 | 27 | 28 | 25% |
+| **Total** | **570** | **170** | **125** | **275** | **43%** |
 
-> **Updated v2.15:** Coverage increased from 23% (76 ✅) to 43% (170 ✅) with 29 active tools. Strongest categories: Investigation (85%), Growth Engine (90%), VM (72%), EDR+FIM (61%), Certificates (60%). Remaining gaps are primarily trend analysis, granular PM job queries, cloud resource-type specifics, and K8s runtime. See `docs/gaps.md` for detailed gap analysis.
+> **Updated v2.16:** 570 questions across 14 categories. Coverage at 43% (170 ✅) with 29 active tools. New: 55 questions covering 2026 threat landscape (high-impact CVEs, NIST CSF 2.0, PCI-DSS v4.0, DORA, AI/LLM security, cloud-native attacks, multi-cloud posture). Strongest categories: Investigation (85%), Growth Engine (90%), VM (72%), EDR+FIM (61%), Certificates (60%). See `docs/gaps.md` for detailed gap analysis.
