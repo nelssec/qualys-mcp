@@ -13,6 +13,7 @@ from qualys.aggregators import (
     search_vulns_agg,
     recommendations,
     eliminate_status,
+    eliminate_coverage,
     scanner_health,
     etm_findings,
     morning_report,
@@ -179,19 +180,37 @@ def get_recommendations(detail: str = "standard") -> dict:
 
 @mcp.tool()
 def get_eliminate_status(status: str = "", detail: str = "standard") -> dict:
-    """[TruRisk Eliminate] Patch deployment status — deployed/missing patch counts, PM jobs, MTG jobs, patch catalog, and managed assets for Windows and Linux.
+    """[TruRisk Eliminate] Patch deployment status — deployed/missing patch counts, PM jobs, MTG jobs, patch catalog, deployment success rates, mitigation technique breakdown, and managed assets for Windows and Linux.
 
-    USE WHEN: "how many patches are deployed vs missing?", "what patches failed to deploy?", "which assets are missing critical patches?", "what Windows patches are outstanding?", "what patches are deploying right now?", "are patches deploying?", "how many mitigation jobs are running?", "what's our patch catalog size?", or checking active risk elimination progress.
-    DO NOT USE WHEN: Assessing overall risk posture by TruRisk tier (use get_patch_status), or checking single-asset patch status (use get_asset).
-    PREFER INSTEAD: get_patch_status when "how is our patching going?" (TruRisk coverage/gaps); get_asset for per-asset details.
+    USE WHEN: "how many patches are deployed vs missing?", "what patches failed to deploy?", "what's the success rate of our patch deployments?", "what mitigation techniques are being used?", "which assets are missing critical patches?", "what Windows patches are outstanding?", "what patches are deploying right now?", "are patches deploying?", "how many mitigation jobs are running?", "what's our patch catalog size?", or checking active risk elimination progress.
+    DO NOT USE WHEN: Assessing overall risk posture by TruRisk tier (use get_patch_status), checking single-asset patch status (use get_asset), or checking mitigation coverage for specific QIDs/CVEs (use get_eliminate_coverage).
+    PREFER INSTEAD: get_patch_status when "how is our patching going?" (TruRisk coverage/gaps); get_asset for per-asset details; get_eliminate_coverage when checking which vulns have mitigations available.
 
     Parameters:
-        status: filter jobs by status (e.g. "Failed", "Completed", "Running"). Empty = all jobs.
+        status: filter jobs by status (e.g. "Failed", "Completed", "Running"). "Running" returns in-progress jobs. Empty = all jobs. Status is passed to the API for server-side filtering.
 
-    Returns: patchCounts (deployed/missing totals per platform), patchManagement (per-platform: totalJobs, activeJobs, byStatus, recentJobs, managedAssets), mitigations (per-platform: totalJobs, activeJobs, byStatus, recentJobs), patchCatalog (windows/linux totals and severity breakdown), summary.
+    Returns: patchCounts (deployed/missing totals per platform), patchManagement (per-platform: totalJobs, activeJobs, byStatus, recentJobs, managedAssets), mitigations (per-platform: totalJobs, activeJobs, byStatus, recentJobs), patchCatalog (windows/linux totals and severity breakdown), deploymentSuccessRate (patch/mitigation/overall: succeeded, failed, total, rate%), techniqueBreakdown (byType with counts for REGISTRY, CONFIG, WORKAROUND, PATCH), summary.
 
     Performance: ~5s cold / ~3s warm (parallel PM+MTG+catalog queries)."""
     return eliminate_status(status=status, detail=detail)
+
+
+@mcp.tool()
+def get_eliminate_coverage(qids: list = None, cves: list = None, detail: str = "standard") -> dict:
+    """[TruRisk Eliminate] Mitigation coverage check — given QIDs or CVEs, shows which have Eliminate mitigations available in the catalog and their technique types.
+
+    USE WHEN: "which of our top vulns have Eliminate mitigations?", "what's our Eliminate catalog coverage for these CVEs?", "do we have mitigations for QID 12345?", "which vulnerabilities in our backlog have Eliminate mitigations available?", checking mitigation availability before deploying.
+    DO NOT USE WHEN: Checking deployment job status (use get_eliminate_status), looking at overall patch counts, or investigating a single CVE (use investigate_cve).
+    PREFER INSTEAD: get_eliminate_status for deployment job status and success rates; investigate_cve for single-CVE deep-dive.
+
+    Parameters:
+        qids: list of Qualys QID integers to check (e.g. [12345, 67890])
+        cves: list of CVE IDs to check (e.g. ["CVE-2024-1234", "CVE-2024-5678"])
+
+    Returns: coverage (list with hasMitigation, technique type, mitigation details per QID/CVE), summary (requested, covered, notCovered, coverageRate), catalogSize.
+
+    Performance: ~5s cold / ~3s warm (parallel catalog + KB queries)."""
+    return eliminate_coverage(qids=qids, cves=cves, detail=detail)
 
 
 @mcp.tool()
