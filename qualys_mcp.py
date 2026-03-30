@@ -454,17 +454,24 @@ def get_running_containers(limit: int = 50, detail: str = "standard") -> dict:
 
 @mcp.tool()
 def get_expiring_certs(days: int = 90, include_expired: bool = True, weak_only: bool = False,
+                       protocol_filter: str = "", weak_ciphers: bool = False,
+                       insecure_renegotiation: bool = False,
                        limit: int = 100, detail: str = "standard") -> dict:
     """[CertView] SSL/TLS certificate expiry monitoring and configuration issue detection — expiring/expired certs, weak keys, SHA-1, self-signed, and TLS 1.0/1.1 usage.
 
-    USE WHEN: "which SSL certs expire soon?", certificate expiry audit, weak cipher detection, self-signed cert inventory, TLS version compliance, or outage prevention.
+    USE WHEN: "which SSL certs expire soon?", certificate expiry audit, TLS version detection (TLS 1.0/1.1/SSLv3),
+              weak cipher detection, insecure renegotiation, self-signed cert inventory, or outage prevention.
     DO NOT USE WHEN: Scanning for host vulnerabilities, checking cloud posture, or general security health overview.
     PREFER INSTEAD: get_etm_findings for vulnerability scanning; get_cloud_risk for cloud posture; get_morning_report or get_weekly_priorities for general security health.
+                    get_cert_security_posture for TLS protocol/cipher/renegotiation queries (faster, server-side filtered).
 
     Parameters:
       - days: Look-ahead window for expiring certs (default 90)
       - include_expired: Include already-expired certs in results (default True)
       - weak_only: Only return certs that have at least one issue (default False)
+      - protocol_filter: TLS/SSL protocol version to filter by (e.g. "TLSv1.0", "TLSv1.1", "SSLv3")
+      - weak_ciphers: Return only certs using weak cipher suites (RC4, DES, 3DES)
+      - insecure_renegotiation: Return only servers with insecure TLS renegotiation enabled
       - limit: Max certs to return (default 100)
 
     **Example questions:**
@@ -472,14 +479,61 @@ def get_expiring_certs(days: int = 90, include_expired: bool = True, weak_only: 
       - "Are any certificates already expired?" → get_expiring_certs(include_expired=True)
       - "Which servers are using weak cipher suites?" → get_expiring_certs(weak_only=True)
       - "Show me all self-signed certificates" → get_expiring_certs(weak_only=True)
-      - "Are any servers still using TLS 1.0?" → get_expiring_certs(weak_only=True)
+      - "Are any servers still using TLS 1.0?" → get_expiring_certs(protocol_filter="TLSv1.0")
+      - "Are any servers still using TLS 1.1?" → get_expiring_certs(protocol_filter="TLSv1.1")
+      - "Which servers support insecure renegotiation?" → get_expiring_certs(insecure_renegotiation=True)
+      - "Show servers with weak cipher suites" → get_expiring_certs(weak_ciphers=True)
 
     Returns: summary (total, expired, expiring30Days, expiring90Days, weakCiphers, selfSigned, weakKeySize, tls10or11), expiringSoon (list with subject, expiryDate, daysRemaining, host, grade, issues), issues (flat list with host, issue, severity).
 
     **Grades:** A = no issues, B = nearing expiry (<30 days), C = self-signed or weak key, F = expired or SHA-1.
 
-    Performance: ~5s cold / ~3s warm."""
+    Performance: ~5s cold / ~3s warm. Protocol/cipher/renegotiation queries: ~3s (server-side filtered)."""
+    # If security posture filters requested, delegate to efficient server-side filter
+    if protocol_filter or weak_ciphers or insecure_renegotiation:
+        from qualys.aggregators import cert_security_posture
+        return cert_security_posture(
+            protocol_filter=protocol_filter,
+            weak_ciphers=weak_ciphers,
+            insecure_renegotiation=insecure_renegotiation,
+            limit=limit,
+        )
     return expiring_certs(days=days, include_expired=include_expired, weak_only=weak_only, limit=limit, detail=detail)
+
+
+@mcp.tool()
+def get_cert_security_posture(protocol_filter: str = "", weak_ciphers: bool = False,
+                               insecure_renegotiation: bool = False, limit: int = 100) -> dict:
+    """[CertView] TLS protocol version detection, weak cipher audit, and insecure renegotiation scan — fast server-side filtered cert queries.
+
+    USE WHEN: "are any servers using TLS 1.0 or 1.1?", TLS version compliance, "which servers support insecure renegotiation?",
+              weak cipher detection, SSLv3 usage, or protocol-level security audits.
+    DO NOT USE WHEN: Checking certificate expiry dates or general cert inventory — use get_expiring_certs instead.
+    PREFER INSTEAD: get_expiring_certs for expiry-focused cert queries.
+
+    Parameters:
+      - protocol_filter: TLS/SSL protocol version to filter by (e.g. "TLSv1.0", "TLSv1.1", "SSLv3")
+      - weak_ciphers: Return only certs using weak cipher suites (RC4, DES, 3DES)
+      - insecure_renegotiation: Return only servers with insecure TLS renegotiation enabled
+      - limit: Max certs to return (default 100)
+
+    **Example questions:**
+      - "Are any servers still using TLS 1.0?" → get_cert_security_posture(protocol_filter="TLSv1.0")
+      - "Are any servers still using TLS 1.1?" → get_cert_security_posture(protocol_filter="TLSv1.1")
+      - "Which servers support insecure renegotiation?" → get_cert_security_posture(insecure_renegotiation=True)
+      - "Show servers with weak ciphers" → get_cert_security_posture(weak_ciphers=True)
+      - "Are any servers using SSLv3?" → get_cert_security_posture(protocol_filter="SSLv3")
+
+    Returns: total count, filter applied, certs list (subject, host, protocol, cipher, insecureRenegotiation, grade, expiryDate).
+
+    Performance: ~3s (server-side filtered, no full scan needed)."""
+    from qualys.aggregators import cert_security_posture
+    return cert_security_posture(
+        protocol_filter=protocol_filter,
+        weak_ciphers=weak_ciphers,
+        insecure_renegotiation=insecure_renegotiation,
+        limit=limit,
+    )
 
 
 @mcp.tool()
