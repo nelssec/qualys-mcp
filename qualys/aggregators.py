@@ -4447,18 +4447,21 @@ def compliance_posture(framework: str = "", platform: str = "", limit: int = 20,
     if framework:
         policies = _get_available_frameworks() or []
         if policies:
-            return compact({
-                'error': f'{framework} compliance not configured on this tenant.',
-                'configuredPolicies': policies,
-                'suggestion': (
-                    f'Use get_compliance_posture() without framework filter to see all '
-                    f'configured policies, or filter by a configured framework substring.'
-                ),
-                '_followups': [
-                    f'Available policies: {", ".join(policies[:10])}',
-                    'Call get_compliance_posture(list_frameworks=True) for full list.',
-                ],
-            })
+            framework_lower = framework.lower()
+            matched = any(framework_lower in p.lower() for p in policies)
+            if not matched:
+                return compact({
+                    'error': f'{framework} compliance not configured on this tenant.',
+                    'configuredPolicies': policies,
+                    'suggestion': (
+                        f'Use get_compliance_posture() without framework filter to see all '
+                        f'configured policies, or filter by a configured framework substring.'
+                    ),
+                    '_followups': [
+                        f'Available policies: {", ".join(policies[:10])}',
+                        'Call get_compliance_posture(list_frameworks=True) for full list.',
+                    ],
+                })
 
     # --- Strategy 4: fall back to cloud compliance (get_compliance_gaps) ---
     _log("Compliance posture: falling back to cloud compliance gaps...")
