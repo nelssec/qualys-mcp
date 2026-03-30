@@ -3214,6 +3214,61 @@ def running_containers(limit: int = 50, detail: str = "standard") -> dict:
 
 
 # ---------------------------------------------------------------------------
+# cert_security_posture
+# ---------------------------------------------------------------------------
+
+def cert_security_posture(protocol_filter: str = "", weak_ciphers: bool = False,
+                           insecure_renegotiation: bool = False, limit: int = 100) -> dict:
+    """Filtered certificate security posture — TLS protocol, cipher, renegotiation."""
+    from qualys.api import get_certificates_filtered
+
+    # Build filter string
+    filters = []
+    if protocol_filter:
+        proto = protocol_filter.strip()
+        mapping = {
+            "tls1.0": "TLSv1.0", "tls 1.0": "TLSv1.0", "tlsv1.0": "TLSv1.0",
+            "tls1.1": "TLSv1.1", "tls 1.1": "TLSv1.1", "tlsv1.1": "TLSv1.1",
+            "ssl3": "SSLv3", "sslv3": "SSLv3", "ssl 3": "SSLv3",
+        }
+        proto_key = mapping.get(proto.lower(), proto)
+        filters.append(f"protocol:{proto_key}")
+    if weak_ciphers:
+        filters.append("weakCiphers:true")
+    if insecure_renegotiation:
+        filters.append("insecureRenegotiation:true")
+
+    if not filters:
+        return {"error": "No filter specified. Provide protocol_filter, weak_ciphers=True, or insecure_renegotiation=True."}
+
+    filter_str = " AND ".join(filters)
+    certs = get_certificates_filtered(filter_str, limit)
+
+    if certs is None:
+        return {"error": "CertView API unavailable or not licensed.", "total": 0}
+    if not certs:
+        return {"total": 0, "message": f"No certificates found matching filter: {filter_str}", "certs": []}
+
+    result_certs = []
+    for c in certs:
+        result_certs.append({
+            "subject": c.get("certhash", c.get("subject", "")),
+            "host": c.get("host", c.get("hostname", "")),
+            "protocol": c.get("protocol", ""),
+            "cipher": c.get("cipher", ""),
+            "insecureRenegotiation": c.get("insecureRenegotiation", False),
+            "grade": c.get("grade", c.get("sslGrade", "")),
+            "expiryDate": c.get("validTo", ""),
+        })
+
+    return {
+        "total": len(result_certs),
+        "filter": filter_str,
+        "certs": result_certs,
+    }
+
+
+# ---------------------------------------------------------------------------
 # expiring_certs
 # ---------------------------------------------------------------------------
 
