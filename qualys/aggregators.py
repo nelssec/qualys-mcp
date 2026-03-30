@@ -1663,14 +1663,21 @@ def eliminate_status(detail: str = "standard", status: str = "") -> dict:
         'mitigations': {'windows': {}, 'linux': {}},
         'patchCatalog': {},
         'patchCounts': {},
+        'deploymentSuccessRate': {},
+        'techniqueBreakdown': {},
         'summary': '',
     }
 
+    status_filter = status.strip().capitalize() if status else ""
+    # Pass status to API so the server filters instead of fetching all
+    pm_status = status_filter or None
+    mtg_status = status_filter or None
+
     concurrent = _run_concurrent(
-        windows_pm_jobs=lambda: get_pm_jobs('Windows', 20),
-        linux_pm_jobs=lambda: get_pm_jobs('Linux', 20),
-        windows_mtg_jobs=lambda: get_mtg_jobs('Windows', 20),
-        linux_mtg_jobs=lambda: get_mtg_jobs('Linux', 20),
+        windows_pm_jobs=lambda: get_pm_jobs('Windows', 20, status=pm_status),
+        linux_pm_jobs=lambda: get_pm_jobs('Linux', 20, status=pm_status),
+        windows_mtg_jobs=lambda: get_mtg_jobs('Windows', 20, status=mtg_status),
+        linux_mtg_jobs=lambda: get_mtg_jobs('Linux', 20, status=mtg_status),
         windows_patches=lambda: get_pm_patches_count('Windows', 'vendorSeverity'),
         linux_patches=lambda: get_pm_patches_count('Linux'),
         windows_assets=lambda: get_pm_assets('Windows', 5),
@@ -1679,6 +1686,17 @@ def eliminate_status(detail: str = "standard", status: str = "") -> dict:
         linux_missing=lambda: get_pm_patches_count('Linux', status='Missing'),
         windows_deployed=lambda: get_pm_patches_count('Windows', status='Installed'),
         linux_deployed=lambda: get_pm_patches_count('Linux', status='Installed'),
+        # Success rate: fetch succeeded and failed job counts from API
+        win_pm_succeeded=lambda: get_pm_jobs('Windows', 100, status='Completed'),
+        win_pm_failed=lambda: get_pm_jobs('Windows', 100, status='Failed'),
+        lin_pm_succeeded=lambda: get_pm_jobs('Linux', 100, status='Completed'),
+        lin_pm_failed=lambda: get_pm_jobs('Linux', 100, status='Failed'),
+        win_mtg_succeeded=lambda: get_mtg_jobs('Windows', 100, status='Completed'),
+        win_mtg_failed=lambda: get_mtg_jobs('Windows', 100, status='Failed'),
+        lin_mtg_succeeded=lambda: get_mtg_jobs('Linux', 100, status='Completed'),
+        lin_mtg_failed=lambda: get_mtg_jobs('Linux', 100, status='Failed'),
+        # Mitigation catalog for technique breakdown
+        etm_mitigations=lambda: get_etm_mitigations(100),
     )
 
     all_empty = all(
@@ -1705,15 +1723,9 @@ def eliminate_status(detail: str = "standard", status: str = "") -> dict:
     active_patch_jobs = 0
     active_mtg_jobs = 0
 
-    status_filter = status.strip().capitalize() if status else ""
-
     for platform in ['windows', 'linux']:
-        plat_key = platform.capitalize()
-
         pm_jobs = concurrent.get(f'{platform}_pm_jobs') or []
         patch_jobs = [j for j in pm_jobs if j.get('subCategory') == 'Patch']
-        if status_filter:
-            patch_jobs = [j for j in patch_jobs if j.get('status', '').capitalize() == status_filter]
         total_patch_jobs += len(patch_jobs)
 
         active = [j for j in patch_jobs if j.get('status') not in ('Disabled', 'Deleted')]
@@ -1721,8 +1733,8 @@ def eliminate_status(detail: str = "standard", status: str = "") -> dict:
 
         by_status = {}
         for j in patch_jobs:
-            status = j.get('status', 'Unknown')
-            by_status[status] = by_status.get(status, 0) + 1
+            s = j.get('status', 'Unknown')
+            by_status[s] = by_status.get(s, 0) + 1
 
         recent_jobs = []
         for j in patch_jobs[:10]:
@@ -1747,8 +1759,6 @@ def eliminate_status(detail: str = "standard", status: str = "") -> dict:
         }
 
         mtg_jobs = concurrent.get(f'{platform}_mtg_jobs') or []
-        if status_filter:
-            mtg_jobs = [j for j in mtg_jobs if j.get('status', '').capitalize() == status_filter]
         total_mtg_jobs += len(mtg_jobs)
 
         mtg_active = [j for j in mtg_jobs if j.get('status') not in ('Disabled', 'Deleted')]
@@ -1756,8 +1766,8 @@ def eliminate_status(detail: str = "standard", status: str = "") -> dict:
 
         mtg_by_status = {}
         for j in mtg_jobs:
-            status = j.get('status', 'Unknown')
-            mtg_by_status[status] = mtg_by_status.get(status, 0) + 1
+            s = j.get('status', 'Unknown')
+            mtg_by_status[s] = mtg_by_status.get(s, 0) + 1
 
         mtg_recent = []
         for j in mtg_jobs[:10]:
@@ -1777,6 +1787,7 @@ def eliminate_status(detail: str = "standard", status: str = "") -> dict:
             'recentJobs': mtg_recent,
         }
 
+    # -- Patch catalog --
     win_patches = concurrent.get('windows_patches') or {}
     linux_patches = concurrent.get('linux_patches') or {}
     win_sev = win_patches.get('vendorSeverity', {})
@@ -1809,17 +1820,157 @@ def eliminate_status(detail: str = "standard", status: str = "") -> dict:
     total_missing = win_missing + lin_missing
     total_deployed = win_deployed + lin_deployed
 
+    # -- Pre-calculated deployment success rate --
+    pm_succeeded = len(concurrent.get('win_pm_succeeded') or []) + len(concurrent.get('lin_pm_succeeded') or [])
+    pm_failed = len(concurrent.get('win_pm_failed') or []) + len(concurrent.get('lin_pm_failed') or [])
+    mtg_succeeded = len(concurrent.get('win_mtg_succeeded') or []) + len(concurrent.get('lin_mtg_succeeded') or [])
+    mtg_failed = len(concurrent.get('win_mtg_failed') or []) + len(concurrent.get('lin_mtg_failed') or [])
+
+    pm_total_completed = pm_succeeded + pm_failed
+    mtg_total_completed = mtg_succeeded + mtg_failed
+    all_completed = pm_total_completed + mtg_total_completed
+    all_succeeded = pm_succeeded + mtg_succeeded
+
+    result['deploymentSuccessRate'] = {
+        'patch': {
+            'succeeded': pm_succeeded,
+            'failed': pm_failed,
+            'total': pm_total_completed,
+            'rate': f"{(pm_succeeded / pm_total_completed * 100):.1f}%" if pm_total_completed else 'N/A',
+        },
+        'mitigation': {
+            'succeeded': mtg_succeeded,
+            'failed': mtg_failed,
+            'total': mtg_total_completed,
+            'rate': f"{(mtg_succeeded / mtg_total_completed * 100):.1f}%" if mtg_total_completed else 'N/A',
+        },
+        'overall': {
+            'succeeded': all_succeeded,
+            'failed': pm_failed + mtg_failed,
+            'total': all_completed,
+            'rate': f"{(all_succeeded / all_completed * 100):.1f}%" if all_completed else 'N/A',
+        },
+    }
+
+    # -- Technique breakdown from mitigation catalog --
+    etm_mits = concurrent.get('etm_mitigations') or []
+    technique_counts = {}
+    for m in etm_mits:
+        technique = m.get('techniqueType') or m.get('technique_type') or m.get('type') or 'UNKNOWN'
+        technique = technique.upper()
+        technique_counts[technique] = technique_counts.get(technique, 0) + 1
+    result['techniqueBreakdown'] = {
+        'byType': technique_counts,
+        'total': len(etm_mits),
+    }
+
+    # -- Summary --
+    success_str = result['deploymentSuccessRate']['overall']['rate']
+    technique_str = ', '.join(f'{t}: {c}' for t, c in sorted(technique_counts.items())) if technique_counts else 'none loaded'
+
     result['summary'] = (
         f'TruRisk Eliminate: {total_patch_jobs} patch jobs ({active_patch_jobs} active), '
         f'{total_mtg_jobs} mitigation jobs ({active_mtg_jobs} active). '
+        f'Deployment success rate: {success_str} ({all_succeeded}/{all_completed} completed jobs). '
         f'Patch catalog: {total_catalog:,} patches available. '
         f'Patches deployed: {total_deployed:,}, missing: {total_missing:,}. '
+        f'Mitigation catalog: {len(etm_mits)} techniques ({technique_str}). '
         f'Use Patch to eliminate risk by deploying fixes. '
         f'Use Mitigate to apply compensating controls when no patch exists.'
     )
 
     result = _with_meta(result)
     return _apply_detail_level(result, detail)
+
+
+def eliminate_coverage(qids: list = None, cves: list = None, detail: str = "standard") -> dict:
+    """Check which QIDs or CVEs have Eliminate mitigations available in the catalog."""
+    if not qids and not cves:
+        return _with_meta({'error': 'Provide at least one QID or CVE.', 'coverage': []})
+
+    # Fetch mitigation catalog and KB data concurrently
+    tasks = {'etm_mitigations': lambda: get_etm_mitigations(200)}
+    lookup_qids = list(qids or [])
+
+    # If CVEs provided, resolve them to QIDs via KB
+    if cves:
+        # Get recent detections to find QIDs for these CVEs
+        tasks['detections'] = lambda: get_detections(severity=3, days=90)
+
+    concurrent = _run_concurrent(**tasks)
+    etm_mits = concurrent.get('etm_mitigations') or []
+
+    # Build mitigation lookup by QID and CVE
+    mit_by_qid = {}
+    mit_by_cve = {}
+    for m in etm_mits:
+        m_qids = m.get('qids') or m.get('qidList') or []
+        if isinstance(m_qids, int):
+            m_qids = [m_qids]
+        m_cves = m.get('cves') or m.get('cveList') or []
+        if isinstance(m_cves, str):
+            m_cves = [m_cves]
+        technique = (m.get('techniqueType') or m.get('technique_type') or m.get('type') or 'UNKNOWN').upper()
+        entry = {
+            'name': m.get('name') or m.get('title') or '',
+            'technique': technique,
+            'qids': m_qids,
+            'cves': m_cves,
+        }
+        for q in m_qids:
+            mit_by_qid.setdefault(q, []).append(entry)
+        for c in m_cves:
+            mit_by_cve.setdefault(c.upper(), []).append(entry)
+
+    # If CVEs given, resolve to QIDs from detection data
+    cve_to_qid = {}
+    if cves:
+        dets = concurrent.get('detections') or []
+        all_det_qids = list({d.get('qid') for d in dets if d.get('qid')})
+        kb_data = get_kb_batch(all_det_qids[:300]) if all_det_qids else {}
+        for qid, kb in kb_data.items():
+            for c in kb.get('cves', []):
+                cve_to_qid.setdefault(c.upper(), set()).add(qid)
+
+    coverage = []
+    covered_count = 0
+
+    # Check QIDs
+    for q in (qids or []):
+        mits = mit_by_qid.get(q, [])
+        entry = {'qid': q, 'hasMitigation': bool(mits), 'mitigations': mits}
+        if mits:
+            covered_count += 1
+        coverage.append(entry)
+
+    # Check CVEs
+    for c in (cves or []):
+        c_upper = c.upper()
+        mits = mit_by_cve.get(c_upper, [])
+        resolved_qids = list(cve_to_qid.get(c_upper, set()))
+        # Also check QID-based mitigations for resolved QIDs
+        if not mits and resolved_qids:
+            for rq in resolved_qids:
+                mits.extend(mit_by_qid.get(rq, []))
+        entry = {'cve': c_upper, 'hasMitigation': bool(mits), 'resolvedQids': resolved_qids, 'mitigations': mits}
+        if mits:
+            covered_count += 1
+        coverage.append(entry)
+
+    total_requested = len(qids or []) + len(cves or [])
+    result = {
+        'coverage': coverage,
+        'summary': {
+            'requested': total_requested,
+            'covered': covered_count,
+            'notCovered': total_requested - covered_count,
+            'coverageRate': f"{(covered_count / total_requested * 100):.1f}%" if total_requested else 'N/A',
+        },
+        'catalogSize': len(etm_mits),
+    }
+
+    result = _with_meta(result, 'coverage', total_requested)
+    return _apply_detail_level(result, detail, list_keys=['coverage'])
 
 
 def scanner_health(detail: str = "standard") -> dict:
