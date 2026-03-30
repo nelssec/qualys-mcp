@@ -1694,6 +1694,94 @@ def recommendations(detail: str = "standard") -> dict:
     return _apply_detail_level(result, detail, list_keys=['recommendations'])
 
 
+def outstanding_patches(platform: str = "", severity: str = "", top_n: int = 20, detail: str = "standard") -> dict:
+    """Fetch outstanding (missing) patches from /pm/v1/patches and return a ranked summary."""
+    platforms = []
+    if platform:
+        platforms = [platform.strip().capitalize()]
+    else:
+        platforms = ['Windows', 'Linux', 'Mac']
+
+    sev_filter = severity.strip().capitalize() if severity else ""
+
+    # Fetch patches for each platform in parallel
+    tasks = {}
+    for p in platforms:
+        tasks[p.lower()] = lambda _p=p: get_pm_patches(_p, status='Missing', page_size=50)
+    concurrent = _run_concurrent(**tasks)
+
+    all_patches = []
+    for p in platforms:
+        patches = concurrent.get(p.lower()) or []
+        if isinstance(patches, dict):
+            # API may return {data: [...]} or flat list
+            patches = patches.get('data', patches.get('patches', []))
+        if isinstance(patches, list):
+            for patch in patches:
+                patch['_platform'] = p
+                all_patches.append(patch)
+
+    if not all_patches:
+        return _with_meta({
+            'totalOutstanding': 0,
+            'patches': [],
+            'summary': f'No outstanding (missing) patches found{" for " + platform if platform else ""}.',
+        })
+
+    # Apply severity filter
+    if sev_filter:
+        all_patches = [p for p in all_patches if (p.get('vendorSeverity') or '').capitalize() == sev_filter]
+
+    # Sort by missingCount descending
+    all_patches.sort(key=lambda p: p.get('missingCount', 0), reverse=True)
+
+    # Compute breakdowns
+    security_count = sum(1 for p in all_patches if p.get('isSecurity'))
+    non_security_count = len(all_patches) - security_count
+    reboot_required_count = sum(1 for p in all_patches if p.get('rebootRequired'))
+
+    # Take top N
+    top_patches = all_patches[:top_n]
+    formatted = []
+    for p in top_patches:
+        cves = p.get('cve') or p.get('cves') or []
+        formatted.append({
+            'title': p.get('title', ''),
+            'missingCount': p.get('missingCount', 0),
+            'vendorSeverity': p.get('vendorSeverity', ''),
+            'isSecurity': p.get('isSecurity', False),
+            'rebootRequired': p.get('rebootRequired', False),
+            'cveCount': len(cves) if isinstance(cves, list) else 0,
+            'platform': p.get('_platform', ''),
+            'category': p.get('category', ''),
+            'kb': p.get('kb', ''),
+        })
+
+    total = len(all_patches)
+    total_missing = sum(p.get('missingCount', 0) for p in all_patches)
+    lines = [
+        f"{total} outstanding patches ({total_missing} total missing installations)",
+        f"Security: {security_count} | Non-security: {non_security_count}",
+        f"Reboot required: {reboot_required_count}",
+    ]
+    if sev_filter:
+        lines.append(f"Filtered by severity: {sev_filter}")
+    if platform:
+        lines.append(f"Platform: {platform}")
+    lines.append(f"Showing top {len(formatted)} by missing count")
+
+    result = {
+        'totalOutstanding': total,
+        'totalMissingInstalls': total_missing,
+        'securityPatches': security_count,
+        'nonSecurityPatches': non_security_count,
+        'rebootRequired': reboot_required_count,
+        'topPatches': formatted,
+        'summary': '. '.join(lines) + '.',
+    }
+    return _with_meta(_apply_detail_level(result, detail, list_keys=['topPatches']))
+
+
 def eliminate_status(detail: str = "standard", status: str = "") -> dict:
     result = {
         'patchManagement': {'windows': {}, 'linux': {}},
