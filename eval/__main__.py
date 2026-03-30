@@ -27,6 +27,7 @@ import anthropic
 from mcp import ClientSession
 from mcp.client.stdio import stdio_client
 
+from .conversations import ConversationResult, TurnResult, parse_conversations
 from .judge import CONV_SCORE_WEIGHTS, judge_conversation_turn, judge_response
 from .parser import QUESTIONS_PATH, parse_questions
 from .reporter import (
@@ -255,15 +256,26 @@ async def run_eval(args):
 
 
 async def run_conversation_eval(args):
-    """Run multi-turn conversation evaluation."""
-    conv_path = Path(__file__).parent / "conversations.json"
-    with open(conv_path) as f:
-        conversations = _json.load(f)
+    """Run multi-turn conversation evaluation.
+
+    Uses structured conversations from docs/questions.md (with expect /
+    context_check fields) when available, falling back to the plain
+    eval/conversations.json for backward compatibility.
+    """
+    # Parse structured conversations from questions.md
+    try:
+        conversations = parse_conversations()
+    except Exception as e:
+        print(f"Error parsing conversations from questions.md: {e}")
+        sys.exit(1)
 
     if args.limit:
         conversations = conversations[: args.limit]
 
-    print(f"Conversation eval: {len(conversations)} scenarios")
+    total_turns = sum(len(c.turns) for c in conversations)
+    print(f"Conversation eval: {len(conversations)} scenarios ({total_turns} turns)")
+    print(f"Runner model: {RUNNER_MODEL}")
+    print(f"Judge model:  {JUDGE_MODEL}")
     print(f"Threshold: {args.threshold}")
     print()
 
@@ -276,7 +288,7 @@ async def run_conversation_eval(args):
     client = anthropic.Anthropic()
     server_params = get_server_params()
 
-    all_scenario_results = []
+    conv_results: list[ConversationResult] = []
 
     async with stdio_client(server_params) as (read_stream, write_stream):
         async with ClientSession(read_stream, write_stream) as session:
@@ -285,149 +297,190 @@ async def run_conversation_eval(args):
             print(f"MCP server connected: {len(tools)} tools available")
             print()
 
-            for conv in conversations:
-                scenario_id = conv["id"]
-                title = conv["title"]
-                category = conv["category"]
-                turns = conv["turns"]
+            CONV_TIMEOUT = int(os.environ.get("EVAL_QUESTION_TIMEOUT", "300"))
 
-                print(f"[{scenario_id:>2}/{len(conversations)}] {title} ({len(turns)} turns)")
+            for idx, conv in enumerate(conversations, start=1):
+                print(f"[{idx:>2}/{len(conversations)}] {conv.name} ({conv.category}, {len(conv.turns)} turns)")
+
+                # Build plain turn strings for the runner
+                turn_strings = [t.user for t in conv.turns]
 
                 try:
-                    turn_results = await run_conversation(
-                        client, session, tools, turns
+                    raw_turns = await asyncio.wait_for(
+                        run_conversation(client, session, tools, turn_strings),
+                        timeout=CONV_TIMEOUT * len(conv.turns),
                     )
                 except Exception as e:
                     print(f"  FATAL: {e}")
-                    all_scenario_results.append(
-                        {
-                            "id": scenario_id,
-                            "title": title,
-                            "category": category,
-                            "turns": [
-                                {
-                                    "turn": i + 1,
-                                    "question": t,
-                                    "score": "tool-error",
-                                    "reasoning": f"Scenario failed: {e}",
-                                    "tool_calls": [],
-                                    "response": "",
-                                }
-                                for i, t in enumerate(turns)
+                    conv_results.append(
+                        ConversationResult(
+                            name=conv.name,
+                            category=conv.category,
+                            turn_results=[
+                                TurnResult(
+                                    turn_index=i,
+                                    user=t.user,
+                                    assistant="",
+                                    pass_=False,
+                                    context_ok=None,
+                                    notes=f"Scenario failed: {e}",
+                                )
+                                for i, t in enumerate(conv.turns)
                             ],
-                            "scenario_score": 0.0,
-                        }
+                            score=0.0,
+                        )
                     )
+                    print()
                     continue
 
-                # Score each turn
-                scored_turns = []
-                history_lines = []
-                for tr in turn_results:
+                # Judge each turn with expect / context_check
+                turn_results: list[TurnResult] = []
+                history_lines: list[str] = []
+
+                for ti, (spec, raw) in enumerate(zip(conv.turns, raw_turns)):
                     history_text = "\n".join(history_lines) if history_lines else "(start of conversation)"
 
                     try:
                         judgment = await judge_conversation_turn(
                             client,
                             history_text,
-                            tr["question"],
-                            tr["tool_calls"],
-                            tr["response"],
+                            raw["question"],
+                            raw["tool_calls"],
+                            raw["response"],
+                            expect=spec.expect,
+                            context_check=spec.context_check,
                         )
                     except Exception as e:
-                        judgment = {"score": "tool-error", "reasoning": f"Judge error: {e}"}
+                        judgment = {"score": "tool-error", "reasoning": f"Judge error: {e}", "context_ok": None}
 
+                    pass_ = judgment["score"] in ("correct", "partial", "context-miss")
+                    context_ok = judgment.get("context_ok")
+
+                    # Display
                     icon = {
-                        "correct": "✅",
-                        "partial": "⚠️",
-                        "wrong": "❌",
-                        "tool-error": "💥",
-                        "context-miss": "🔄",
-                        "off-track": "↗️",
+                        "correct": "✓", "partial": "~", "wrong": "✗",
+                        "tool-error": "!", "context-miss": "↺", "off-track": "→",
                     }.get(judgment["score"], "?")
 
-                    print(f"  T{tr['turn']}: {icon} {judgment['score']} — {judgment['reasoning'][:70]}")
+                    ctx_str = ""
+                    if spec.context_check:
+                        ctx_str = f" context_ok={context_ok}" if context_ok is not None else " context_ok=?"
+                    no_ctx = " (no context check)" if not spec.context_check else ""
 
-                    scored_turns.append(
-                        {
-                            "turn": tr["turn"],
-                            "question": tr["question"],
-                            "score": judgment["score"],
-                            "reasoning": judgment["reasoning"],
-                            "tool_calls": tr["tool_calls"],
-                            "response": tr["response"],
-                        }
+                    print(f"  Turn {ti + 1}: {icon} {judgment['score']}{ctx_str}{no_ctx}")
+
+                    turn_results.append(
+                        TurnResult(
+                            turn_index=ti,
+                            user=spec.user,
+                            assistant=raw["response"],
+                            pass_=pass_,
+                            context_ok=context_ok,
+                            notes=judgment["reasoning"],
+                            tool_calls=raw["tool_calls"],
+                        )
                     )
 
-                    # Build history for next turn's judge
-                    history_lines.append(f"User: {tr['question']}")
-                    history_lines.append(f"Assistant: {tr['response'][:500]}")
+                    history_lines.append(f"User: {raw['question']}")
+                    history_lines.append(f"Assistant: {raw['response'][:500]}")
 
-                # Compute scenario score
-                turn_weights = [CONV_SCORE_WEIGHTS.get(t["score"], 0.0) for t in scored_turns]
-                scenario_score = sum(turn_weights) / len(turn_weights) if turn_weights else 0.0
+                # Compute conversation score
+                turn_weights = [CONV_SCORE_WEIGHTS.get(
+                    {"correct": "correct", "partial": "partial", "wrong": "wrong",
+                     "tool-error": "tool-error", "context-miss": "context-miss",
+                     "off-track": "off-track"}.get(
+                        # Determine effective score — penalise context failures
+                        "correct" if tr.pass_ and tr.context_ok is not False else
+                        "wrong" if not tr.pass_ else
+                        "context-miss" if tr.context_ok is False else "correct",
+                        "wrong"
+                    ), 0.0) for tr in turn_results]
+                raw_score = sum(turn_weights) / len(turn_weights) if turn_weights else 0.0
 
-                score_icon = "✅" if scenario_score >= 0.7 else "⚠️" if scenario_score >= 0.4 else "❌"
-                print(f"  {score_icon} Scenario score: {scenario_score:.0%}")
+                cr = ConversationResult(
+                    name=conv.name,
+                    category=conv.category,
+                    turn_results=turn_results,
+                    score=round(raw_score, 4),
+                )
+                conv_results.append(cr)
+
+                passed_turns = sum(1 for tr in turn_results if tr.pass_)
+                status = "✓" if cr.passed else "✗"
+                print(f"  {status} {passed_turns}/{len(turn_results)} turns  score={cr.score:.2f}")
                 print()
 
-                all_scenario_results.append(
-                    {
-                        "id": scenario_id,
-                        "title": title,
-                        "category": category,
-                        "turns": scored_turns,
-                        "scenario_score": round(scenario_score, 4),
-                    }
-                )
+    # ── Aggregate & print summary ──────────────────────────────────
+    _print_conversation_summary(conv_results, args.threshold)
 
-    # Aggregate results
-    total_scenarios = len(all_scenario_results)
-    overall_score = (
-        sum(s["scenario_score"] for s in all_scenario_results) / total_scenarios
-        if total_scenarios
-        else 0
-    )
 
-    # Per-category
-    by_category: dict[str, list[float]] = {}
-    for s in all_scenario_results:
-        by_category.setdefault(s["category"], []).append(s["scenario_score"])
-    cat_scores = {cat: sum(scores) / len(scores) for cat, scores in by_category.items()}
-
-    # Collect turn-level score counts
-    all_scores = {"correct": 0, "partial": 0, "wrong": 0, "tool-error": 0, "context-miss": 0, "off-track": 0}
-    for s in all_scenario_results:
-        for t in s["turns"]:
-            all_scores[t["score"]] = all_scores.get(t["score"], 0) + 1
-    total_turns = sum(all_scores.values())
-
-    # Print summary
-    print(f"\n{'=' * 60}")
+def _print_conversation_summary(
+    conv_results: list[ConversationResult],
+    threshold: float,
+) -> None:
+    """Print and save conversation eval results."""
     now = datetime.now(timezone.utc)
     run_date = now.strftime("%Y-%m-%d_%H%M%S")
-    print(f"CONVERSATION EVAL RESULTS — {run_date}")
-    print(f"{'=' * 60}")
-    print(f"Scenarios: {total_scenarios}  |  Turns: {total_turns}  |  Score: {overall_score:.1%}")
-    print(
-        f"  correct: {all_scores['correct']}  partial: {all_scores['partial']}  "
-        f"wrong: {all_scores['wrong']}  tool-error: {all_scores['tool-error']}  "
-        f"context-miss: {all_scores['context-miss']}  off-track: {all_scores['off-track']}"
+
+    total_scenarios = len(conv_results)
+    overall_score = (
+        sum(cr.score for cr in conv_results) / total_scenarios if total_scenarios else 0.0
     )
+    passed_scenarios = sum(1 for cr in conv_results if cr.passed)
+
+    # Context check stats
+    context_total = 0
+    context_passed = 0
+    for cr in conv_results:
+        for tr in cr.turn_results:
+            if tr.context_ok is not None:
+                context_total += 1
+                if tr.context_ok:
+                    context_passed += 1
+
+    total_turns = sum(len(cr.turn_results) for cr in conv_results)
+
+    # Per-category
+    by_category: dict[str, list[ConversationResult]] = {}
+    for cr in conv_results:
+        by_category.setdefault(cr.category, []).append(cr)
+
+    print(f"\n{'=' * 60}")
+    print("=== Conversation Eval Results ===")
+    print(f"{'=' * 60}")
     print()
 
-    # Per-scenario table
-    print(f"{'Scenario':<40} {'Score':>6}  {'Turns':>5}")
-    print("-" * 60)
-    for s in all_scenario_results:
-        icon = "✅" if s["scenario_score"] >= 0.7 else "⚠️" if s["scenario_score"] >= 0.4 else "❌"
-        print(f"{icon} {s['title']:<38} {s['scenario_score']:>5.0%}  {len(s['turns']):>5}")
+    for cr in conv_results:
+        passed_turns = sum(1 for tr in cr.turn_results if tr.pass_)
+        status = "✓" if cr.passed else "✗"
+        print(f"{cr.name} ({cr.category}): {passed_turns}/{len(cr.turn_results)} turns {status}  score={cr.score:.2f}")
+        for tr in cr.turn_results:
+            icon = "✓" if tr.pass_ else "✗"
+            ctx = ""
+            if tr.context_ok is not None:
+                ctx = f" context_ok={tr.context_ok}"
+            elif any(t.context_check for t in []):
+                ctx = " (no context check)"
+            else:
+                ctx = " (no context check)" if tr.turn_index == 0 else ""
+            print(f"  Turn {tr.turn_index + 1}: {icon}{ctx}")
+        print()
 
+    print("=== Summary ===")
+    print(f"Conversations: {passed_scenarios}/{total_scenarios} passed ({passed_scenarios / total_scenarios * 100:.1f}%)")
+    print(f"Avg score: {overall_score:.2f}")
+    if context_total:
+        print(f"Context checks: {context_passed}/{context_total} passed ({context_passed / context_total * 100:.1f}%)")
     print()
-    print(f"{'Category':<35} {'Score':>6}  {'Scenarios':>9}")
-    print("-" * 60)
-    for cat in sorted(cat_scores.keys()):
-        print(f"{cat:<35} {cat_scores[cat]:>5.0%}  {len(by_category[cat]):>9}")
+
+    # Per-category table
+    print(f"{'Category':<30} {'Score':>6}  {'Passed':>8}")
+    print("-" * 50)
+    for cat in sorted(by_category.keys()):
+        crs = by_category[cat]
+        cat_score = sum(cr.score for cr in crs) / len(crs)
+        cat_passed = sum(1 for cr in crs if cr.passed)
+        print(f"{cat:<30} {cat_score:>5.0%}  {cat_passed}/{len(crs):>6}")
 
     # Save results
     RESULTS_DIR.mkdir(exist_ok=True)
@@ -438,6 +491,31 @@ async def run_conversation_eval(args):
             i += 1
         result_file = RESULTS_DIR / f"conv_{run_date}-{i}.json"
 
+    # Serialize ConversationResult → dict
+    scenarios_out = []
+    for cr in conv_results:
+        scenarios_out.append({
+            "name": cr.name,
+            "category": cr.category,
+            "score": cr.score,
+            "passed": cr.passed,
+            "turns": [
+                {
+                    "turn": tr.turn_index + 1,
+                    "user": tr.user,
+                    "assistant": tr.assistant[:1000],
+                    "pass": tr.pass_,
+                    "context_ok": tr.context_ok,
+                    "notes": tr.notes,
+                    "tool_calls": [
+                        {"tool": tc.get("tool", ""), "input": tc.get("input", {}), "output_preview": tc.get("output_preview", "")}
+                        for tc in tr.tool_calls
+                    ],
+                }
+                for tr in cr.turn_results
+            ],
+        })
+
     output = {
         "run_date": run_date,
         "runner_model": RUNNER_MODEL,
@@ -446,20 +524,20 @@ async def run_conversation_eval(args):
         "total_scenarios": total_scenarios,
         "total_turns": total_turns,
         "overall_score": round(overall_score, 4),
-        "scored": all_scores,
-        "cat_scores": {cat: round(s, 4) for cat, s in cat_scores.items()},
-        "scenarios": all_scenario_results,
+        "passed_scenarios": passed_scenarios,
+        "context_checks": {"passed": context_passed, "total": context_total},
+        "scenarios": scenarios_out,
     }
     result_file.write_text(_json.dumps(output, indent=2))
     print(f"\nResults saved to {result_file}")
 
     # Threshold check
     print(f"\n{'=' * 60}")
-    if overall_score < args.threshold:
-        print(f"FAIL: score {overall_score:.1%} < threshold {args.threshold:.0%}")
+    if overall_score < threshold:
+        print(f"FAIL: score {overall_score:.1%} < threshold {threshold:.0%}")
         sys.exit(1)
     else:
-        print(f"PASS: score {overall_score:.1%} >= threshold {args.threshold:.0%}")
+        print(f"PASS: score {overall_score:.1%} >= threshold {threshold:.0%}")
 
 
 def main():
