@@ -1657,11 +1657,12 @@ def recommendations(detail: str = "standard") -> dict:
     return _apply_detail_level(result, detail, list_keys=['recommendations'])
 
 
-def eliminate_status(detail: str = "standard") -> dict:
+def eliminate_status(detail: str = "standard", status: str = "") -> dict:
     result = {
         'patchManagement': {'windows': {}, 'linux': {}},
         'mitigations': {'windows': {}, 'linux': {}},
         'patchCatalog': {},
+        'patchCounts': {},
         'summary': '',
     }
 
@@ -1674,12 +1675,17 @@ def eliminate_status(detail: str = "standard") -> dict:
         linux_patches=lambda: get_pm_patches_count('Linux'),
         windows_assets=lambda: get_pm_assets('Windows', 5),
         linux_assets=lambda: get_pm_assets('Linux', 5),
+        windows_missing=lambda: get_pm_patches_count('Windows', status='Missing'),
+        linux_missing=lambda: get_pm_patches_count('Linux', status='Missing'),
+        windows_deployed=lambda: get_pm_patches_count('Windows', status='Installed'),
+        linux_deployed=lambda: get_pm_patches_count('Linux', status='Installed'),
     )
 
     all_empty = all(
         not concurrent.get(k)
         for k in ('windows_pm_jobs', 'linux_pm_jobs', 'windows_mtg_jobs', 'linux_mtg_jobs',
-                  'windows_patches', 'linux_patches', 'windows_assets', 'linux_assets')
+                  'windows_patches', 'linux_patches', 'windows_assets', 'linux_assets',
+                  'windows_missing', 'linux_missing', 'windows_deployed', 'linux_deployed')
     )
     if all_empty:
         return _with_meta({
@@ -1699,11 +1705,15 @@ def eliminate_status(detail: str = "standard") -> dict:
     active_patch_jobs = 0
     active_mtg_jobs = 0
 
+    status_filter = status.strip().capitalize() if status else ""
+
     for platform in ['windows', 'linux']:
         plat_key = platform.capitalize()
 
         pm_jobs = concurrent.get(f'{platform}_pm_jobs') or []
         patch_jobs = [j for j in pm_jobs if j.get('subCategory') == 'Patch']
+        if status_filter:
+            patch_jobs = [j for j in patch_jobs if j.get('status', '').capitalize() == status_filter]
         total_patch_jobs += len(patch_jobs)
 
         active = [j for j in patch_jobs if j.get('status') not in ('Disabled', 'Deleted')]
@@ -1737,6 +1747,8 @@ def eliminate_status(detail: str = "standard") -> dict:
         }
 
         mtg_jobs = concurrent.get(f'{platform}_mtg_jobs') or []
+        if status_filter:
+            mtg_jobs = [j for j in mtg_jobs if j.get('status', '').capitalize() == status_filter]
         total_mtg_jobs += len(mtg_jobs)
 
         mtg_active = [j for j in mtg_jobs if j.get('status') not in ('Disabled', 'Deleted')]
@@ -1779,10 +1791,29 @@ def eliminate_status(detail: str = "standard") -> dict:
 
     total_catalog = result['patchCatalog']['windows']['total'] + result['patchCatalog']['linux']['total']
 
+    def _extract_count(data):
+        if isinstance(data, dict):
+            return data.get('patches', {}).get('count', 0) if 'patches' in data else 0
+        return 0
+
+    win_missing = _extract_count(concurrent.get('windows_missing') or {})
+    lin_missing = _extract_count(concurrent.get('linux_missing') or {})
+    win_deployed = _extract_count(concurrent.get('windows_deployed') or {})
+    lin_deployed = _extract_count(concurrent.get('linux_deployed') or {})
+
+    result['patchCounts'] = {
+        'missing': {'windows': win_missing, 'linux': lin_missing, 'total': win_missing + lin_missing},
+        'deployed': {'windows': win_deployed, 'linux': lin_deployed, 'total': win_deployed + lin_deployed},
+    }
+
+    total_missing = win_missing + lin_missing
+    total_deployed = win_deployed + lin_deployed
+
     result['summary'] = (
         f'TruRisk Eliminate: {total_patch_jobs} patch jobs ({active_patch_jobs} active), '
         f'{total_mtg_jobs} mitigation jobs ({active_mtg_jobs} active). '
         f'Patch catalog: {total_catalog:,} patches available. '
+        f'Patches deployed: {total_deployed:,}, missing: {total_missing:,}. '
         f'Use Patch to eliminate risk by deploying fixes. '
         f'Use Mitigate to apply compensating controls when no patch exists.'
     )
