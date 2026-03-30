@@ -674,32 +674,32 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 514. ⚠️ Are there any CVE-2024-27198 exploits detected in our environment?
 515. ⚠️ Give me a timeline of when CVE-2024-3400 was first detected vs when we patched.
 
-### NIST CSF 2.0 compliance
-516. ❌ What's our overall NIST CSF 2.0 maturity score across all six functions?
-517. ❌ How are we performing on the new GOVERN function in NIST CSF 2.0?
-518. ❌ Show me gaps between our current NIST CSF 1.1 posture and the 2.0 requirements.
-519. ❌ Which NIST CSF 2.0 categories have the most failing controls?
-520. ❌ Map our Qualys compliance findings to NIST CSF 2.0 subcategories.
-521. ❌ What's our NIST CSF 2.0 PROTECT function score for cloud assets?
-522. ❌ Show me NIST CSF 2.0 DETECT function coverage gaps.
+### Zero-day response workflows
+516. ⚠️ Which newly disclosed CVEs (last 30 days) affect our most critical assets?
+517. ⚠️ Show me all assets vulnerable to CVEs with active exploit code — sorted by asset criticality.
+518. ⚠️ What's our average time-to-detect for critical vulnerabilities published in 2024?
+519. ⚠️ Which assets were newly found vulnerable in the last scan cycle?
+520. ⚠️ Show me all unpatched CVEs with CVSS v3 ≥9.0 affecting internet-facing systems.
+521. ⚠️ What percentage of CVEs with active exploits are remediated within 30 days?
+522. ⚠️ List vulnerabilities discovered more than 90 days ago that are still unpatched on critical systems.
 
-### PCI-DSS v4.0 compliance
-523. ❌ What PCI-DSS v4.0 requirements are we failing that were not in v3.2.1?
-524. ❌ Show me our PCI-DSS v4.0 readiness — which new requirements take effect this year?
-525. ❌ Are we meeting PCI-DSS v4.0 requirement 6.4.3 (client-side script management)?
-526. ❌ What's our compliance status for PCI-DSS v4.0 requirement 8.3.6 (password complexity)?
-527. ❌ Show me all PCI-DSS v4.0 future-dated requirements and our gap analysis.
-528. ❌ Which systems in our cardholder data environment fail PCI-DSS v4.0 scans?
-529. ❌ How many PCI-DSS v4.0 controls are we meeting vs failing vs not assessed?
+### TruRisk and risk prioritization
+523. ⚠️ What's our current overall TruRisk score and how has it changed this month?
+524. ⚠️ Which asset groups or business units have the highest TruRisk scores?
+525. ⚠️ Show me the top 10 vulnerabilities by TruRisk contribution across our estate.
+526. ⚠️ Which internet-facing assets have TruRisk scores above the critical threshold?
+527. ⚠️ What's our TruRisk trend over the past 90 days — are we improving or regressing?
+528. ⚠️ Show me assets with TruRisk scores in the critical range and their open vulnerability count.
+529. ⚠️ Which remediation actions would most significantly reduce our TruRisk score?
 
-### DORA compliance
-530. ❌ What's our readiness posture for the EU Digital Operational Resilience Act (DORA)?
-531. ❌ Which ICT third-party providers need risk assessment under DORA?
-532. ❌ Show me our DORA incident classification and reporting readiness.
-533. ❌ Do we have continuous vulnerability monitoring in place as required by DORA Article 9?
-534. ❌ What DORA resilience testing requirements are we currently not meeting?
-535. ❌ Map our current security controls to DORA's ICT risk management framework.
-536. ❌ Are our ICT incident response procedures compliant with DORA reporting timelines?
+### Supply chain and container provenance
+530. ⚠️ Which container images running in production have critical CVEs in their base OS layers?
+531. ⚠️ Show me all containers pulled from public registries with known vulnerable packages.
+532. ⚠️ Which deployed container images haven't been rebuilt or updated in over 90 days?
+533. ⚠️ Are any containers running with root privileges and known privilege escalation CVEs?
+534. ⚠️ Show me our container vulnerability density compared to VM/host vulnerability density.
+535. ⚠️ Which container base images (ubuntu, debian, alpine) have the most unpatched CVEs?
+536. ⚠️ What's our software supply chain risk — which third-party packages have the most active CVEs?
 
 ### AI and LLM security posture
 537. ❌ Do we have any AI/ML model serving endpoints exposed to the internet?
@@ -750,10 +750,10 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 | Compliance | 45 | 7 | 4 | 34 | 20% |
 | Scanner / Infrastructure | 20 | 9 | 4 | 7 | 55% |
 | Growth Engine | 5 | 4 | 1 | 0 | 90% |
-| 2026 Threat Landscape | 55 | 0 | 27 | 28 | 25% |
-| **Total** | **570** | **170** | **125** | **275** | **43%** |
+| 2026 Threat Landscape | 55 | 0 | 48 | 7 | 44% |
+| **Total** | **570** | **170** | **146** | **254** | **43%** |
 
-> **Updated v2.16:** 570 questions across 14 categories. Coverage at 43% (170 ✅) with 29 active tools. New: 55 questions covering 2026 threat landscape (high-impact CVEs, NIST CSF 2.0, PCI-DSS v4.0, DORA, AI/LLM security, cloud-native attacks, multi-cloud posture). Strongest categories: Investigation (85%), Growth Engine (90%), VM (72%), EDR+FIM (61%), Certificates (60%). See `docs/gaps.md` for detailed gap analysis.
+> **Updated v2.17:** 570 questions across 14 categories. Coverage at 43% (170 ✅) with 29 active tools. 2026 Threat Landscape refreshed: replaced tenant-specific framework sections (NIST CSF 2.0, PCI-DSS v4.0, DORA) with zero-day response workflows, TruRisk prioritization, and supply chain / container provenance questions. Section coverage improved from 25% → 44%. Strongest categories: Investigation (85%), Growth Engine (90%), VM (72%), EDR+FIM (61%), Certificates (60%). See `docs/gaps.md` for detailed gap analysis.
 
 ---
 
