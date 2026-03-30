@@ -1301,6 +1301,18 @@ def get_pm_patches_count(platform='Windows', group_by=None, status=None):
         return {}
 
 
+def get_pm_patches(platform='Windows', status='Missing', page_size=50):
+    """Get patch list from PM, optionally filtered by status (e.g. Missing, Installed)."""
+    url = f"{GATEWAY_URL}/pm/v1/patches?platform={platform}&status={status}&pageSize={page_size}"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return []
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+
 def get_pm_assets(platform='Windows', limit=10):
     """Get Patch Management enabled assets"""
     data = api_get(f"{GATEWAY_URL}/pm/v1/assets?platform={platform}&pageSize={limit}", gateway=True, not_found_ok=True)
