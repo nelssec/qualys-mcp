@@ -2573,33 +2573,71 @@ def cloud_account_summary(provider: str = 'all', detail: str = "standard") -> di
     if not accounts:
         return compact({'accounts': [], 'message': 'No cloud connectors configured.', '_meta': {'returned': 0, 'total': 0, 'truncated': False}})
 
-    # Fetch eval counts concurrently (pageSize=1 for speed)
-    count_tasks = {
-        f"{a['provider']}_{a['id']}": (lambda a=a: get_evaluation_count(a['id'], a['provider']))
-        for a in accounts
-    }
+    # Fetch total and failed eval counts concurrently (pageSize=1 for speed)
+    count_tasks = {}
+    for a in accounts:
+        key_total = f"{a['provider']}_{a['id']}_total"
+        key_fail = f"{a['provider']}_{a['id']}_fail"
+        count_tasks[key_total] = (lambda a=a: get_evaluation_count(a['id'], a['provider'], filter_str=''))
+        count_tasks[key_fail] = (lambda a=a: get_evaluation_count(a['id'], a['provider'], filter_str='result:FAIL'))
     count_results = _run_concurrent(**count_tasks)
 
     ranked = []
     for a in accounts:
-        key = f"{a['provider']}_{a['id']}"
-        counts = count_results.get(key)
-        total = counts.get('total', 0) if counts else 0
+        key_total = f"{a['provider']}_{a['id']}_total"
+        key_fail = f"{a['provider']}_{a['id']}_fail"
+        total_counts = count_results.get(key_total)
+        fail_counts = count_results.get(key_fail)
+        total = total_counts.get('total', 0) if total_counts else 0
+        failed = fail_counts.get('total', 0) if fail_counts else 0
+        fail_rate = round(failed / total, 3) if total > 0 else 0.0
         ranked.append({
             'accountId': a['id'],
             'provider': a['provider'].upper(),
             'name': a['name'],
             'totalEvaluations': total,
+            'failedEvaluations': failed,
+            'failRate': fail_rate,
         })
 
-    ranked.sort(key=lambda x: -x['totalEvaluations'])
+    ranked.sort(key=lambda x: -x['failedEvaluations'])
+
+    # For top 5 accounts by failedEvaluations, fetch top failed controls
+    top5 = [a for a in ranked if a['failedEvaluations'] > 0][:5]
+    if top5:
+        # Find provider info for top accounts
+        acct_provider = {a['id']: a['provider'].lower() for a in accounts}
+        ctrl_tasks = {
+            f"ctrls_{r['accountId']}": (lambda r=r: get_evaluations_filtered(
+                r['accountId'], acct_provider.get(r['accountId'], 'aws'),
+                limit=10, filter_str='result:FAIL'))
+            for r in top5
+        }
+        ctrl_results = _run_concurrent(**ctrl_tasks)
+        top5_ids = {r['accountId'] for r in top5}
+        for r in ranked:
+            if r['accountId'] not in top5_ids:
+                continue
+            evals = ctrl_results.get(f"ctrls_{r['accountId']}") or []
+            # Sort by failedResources desc and extract top 3 unique control names
+            evals.sort(key=lambda e: -(e.get('failedResources', 0) or 0))
+            seen = set()
+            top_controls = []
+            for e in evals:
+                name = e.get('controlName', '')
+                if name and name not in seen:
+                    seen.add(name)
+                    top_controls.append(name)
+                if len(top_controls) >= 3:
+                    break
+            r['topFailedControls'] = top_controls
 
     result = {
         'accounts': ranked,
         'totalAccounts': len(ranked),
         '_meta': {'returned': len(ranked), 'total': len(ranked), 'truncated': False},
         '_followups': [
-            f"{len(ranked)} cloud accounts found — use get_cloud_controls(provider, service, account_id) to drill into specific services.",
+            f"{len(ranked)} cloud accounts found — ranked by failed evaluations (fail rates included). Use get_cloud_controls(provider, service, account_id) to drill into specific services.",
         ],
     }
     result = compact(result)
@@ -2693,10 +2731,23 @@ def cloud_controls(provider: str = 'all', service: str = '', result_filter: str 
         by_service[svc] = by_service.get(svc, 0) + 1
     by_service = dict(sorted(by_service.items(), key=lambda x: -x[1]))
 
+    # Compute overall pass rate stats across returned controls
+    total_failed_res = sum(c.get('failedResources', 0) for c in controls)
+    total_passed_res = sum(c.get('passedResources', 0) for c in controls)
+    total_res = total_failed_res + total_passed_res
+    pass_rate = round(total_passed_res / total_res * 100, 1) if total_res > 0 else None
+    failed_control_count = sum(1 for c in controls if c.get('result') == 'FAIL')
+    passed_control_count = sum(1 for c in controls if c.get('result') == 'PASS')
+
     res = {
         'controls': controls,
         'byService': by_service,
         'totalReturned': len(controls),
+        'passRate': pass_rate,
+        'failedControlCount': failed_control_count,
+        'passedControlCount': passed_control_count,
+        'totalResourcesFailed': total_failed_res,
+        'totalResourcesPassed': total_passed_res,
         'filters': {'provider': provider, 'service': service or 'all', 'result': result_filter, 'accountId': account_id or 'all'},
         '_meta': {'returned': len(controls), 'total': len(controls), 'truncated': False},
     }
@@ -2777,17 +2828,31 @@ def cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7, per
         eval_tasks['cdr'] = lambda: get_cdr(days, limit)
     eval_results = _run_concurrent(**eval_tasks)
 
-    fails = {}
+    fails = {}  # {controlId: {controlName, service, count}}
+    total_failed_res = 0
+    total_passed_res = 0
     for p in first_accounts:
         evals = eval_results.get(f'evals_{p}') or []
         for e in evals:
+            total_failed_res += e.get('failedResources', 0) or 0
+            total_passed_res += e.get('passedResources', 0) or 0
             if e.get('result') in ['FAIL', 'FAILED']:
                 cid = e.get('controlId', '')
-                fails[cid] = fails.get(cid, 0) + 1
+                if cid not in fails:
+                    fails[cid] = {
+                        'controlName': e.get('controlName', '') or '',
+                        'service': e.get('service', '') or '',
+                        'count': 0,
+                    }
+                fails[cid]['count'] += 1
     result['failedControls'] = [
-        {'id': c, 'count': n}
-        for c, n in sorted(fails.items(), key=lambda x: x[1], reverse=True)[:limit]
+        {'controlId': cid, 'controlName': info['controlName'], 'service': info['service'], 'count': info['count']}
+        for cid, info in sorted(fails.items(), key=lambda x: x[1]['count'], reverse=True)[:limit]
     ]
+    total_res = total_failed_res + total_passed_res
+    result['overallPassRate'] = round(total_passed_res / total_res * 100, 1) if total_res > 0 else None
+    result['totalResourcesFailed'] = total_failed_res
+    result['totalResourcesPassed'] = total_passed_res
 
     if include_threats:
         cdr_result = eval_results.get('cdr')
