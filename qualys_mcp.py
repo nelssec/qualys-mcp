@@ -454,10 +454,12 @@ def get_running_containers(limit: int = 50, detail: str = "standard") -> dict:
 
 @mcp.tool()
 def get_expiring_certs(days: int = 90, include_expired: bool = True, weak_only: bool = False,
-                       limit: int = 100, detail: str = "standard") -> dict:
-    """[CertView] SSL/TLS certificate expiry monitoring and configuration issue detection — expiring/expired certs, weak keys, SHA-1, self-signed, and TLS 1.0/1.1 usage.
+                       limit: int = 100, detail: str = "standard",
+                       protocol_filter: str = "", weak_ciphers: bool = False,
+                       insecure_renegotiation: bool = False) -> dict:
+    """[CertView] SSL/TLS certificate expiry, TLS version detection, protocol security, and configuration issue detection — expiring/expired certs, weak keys, SHA-1, self-signed, TLS 1.0/1.1, insecure renegotiation, weak ciphers, and SSL protocol analysis.
 
-    USE WHEN: "which SSL certs expire soon?", certificate expiry audit, weak cipher detection, self-signed cert inventory, TLS version compliance, or outage prevention.
+    USE WHEN: "which SSL certs expire soon?", certificate expiry audit, weak cipher detection, self-signed cert inventory, TLS version compliance, insecure renegotiation check, SSL protocol detection, or outage prevention.
     DO NOT USE WHEN: Scanning for host vulnerabilities, checking cloud posture, or general security health overview.
     PREFER INSTEAD: get_etm_findings for vulnerability scanning; get_cloud_risk for cloud posture; get_morning_report or get_weekly_priorities for general security health.
 
@@ -466,20 +468,29 @@ def get_expiring_certs(days: int = 90, include_expired: bool = True, weak_only: 
       - include_expired: Include already-expired certs in results (default True)
       - weak_only: Only return certs that have at least one issue (default False)
       - limit: Max certs to return (default 100)
+      - protocol_filter: Filter by TLS/SSL version — "TLSv1.0", "TLSv1.1", "TLSv1.2", "TLSv1.3", "SSLv3" (default: no filter)
+      - weak_ciphers: Return only certs using weak ciphers like RC4, DES, 3DES (default False)
+      - insecure_renegotiation: Return only certs with insecure TLS renegotiation enabled (default False)
 
     **Example questions:**
       - "Which SSL certs expire in the next 30 days?" → get_expiring_certs(days=30)
       - "Are any certificates already expired?" → get_expiring_certs(include_expired=True)
-      - "Which servers are using weak cipher suites?" → get_expiring_certs(weak_only=True)
+      - "Which servers are using weak cipher suites?" → get_expiring_certs(weak_ciphers=True)
       - "Show me all self-signed certificates" → get_expiring_certs(weak_only=True)
-      - "Are any servers still using TLS 1.0?" → get_expiring_certs(weak_only=True)
+      - "Are any servers still using TLS 1.0?" → get_expiring_certs(protocol_filter="TLSv1.0")
+      - "Are any servers still using TLS 1.1?" → get_expiring_certs(protocol_filter="TLSv1.1")
+      - "Which servers support insecure renegotiation?" → get_expiring_certs(insecure_renegotiation=True)
+      - "Show servers on SSLv3" → get_expiring_certs(protocol_filter="SSLv3")
+      - "Which servers use TLS 1.2?" → get_expiring_certs(protocol_filter="TLSv1.2")
 
-    Returns: summary (total, expired, expiring30Days, expiring90Days, weakCiphers, selfSigned, weakKeySize, tls10or11), expiringSoon (list with subject, expiryDate, daysRemaining, host, grade, issues), issues (flat list with host, issue, severity).
+    Returns: When protocol_filter / weak_ciphers / insecure_renegotiation is set → concise list with hostname, IP, port, and relevant protocol/cipher info. Otherwise → summary (total, expired, expiring30Days, expiring90Days, weakCiphers, selfSigned, weakKeySize, tls10or11), expiringSoon, issues.
 
     **Grades:** A = no issues, B = nearing expiry (<30 days), C = self-signed or weak key, F = expired or SHA-1.
 
-    Performance: ~5s cold / ~3s warm."""
-    return expiring_certs(days=days, include_expired=include_expired, weak_only=weak_only, limit=limit, detail=detail)
+    Performance: ~5s cold / ~3s warm. Protocol/cipher/renegotiation filters use server-side filtering and are faster."""
+    return expiring_certs(days=days, include_expired=include_expired, weak_only=weak_only, limit=limit, detail=detail,
+                          protocol_filter=protocol_filter, weak_ciphers=weak_ciphers,
+                          insecure_renegotiation=insecure_renegotiation)
 
 
 @mcp.tool()

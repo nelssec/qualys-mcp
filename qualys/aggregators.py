@@ -3214,12 +3214,102 @@ def running_containers(limit: int = 50, detail: str = "standard") -> dict:
 
 
 # ---------------------------------------------------------------------------
+# _cert_security_posture  (fast-path for protocol/cipher/renegotiation queries)
+# ---------------------------------------------------------------------------
+
+def _cert_security_posture(protocol_filter: str = "", weak_ciphers: bool = False,
+                           insecure_renegotiation: bool = False, limit: int = 100,
+                           detail: str = "standard") -> dict:
+    """Server-side filtered cert query via CertView v2 — avoids full cert fetch."""
+    filters = []
+    if protocol_filter:
+        filters.append(f"protocol:{protocol_filter}")
+    if insecure_renegotiation:
+        filters.append("insecureRenegotiation:true")
+    if weak_ciphers:
+        # RC4, DES, 3DES are the common weak cipher families
+        filters.append("cipherSuite:RC4,DES,3DES")
+
+    query_label_parts = []
+    if protocol_filter:
+        query_label_parts.append(f"protocol={protocol_filter}")
+    if insecure_renegotiation:
+        query_label_parts.append("insecureRenegotiation")
+    if weak_ciphers:
+        query_label_parts.append("weakCiphers")
+    query_label = ", ".join(query_label_parts)
+
+    all_certs = []
+    for filt in filters:
+        raw = get_certificates_filtered(filt, limit=limit)
+        if raw is None:
+            return {
+                "error": "Certificate management (CertView) is not enabled on this Qualys subscription. "
+                         "Contact your Qualys administrator to enable the CertView module.",
+                "total": 0,
+                "certs": [],
+            }
+        if raw:
+            all_certs.extend(raw)
+
+    # Deduplicate by certificate hash/id
+    seen = set()
+    unique = []
+    for c in all_certs:
+        cid = c.get('hash') or c.get('id') or c.get('serialNumber', '')
+        if cid and cid in seen:
+            continue
+        if cid:
+            seen.add(cid)
+        unique.append(c)
+
+    entries = []
+    for c in unique[:limit]:
+        subject_obj = c.get('subject', {}) or {}
+        hosts_raw = c.get('hosts', []) or []
+        host_entries = []
+        for h in hosts_raw[:5]:
+            host_entries.append({
+                'hostname': h.get('hostname', ''),
+                'ip': h.get('ip', h.get('ipAddress', '')),
+                'port': h.get('port', 443),
+                'protocol': h.get('protocol', '') or h.get('tlsVersion', ''),
+                'cipherSuite': h.get('cipherSuite', '') or h.get('cipher', ''),
+                'insecureRenegotiation': h.get('insecureRenegotiation', False),
+            })
+        entries.append({
+            'subject': subject_obj.get('commonName', ''),
+            'serialNumber': c.get('serialNumber', ''),
+            'validTo': (c.get('validTo', '') or '')[:10],
+            'hosts': host_entries,
+        })
+
+    result = {
+        'query': query_label,
+        'total': len(entries),
+        'certs': entries,
+    }
+    out = _with_meta(result, 'certs', len(entries))
+    return _apply_detail_level(out, detail, list_keys=['certs'])
+
+
+# ---------------------------------------------------------------------------
 # expiring_certs
 # ---------------------------------------------------------------------------
 
 def expiring_certs(days: int = 90, include_expired: bool = True, weak_only: bool = False,
-                   limit: int = 100, detail: str = "standard") -> dict:
-    """SSL/TLS certificate expiry monitoring and configuration issue detection."""
+                   limit: int = 100, detail: str = "standard",
+                   protocol_filter: str = "", weak_ciphers: bool = False,
+                   insecure_renegotiation: bool = False) -> dict:
+    """SSL/TLS certificate expiry monitoring, TLS protocol detection, and configuration issue detection."""
+
+    # --- Fast path: server-side filtered queries via CertView v2 ---
+    if protocol_filter or weak_ciphers or insecure_renegotiation:
+        return _cert_security_posture(
+            protocol_filter=protocol_filter, weak_ciphers=weak_ciphers,
+            insecure_renegotiation=insecure_renegotiation, limit=limit, detail=detail,
+        )
+
     result = {
         'days': days,
         'summary': {

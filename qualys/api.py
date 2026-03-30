@@ -1126,6 +1126,20 @@ def get_certificates(limit=100, days_expiring=None):
         return None
 
 
+def get_certificates_filtered(filter_expr: str, limit: int = 100):
+    """Fetch certificates from CertView v2 with an arbitrary filter expression.
+
+    Examples:
+        get_certificates_filtered("protocol:TLSv1.0")
+        get_certificates_filtered("insecureRenegotiation:true")
+    """
+    url = f"{GATEWAY_URL}/certview/v2/certificates?pageSize={min(limit, 100)}&filter={quote(filter_expr)}"
+    try:
+        return _paginate_json(url, limit, not_found_ok=True)
+    except Exception:
+        return None
+
+
 def _fetch_ioc_events(limit=200):
     """Fetch events from the unified /ioc/v1/events endpoint."""
     url = f"{GATEWAY_URL}/ioc/v1/events?pageSize={min(limit, 200)}"
