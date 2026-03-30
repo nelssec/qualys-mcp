@@ -406,6 +406,8 @@ def get_container_vuln_summary(limit: int = 20, detail: str = "standard") -> dic
     DO NOT USE WHEN: Investigating a single specific image (use get_image_vulns instead), looking at host-level vulnerabilities, or checking cloud posture.
     PREFER INSTEAD: get_image_vulns for single-image deep dive; get_running_containers for running container context; get_etm_findings for host-level vulnerabilities.
 
+    EMPTY DATA BEHAVIOR: If no container images are found, returns a descriptive message explaining that Container Security is licensed but no agents are reporting, along with available_tools list and fallback vulnContext from /csapi/v1.3/vuln (total container vuln count + severity breakdown) when available.
+
     Parameters:
         limit: max images to return (default 20). Use higher for full inventory.
 
@@ -422,6 +424,8 @@ def get_image_vulns(image_id: str = "", limit: int = 50, detail: str = "standard
     USE WHEN: Investigating vulnerabilities in a specific container image, pre-deployment image scanning review, or container remediation planning. Also use without image_id to list top vulnerable images.
     DO NOT USE WHEN: Checking host-based vulnerabilities or viewing cloud posture.
     PREFER INSTEAD: get_container_vuln_summary for image ranking overview; get_asset for host-based vulnerabilities; get_cloud_risk for cloud posture overview.
+
+    EMPTY DATA BEHAVIOR: If the specified image_id returns no data (image not found or no vulns), returns a descriptive message with available_tools list and fallback vulnContext from the container vuln database when available, instead of an empty dict.
 
     Parameters:
         image_id: TotalCloud imageId (from get_asset_inventory or get_weekly_priorities container risk section). Leave empty to list top images by critical vuln count.
@@ -444,6 +448,8 @@ def get_running_containers(limit: int = 50, detail: str = "standard") -> dict:
     PREFER INSTEAD: get_container_vuln_summary for image-level vuln ranking without runtime context; get_image_vulns for single-image deep dive.
 
     NOTE: Kubernetes namespace/pod-level data (namespaces, pods) is not available on all tenants. This tool returns container and image-level data. For K8s questions, it will indicate when namespace/pod data is unavailable.
+
+    EMPTY DATA BEHAVIOR: If no running containers AND no images are found, returns a descriptive message explaining that Container Security is licensed but no agents are reporting, along with available_tools list and fallback vulnContext from /csapi/v1.3/vuln when available.
 
     Parameters:
         limit: max containers to return (default 50)
