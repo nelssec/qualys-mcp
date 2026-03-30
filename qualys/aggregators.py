@@ -3371,6 +3371,104 @@ def expiring_certs(days: int = 90, include_expired: bool = True, weak_only: bool
 
 
 # ---------------------------------------------------------------------------
+# cert_security_posture
+# ---------------------------------------------------------------------------
+
+def cert_security_posture(protocol_filter: str = None, weak_ciphers: bool = False,
+                          insecure_renegotiation: bool = False, limit: int = 100,
+                          detail: str = "standard") -> dict:
+    """TLS protocol version, weak cipher, and insecure renegotiation detection via CertView."""
+    filters = []
+    if protocol_filter:
+        filters.append(f"protocol:{protocol_filter}")
+    if weak_ciphers:
+        filters.append("weakCipher:true")
+    if insecure_renegotiation:
+        filters.append("insecureRenegotiation:true")
+
+    filter_expr = " AND ".join(filters) if filters else None
+    certs = get_certificates_by_filter(limit * 2, filter_expr)
+
+    if certs is None:
+        return {
+            "error": "Certificate management (CertView) is not enabled on this Qualys subscription. "
+                     "Contact your Qualys administrator to enable the CertView module.",
+            "total": 0,
+            "servers": [],
+        }
+    if not certs:
+        label_parts = []
+        if protocol_filter:
+            label_parts.append(f"protocol={protocol_filter}")
+        if weak_ciphers:
+            label_parts.append("weakCipher=true")
+        if insecure_renegotiation:
+            label_parts.append("insecureRenegotiation=true")
+        label = ", ".join(label_parts) if label_parts else "any filter"
+        return {"total": 0, "servers": [], "message": f"No certificates matched filter: {label}"}
+
+    servers = []
+    seen = set()
+    for c in certs:
+        subject_obj = c.get('subject', {}) or {}
+        subject_cn = subject_obj.get('commonName', '')
+        hosts_raw = c.get('hosts', []) or []
+        sig_algo = (c.get('signatureAlgorithm', '') or '').lower()
+        key_size = c.get('keySize') or (c.get('publicKey') or {}).get('bitSize') or 0
+        key_algo = (c.get('keyAlgorithm', '') or (c.get('publicKey') or {}).get('algorithm', '') or '').upper()
+        grade = c.get('grade', '') or c.get('sslGrade', '') or ''
+        valid_to = c.get('validTo', '')
+
+        for h in hosts_raw[:5]:
+            hostname = h.get('hostname', '') or ''
+            tls_version = h.get('protocol', '') or h.get('tlsVersion', '') or h.get('sslProtocol', '') or ''
+            port = h.get('port', '')
+
+            key = f"{hostname}:{port}:{tls_version}"
+            if key in seen:
+                continue
+            seen.add(key)
+
+            entry = {
+                'hostname': hostname,
+                'port': port,
+                'tlsVersion': tls_version,
+                'subject': subject_cn,
+                'grade': grade,
+                'expiryDate': valid_to[:10] if valid_to else '',
+            }
+            if sig_algo:
+                entry['signatureAlgorithm'] = sig_algo
+            if key_size:
+                entry['keyInfo'] = f"{key_algo} {key_size}-bit" if key_algo else f"{key_size}-bit"
+
+            issues = []
+            tls_lower = tls_version.lower()
+            if 'tls1.0' in tls_lower or 'tlsv1.0' in tls_lower or tls_lower == 'tls 1.0' or 'ssl' in tls_lower:
+                issues.append('Deprecated TLS 1.0 / SSLv3')
+            elif 'tls1.1' in tls_lower or 'tlsv1.1' in tls_lower or tls_lower == 'tls 1.1':
+                issues.append('Deprecated TLS 1.1')
+            if 'sha1' in sig_algo or 'md5' in sig_algo:
+                issues.append(f'Weak signature: {sig_algo}')
+            if issues:
+                entry['issues'] = issues
+            servers.append(entry)
+
+    servers.sort(key=lambda s: s.get('hostname', ''))
+    result = {
+        'total': len(servers),
+        'filters': {
+            'protocol': protocol_filter,
+            'weakCiphers': weak_ciphers,
+            'insecureRenegotiation': insecure_renegotiation,
+        },
+        'servers': servers[:limit],
+    }
+    out = _with_meta(result, 'servers', len(servers))
+    return _apply_detail_level(out, detail, list_keys=['servers'])
+
+
+# ---------------------------------------------------------------------------
 # webapp_vulns
 # ---------------------------------------------------------------------------
 
