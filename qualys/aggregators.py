@@ -531,6 +531,42 @@ def _format_vmdr_as_etm_findings(det_tuples):
     capped_findings = findings[:200]
     top_cves = sorted(by_cve.items(), key=lambda x: (-x[1]['count'], -x[1]['severity']))[:20]
 
+    # -- Vulnerability age metrics --
+    now = datetime.now(timezone.utc)
+    ages = []
+    oldest_unpatched = None
+    oldest_age = 0
+    over_30 = over_60 = over_90 = 0
+    for d, kb, cves_list, is_patchable in det_tuples:
+        ff = d.get('first_found', '')
+        if not ff:
+            continue
+        try:
+            found_dt = datetime.fromisoformat(str(ff).replace('Z', '+00:00'))
+            age_days = (now - found_dt).days
+        except (ValueError, TypeError):
+            continue
+        ages.append(age_days)
+        if age_days > 30:
+            over_30 += 1
+        if age_days > 60:
+            over_60 += 1
+        if age_days > 90:
+            over_90 += 1
+        if not is_patchable and age_days > oldest_age:
+            oldest_age = age_days
+            oldest_unpatched = {'title': (kb.get('title', '') or '')[:80], 'ageDays': age_days,
+                                'qid': d.get('qid', 0)}
+
+    vuln_age = {
+        'avgAgeDays': round(sum(ages) / len(ages)) if ages else 0,
+        'over30d': over_30,
+        'over60d': over_60,
+        'over90d': over_90,
+    }
+    if oldest_unpatched:
+        vuln_age['oldestUnpatched'] = oldest_unpatched
+
     result = {
         'reportStatus': 'COMPLETED',
         'findings': capped_findings,
@@ -542,6 +578,7 @@ def _format_vmdr_as_etm_findings(det_tuples):
             'patchable': patchable,
             'bySeverity': {f'sev{k}': v for k, v in sorted(by_severity.items(), reverse=True)},
         },
+        'vulnAge': vuln_age,
         'topCVEs': [{'cve': cve, 'qid': info.get('qid', ''), 'assets': info['count'], 'severity': info['severity'], 'title': info['title'][:80]} for cve, info in top_cves],
     }
 
@@ -1864,6 +1901,40 @@ def eliminate_status(detail: str = "standard", status: str = "") -> dict:
         'total': len(etm_mits),
     }
 
+    # -- SLA summary: how many completed jobs finished within 30d / 60d of creation --
+    sla_within_30 = sla_within_60 = sla_over_30 = sla_over_60 = 0
+    for platform in ['windows', 'linux']:
+        for job_key in (f'{platform}_pm_jobs', f'{platform}_mtg_jobs'):
+            for j in (concurrent.get(job_key) or []):
+                status = (j.get('status') or '').lower()
+                if status not in ('completed', 'failed'):
+                    continue
+                created = j.get('createdDate') or j.get('created') or ''
+                completed = j.get('completedDate') or j.get('lastExecutedDate') or j.get('updatedDate') or ''
+                if not created or not completed:
+                    continue
+                try:
+                    c_dt = datetime.fromisoformat(str(created).replace('Z', '+00:00'))
+                    d_dt = datetime.fromisoformat(str(completed).replace('Z', '+00:00'))
+                    elapsed = (d_dt - c_dt).days
+                except (ValueError, TypeError):
+                    continue
+                if elapsed <= 30:
+                    sla_within_30 += 1
+                elif elapsed <= 60:
+                    sla_within_60 += 1
+                if elapsed > 30:
+                    sla_over_30 += 1
+                if elapsed > 60:
+                    sla_over_60 += 1
+
+    result['slaSummary'] = {
+        'within_30d': sla_within_30,
+        'within_60d': sla_within_30 + sla_within_60,
+        'overdue_30d': sla_over_30,
+        'overdue_60d': sla_over_60,
+    }
+
     # -- Summary --
     success_str = result['deploymentSuccessRate']['overall']['rate']
     technique_str = ', '.join(f'{t}: {c}' for t, c in sorted(technique_counts.items())) if technique_counts else 'none loaded'
@@ -1875,6 +1946,7 @@ def eliminate_status(detail: str = "standard", status: str = "") -> dict:
         f'Patch catalog: {total_catalog:,} patches available. '
         f'Patches deployed: {total_deployed:,}, missing: {total_missing:,}. '
         f'Mitigation catalog: {len(etm_mits)} techniques ({technique_str}). '
+        f'SLA: {sla_within_30} jobs within 30d, {sla_over_30} overdue >30d, {sla_over_60} overdue >60d. '
         f'Use Patch to eliminate risk by deploying fixes. '
         f'Use Mitigate to apply compensating controls when no patch exists.'
     )
@@ -3960,7 +4032,7 @@ def scan_status(state: str = "Running,Paused,Queued,Error", days: int = 7, limit
 # ---------------------------------------------------------------------------
 
 def asset_inventory(query: str = "", tag: str = "", os: str = "", days_since_seen: int = 0,
-                    eol_only: bool = False, limit: int = 50,
+                    days_since_scan: int = 0, eol_only: bool = False, limit: int = 50,
                     list_tags: bool = False, list_groups: bool = False,
                     detail: str = "standard") -> dict:
     """Asset inventory search — find assets by OS, tag, keyword, EOL status, or staleness."""
@@ -4024,12 +4096,15 @@ def asset_inventory(query: str = "", tag: str = "", os: str = "", days_since_see
 
     f = filters if filters else None
     data = _run_concurrent(
-        assets=lambda: csam_search(filters=f, limit=limit, fetch_all=False,
-                                   fields="assetName,dnsName,netbiosName,address,lastModifiedDate,operatingSystem,hardware,tags,vulnerabilities,tagList,riskScore,criticality"),
+        assets=lambda: csam_search(filters=f, limit=limit if not days_since_scan else limit * 3, fetch_all=False,
+                                   fields="assetName,dnsName,netbiosName,address,lastModifiedDate,lastVmScannedDate,operatingSystem,hardware,tags,vulnerabilities,tagList,riskScore,criticality"),
         total=lambda: csam_count(filters=f),
     )
     assets = data.get('assets', [])
     total_count = data.get('total', len(assets))
+
+    now = datetime.now(timezone.utc)
+    scan_cutoff = (now - timedelta(days=days_since_scan)) if days_since_scan > 0 else None
 
     summary = {'total': total_count, 'returned': len(assets), 'byOS': {}, 'byTag': {}, 'eolCount': 0}
     result_assets = []
@@ -4039,6 +4114,25 @@ def asset_inventory(query: str = "", tag: str = "", os: str = "", days_since_see
         os_name = os_info.get('osName', '') or 'Unknown'
         lifecycle = (os_info.get('lifecycle', {}) or {}).get('stage', '')
         is_eol = is_eol_stage(lifecycle)
+
+        # Extract last scan date
+        last_scanned_raw = a.get('lastVmScannedDate', '') or ''
+        last_scanned = short_date(last_scanned_raw)
+        days_since = None
+        if last_scanned_raw:
+            try:
+                scan_dt = datetime.fromisoformat(last_scanned_raw.replace('Z', '+00:00'))
+                days_since = (now - scan_dt).days
+            except (ValueError, TypeError):
+                pass
+
+        # Apply days_since_scan filter: skip assets scanned recently enough
+        if scan_cutoff:
+            if days_since is not None and days_since < days_since_scan:
+                continue
+            # Also skip if no scan date and filter is active (can't confirm staleness)
+            if days_since is None and last_scanned_raw:
+                continue
 
         if is_eol:
             summary['eolCount'] += 1
@@ -4057,19 +4151,25 @@ def asset_inventory(query: str = "", tag: str = "", os: str = "", days_since_see
         vulns_info = a.get('vulnerabilities', {}) or {}
         open_vulns = vulns_info.get('count', 0) or 0
 
-        result_assets.append({
+        asset_entry = {
             'id': a.get('assetId', ''),
             'name': a.get('assetName', '') or a.get('dnsName', '') or a.get('netbiosName', ''),
             'ip': a.get('address', '') or a.get('ipAddress', ''),
             'os': os_name,
             'lastSeen': short_date(a.get('lastModifiedDate', '') or a.get('sensorLastUpdatedDate', '')),
+            'lastScanned': last_scanned or 'Never',
             'tags': asset_tags,
             'truRiskScore': a.get('riskScore', 0) or a.get('truRiskScore', 0) or 0,
             'openVulns': open_vulns,
             'eolStatus': lifecycle if lifecycle else 'Active',
-        })
+        }
+        if days_since is not None:
+            asset_entry['daysSinceScan'] = days_since
+        result_assets.append(asset_entry)
 
     result_assets.sort(key=lambda x: -x['truRiskScore'])
+    result_assets = result_assets[:limit]
+    summary['returned'] = len(result_assets)
     out = compact({
         'summary': summary, 'assets': result_assets,
         '_meta': {'returned': len(result_assets), 'total': total_count, 'truncated': len(result_assets) < total_count},
