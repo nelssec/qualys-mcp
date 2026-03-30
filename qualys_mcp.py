@@ -37,6 +37,7 @@ from qualys.aggregators import (
     asset_inventory,
     vuln_exceptions,
     compliance_posture,
+    list_compliance_frameworks,
     trurisk_score,
     reports_agg,
     summarize_investigation_agg,
@@ -702,21 +703,26 @@ def get_vuln_exceptions(status: str = "Active", vuln_type: str = "", days_to_exp
 
 @mcp.tool()
 def get_compliance_posture(framework: str = "", platform: str = "", limit: int = 20,
-                           detail: str = "standard") -> dict:
-    """[PC] Qualys Policy Compliance posture — pass/fail rates, top failing controls, and per-framework breakdown (CIS, PCI-DSS, HIPAA, NIST, SOC2, ISO27001).
+                           detail: str = "standard", mode: str = "") -> dict:
+    """[PC] Qualys Policy Compliance posture — pass/fail rates, top failing controls, and per-framework breakdown.
 
     USE WHEN: "are we passing CIS benchmarks?", compliance posture audit, audit readiness, or framework-specific control status. Covers on-prem and host-level compliance.
     DO NOT USE WHEN: Checking cloud-specific CIS compliance, querying vulnerability findings, or checking certificate compliance.
     PREFER INSTEAD: get_cloud_risk for cloud CIS compliance (TotalCloud); get_etm_findings for vulnerability findings; get_expiring_certs for certificate compliance.
 
+    Common frameworks: CIS Benchmark, DISA STIG. Others (PCI-DSS, HIPAA, NIST, ISO 27001, SOC 2) may not be configured — use mode="list_frameworks" to discover what is available on this tenant.
+
     Parameters:
-        framework: filter by framework name substring (e.g. 'CIS', 'PCI', 'HIPAA', 'NIST'). Empty = all.
+        framework: filter by framework name substring (e.g. 'CIS', 'PCI', 'HIPAA', 'NIST'). Empty = all. Use 'list' to discover available frameworks/policies on this tenant.
         platform: filter by platform (e.g. 'Linux', 'Windows'). Empty = all.
         limit: max failing controls to return (default 20)
+        mode: set to "list_frameworks" to list available frameworks instead of querying posture data.
 
-    Returns: summary (totalControls, passing, failing, passRate, affectedAssets, frameworks), topFailingControls (list with controlId, title, framework, failingAssets, severity), byFramework (pass rate per framework).
+    Returns: summary (totalControls, passing, failing, passRate, affectedAssets, frameworks), topFailingControls (list with controlId, title, framework, failingAssets, severity), byFramework (pass rate per framework). If the requested framework is not configured, returns error='not_configured' with available frameworks and a suggestion. Use mode="list_frameworks" to discover what frameworks are configured on this tenant.
 
     Performance: ~5s cold. Falls back to cloud compliance if PC module not licensed."""
+    if mode == "list_frameworks":
+        return list_compliance_frameworks()
     return compliance_posture(framework=framework, platform=platform, limit=limit, detail=detail)
 
 
@@ -729,9 +735,9 @@ def get_compliance_summary(framework: str = "") -> dict:
     PREFER INSTEAD: get_compliance_posture for detailed failing controls and per-control breakdown.
 
     Parameters:
-        framework: filter by framework name substring (e.g. 'CIS', 'PCI', 'HIPAA', 'NIST'). Empty = all.
+        framework: filter by framework name substring (e.g. 'CIS', 'PCI', 'HIPAA', 'NIST'). Empty = all. Use 'list' to discover available frameworks.
 
-    Returns: summary (totalControls, passing, failing, passRate, frameworks), byFramework (pass rate per framework).
+    Returns: summary (totalControls, passing, failing, passRate, frameworks), byFramework (pass rate per framework). Returns error with available frameworks if requested framework is not configured.
 
     Performance: <5s (cached). Uses v4 instances summary endpoint."""
     result = compliance_posture(framework=framework, limit=5, detail="brief")
