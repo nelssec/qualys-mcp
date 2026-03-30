@@ -2471,7 +2471,7 @@ def qid_details(qids: str, detail: str = "standard") -> dict:
 
 
 def cloud_account_summary(provider: str = 'all', detail: str = "standard") -> dict:
-    """Per-account evaluation counts across all cloud providers. Fast (pageSize=1 per account)."""
+    """Per-account fail rates and top failing controls across cloud providers."""
     from qualys.cache import disk_cache, TTL_CLOUD
     cache_key = f"cloud_account_summary_{provider}"
     cached = disk_cache.get(cache_key)
@@ -2501,33 +2501,55 @@ def cloud_account_summary(provider: str = 'all', detail: str = "standard") -> di
     if not accounts:
         return compact({'accounts': [], 'message': 'No cloud connectors configured.', '_meta': {'returned': 0, 'total': 0, 'truncated': False}})
 
-    # Fetch eval counts concurrently (pageSize=1 for speed)
-    count_tasks = {
-        f"{a['provider']}_{a['id']}": (lambda a=a: get_evaluation_count(a['id'], a['provider']))
+    # Fetch evaluations per account (limit 100 for fail rates + top controls)
+    eval_tasks = {
+        f"evals_{a['provider']}_{a['id']}": (lambda a=a: get_evaluations(a['id'], a['provider'], 200))
         for a in accounts
     }
-    count_results = _run_concurrent(**count_tasks)
+    eval_results = _run_concurrent(**eval_tasks)
 
     ranked = []
     for a in accounts:
-        key = f"{a['provider']}_{a['id']}"
-        counts = count_results.get(key)
-        total = counts.get('total', 0) if counts else 0
+        key = f"evals_{a['provider']}_{a['id']}"
+        evals = eval_results.get(key) or []
+        total_failed = 0
+        total_passed = 0
+        control_fails = {}  # controlName -> failedResources
+        for e in evals:
+            fr = e.get('failedResources', 0) or 0
+            pr = e.get('passedResources', 0) or 0
+            total_failed += fr
+            total_passed += pr
+            if (e.get('result') or '').upper() in ('FAIL', 'FAILED') and fr > 0:
+                cname = e.get('controlName', '') or e.get('controlId', '')
+                control_fails[cname] = control_fails.get(cname, 0) + fr
+
+        total_resources = total_failed + total_passed
+        fail_rate = round(total_failed / total_resources * 100, 1) if total_resources > 0 else 0.0
+        top_controls = [
+            {'controlName': name, 'failedResources': count}
+            for name, count in sorted(control_fails.items(), key=lambda x: -x[1])[:3]
+        ]
+
         ranked.append({
             'accountId': a['id'],
             'provider': a['provider'].upper(),
             'name': a['name'],
-            'totalEvaluations': total,
+            'failRate': f"{fail_rate}%",
+            'failedResources': total_failed,
+            'passedResources': total_passed,
+            'totalEvaluations': len(evals),
+            'topFailedControls': top_controls,
         })
 
-    ranked.sort(key=lambda x: -x['totalEvaluations'])
+    ranked.sort(key=lambda x: -float(x['failRate'].rstrip('%')))
 
     result = {
         'accounts': ranked,
         'totalAccounts': len(ranked),
         '_meta': {'returned': len(ranked), 'total': len(ranked), 'truncated': False},
         '_followups': [
-            f"{len(ranked)} cloud accounts found — use get_cloud_controls(provider, service, account_id) to drill into specific services.",
+            f"{len(ranked)} cloud accounts ranked by fail rate — use get_cloud_controls(provider, service, account_id) to drill into specific services.",
         ],
     }
     result = compact(result)
@@ -2621,8 +2643,15 @@ def cloud_controls(provider: str = 'all', service: str = '', result_filter: str 
         by_service[svc] = by_service.get(svc, 0) + 1
     by_service = dict(sorted(by_service.items(), key=lambda x: -x[1]))
 
+    # Calculate pass_rate across returned controls
+    total_failed_res = sum(c.get('failedResources', 0) for c in controls)
+    total_passed_res = sum(c.get('passedResources', 0) for c in controls)
+    total_res = total_failed_res + total_passed_res
+    pass_rate = round(total_passed_res / total_res * 100, 1) if total_res > 0 else 0.0
+
     res = {
         'controls': controls,
+        'passRate': f"{pass_rate}%",
         'byService': by_service,
         'totalReturned': len(controls),
         'filters': {'provider': provider, 'service': service or 'all', 'result': result_filter, 'accountId': account_id or 'all'},
@@ -2642,6 +2671,15 @@ def cloud_controls(provider: str = 'all', service: str = '', result_filter: str 
 
 
 def cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7, per_account: bool = False, detail: str = "standard") -> dict:
+    from qualys.cache import disk_cache, TTL_CLOUD
+    cache_key = f"cloud_risk_{limit}_{include_threats}_{days}_{per_account}"
+    cached = disk_cache.get(cache_key)
+    if cached is not None:
+        _log("cloud_risk: disk cache hit")
+        cached = dict(cached)
+        cached['cacheAge'] = disk_cache.age(cache_key) or 0
+        return compact(cached)
+
     result = {'accounts': [], 'failedControls': [], 'threats': [], 'stats': {'total': 0, 'critical': 0, 'high': 0, 'medium': 0, 'low': 0}}
 
     connector_results = _run_concurrent(
@@ -2706,16 +2744,27 @@ def cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7, per
     eval_results = _run_concurrent(**eval_tasks)
 
     fails = {}
+    control_names = {}
+    total_failed_res = 0
+    total_passed_res = 0
     for p in first_accounts:
         evals = eval_results.get(f'evals_{p}') or []
         for e in evals:
+            fr = e.get('failedResources', 0) or 0
+            pr = e.get('passedResources', 0) or 0
+            total_failed_res += fr
+            total_passed_res += pr
             if e.get('result') in ['FAIL', 'FAILED']:
                 cid = e.get('controlId', '')
-                fails[cid] = fails.get(cid, 0) + 1
+                fails[cid] = fails.get(cid, 0) + fr
+                if cid not in control_names:
+                    control_names[cid] = e.get('controlName', '') or cid
     result['failedControls'] = [
-        {'id': c, 'count': n}
+        {'id': c, 'controlName': control_names.get(c, c), 'failedResources': n}
         for c, n in sorted(fails.items(), key=lambda x: x[1], reverse=True)[:limit]
     ]
+    total_res = total_failed_res + total_passed_res
+    result['overallPassRate'] = f"{round(total_passed_res / total_res * 100, 1)}%" if total_res > 0 else "N/A"
 
     if include_threats:
         cdr_result = eval_results.get('cdr')
@@ -2809,6 +2858,7 @@ def cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7, per
     result['_followups'] = followups
 
     result = compact(result)
+    disk_cache.set(cache_key, result, TTL_CLOUD)
     return _apply_detail_level(result, detail, list_keys=['threats', 'failedControls', 'accounts', 'perAccount'])
 
 
