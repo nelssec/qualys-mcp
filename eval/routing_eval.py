@@ -215,6 +215,44 @@ ROUTING_CASES: list[RoutingCase] = [
         "Coverage check for top vulns list",
         wrong_tools=["get_eliminate_status"],
     ),
+
+    # Outstanding patches
+    RoutingCase(
+        "What Windows patches are outstanding?",
+        "get_outstanding_patches",
+        "Outstanding Windows patches list",
+        wrong_tools=["get_eliminate_status", "get_patch_status"],
+    ),
+    RoutingCase(
+        "Which patches require a reboot?",
+        "get_outstanding_patches",
+        "Reboot-required patches",
+        wrong_tools=["get_eliminate_status"],
+    ),
+    RoutingCase(
+        "What critical patches are missing?",
+        "get_outstanding_patches",
+        "Missing critical patches by severity",
+        wrong_tools=["get_eliminate_status", "get_patch_status"],
+    ),
+    RoutingCase(
+        "What security patches need to be deployed?",
+        "get_outstanding_patches",
+        "Outstanding security patches",
+        wrong_tools=["get_eliminate_status"],
+    ),
+    RoutingCase(
+        "How many patches are outstanding on Linux?",
+        "get_outstanding_patches",
+        "Linux outstanding patch count",
+        wrong_tools=["get_eliminate_status"],
+    ),
+    RoutingCase(
+        "List the top missing patches by severity.",
+        "get_outstanding_patches",
+        "Missing patches sorted by severity",
+        wrong_tools=["get_eliminate_status", "get_patch_status"],
+    ),
 ]
 
 

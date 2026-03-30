@@ -13,6 +13,7 @@ from qualys.aggregators import (
     search_vulns_agg,
     recommendations,
     eliminate_status,
+    outstanding_patches,
     eliminate_coverage,
     scanner_health,
     etm_findings,
@@ -182,9 +183,9 @@ def get_recommendations(detail: str = "standard") -> dict:
 def get_eliminate_status(status: str = "", detail: str = "standard") -> dict:
     """[TruRisk Eliminate] Patch deployment status — deployed/missing patch counts, PM jobs, MTG jobs, patch catalog, deployment success rates, mitigation technique breakdown, and managed assets for Windows and Linux.
 
-    USE WHEN: "how many patches are deployed vs missing?", "what patches failed to deploy?", "what's the success rate of our patch deployments?", "what mitigation techniques are being used?", "which assets are missing critical patches?", "what Windows patches are outstanding?", "what patches are deploying right now?", "are patches deploying?", "how many mitigation jobs are running?", "what's our patch catalog size?", or checking active risk elimination progress.
-    DO NOT USE WHEN: Assessing overall risk posture by TruRisk tier (use get_patch_status), checking single-asset patch status (use get_asset), or checking mitigation coverage for specific QIDs/CVEs (use get_eliminate_coverage).
-    PREFER INSTEAD: get_patch_status when "how is our patching going?" (TruRisk coverage/gaps); get_asset for per-asset details; get_eliminate_coverage when checking which vulns have mitigations available.
+    USE WHEN: "how many patches are deployed vs missing?", "what patches failed to deploy?", "what's the success rate of our patch deployments?", "what mitigation techniques are being used?", "what patches are deploying right now?", "are patches deploying?", "how many mitigation jobs are running?", "what's our patch catalog size?", or checking active risk elimination progress.
+    DO NOT USE WHEN: Assessing overall risk posture by TruRisk tier (use get_patch_status), checking single-asset patch status (use get_asset), checking mitigation coverage for specific QIDs/CVEs (use get_eliminate_coverage), or listing outstanding/missing patches by name (use get_outstanding_patches).
+    PREFER INSTEAD: get_patch_status when "how is our patching going?" (TruRisk coverage/gaps); get_asset for per-asset details; get_eliminate_coverage when checking which vulns have mitigations available; get_outstanding_patches for "what patches are outstanding?", "which patches need to be deployed?", "missing patches by severity".
 
     Parameters:
         status: filter jobs by status (e.g. "Failed", "Completed", "Running"). "Running" returns in-progress jobs. Empty = all jobs. Status is passed to the API for server-side filtering.
@@ -193,6 +194,27 @@ def get_eliminate_status(status: str = "", detail: str = "standard") -> dict:
 
     Performance: ~5s cold / ~3s warm (parallel PM+MTG+catalog queries)."""
     return eliminate_status(status=status, detail=detail)
+
+
+@mcp.tool()
+def get_outstanding_patches(platform: str = "", severity: str = "", security_only: bool = False, reboot_only: bool = False, limit: int = 30, detail: str = "standard") -> dict:
+    """[Patch Management] Outstanding (missing) patches — patch names, missing counts, severity, security flag, reboot requirement, and CVEs addressed.
+
+    USE WHEN: "what patches are outstanding?", "which Windows patches are missing?", "what security patches need to be deployed?", "which patches require a reboot?", "what critical patches are outstanding?", "list missing patches by severity", "what patches are we missing on Linux?", "how many patches are outstanding?", "what are the top missing patches?".
+    DO NOT USE WHEN: Checking deployment job status (use get_eliminate_status), checking overall risk posture (use get_patch_status), or checking mitigation coverage for specific QIDs/CVEs (use get_eliminate_coverage).
+    PREFER INSTEAD: get_eliminate_status for deployment jobs and success rates; get_patch_status for TruRisk coverage/gaps; get_eliminate_coverage for mitigation availability.
+
+    Parameters:
+        platform: filter by platform — "Windows", "Linux", or "" for all.
+        severity: filter by vendor severity — "Critical", "Important", "Moderate", or "" for all.
+        security_only: if true, only return security patches (isSecurity=true).
+        reboot_only: if true, only return patches that require a reboot.
+        limit: max patches to return (default 30).
+
+    Returns: patches (list with title, platform, missingCount, installedCount, vendorSeverity, isSecurity, rebootRequired, category, cves, kb), total, bySeverity, byPlatform, securityPatches, nonSecurityPatches, rebootRequired count, summary.
+
+    Performance: ~3s cold / ~2s warm (parallel per-platform queries)."""
+    return outstanding_patches(platform=platform, severity=severity, security_only=security_only, reboot_only=reboot_only, limit=limit, detail=detail)
 
 
 @mcp.tool()

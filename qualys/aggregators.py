@@ -1883,6 +1883,115 @@ def eliminate_status(detail: str = "standard", status: str = "") -> dict:
     return _apply_detail_level(result, detail)
 
 
+def outstanding_patches(platform: str = "", severity: str = "",
+                        security_only: bool = False, reboot_only: bool = False,
+                        limit: int = 30, detail: str = "standard") -> dict:
+    """Fetch outstanding (missing) patches from PM module with grouping and filters."""
+    platforms = []
+    if platform:
+        platforms = [platform.capitalize()]
+    else:
+        platforms = ['Windows', 'Linux']
+
+    tasks = {}
+    for p in platforms:
+        tasks[f'{p.lower()}_patches'] = lambda p=p: get_pm_patches(p, status='Missing', page_size=50)
+
+    concurrent = _run_concurrent(**tasks)
+
+    all_patches = []
+    for p in platforms:
+        patches = concurrent.get(f'{p.lower()}_patches') or []
+        for patch in patches:
+            patch['_platform'] = p
+        all_patches.extend(patches)
+
+    if not all_patches:
+        return _with_meta({
+            'message': 'No outstanding patches found, or Patch Management module is not enabled.',
+            'patches': [],
+            'summary': 'No outstanding patches found.',
+        })
+
+    # Apply filters
+    filtered = all_patches
+    if severity:
+        sev = severity.capitalize()
+        filtered = [p for p in filtered if (p.get('vendorSeverity') or '').capitalize() == sev]
+    if security_only:
+        filtered = [p for p in filtered if p.get('isSecurity')]
+    if reboot_only:
+        filtered = [p for p in filtered if p.get('rebootRequired')]
+
+    # Sort by missingCount descending
+    filtered.sort(key=lambda p: p.get('missingCount', 0), reverse=True)
+    top_patches = filtered[:limit]
+
+    # Build groupings
+    by_severity = {}
+    security_count = 0
+    nonsecurity_count = 0
+    reboot_count = 0
+    for p in filtered:
+        sev = p.get('vendorSeverity') or 'Unspecified'
+        by_severity[sev] = by_severity.get(sev, 0) + 1
+        if p.get('isSecurity'):
+            security_count += 1
+        else:
+            nonsecurity_count += 1
+        if p.get('rebootRequired'):
+            reboot_count += 1
+
+    by_platform = {}
+    for p in filtered:
+        plat = p.get('_platform', 'Unknown')
+        by_platform[plat] = by_platform.get(plat, 0) + 1
+
+    patch_list = []
+    for p in top_patches:
+        entry = {
+            'title': p.get('title', ''),
+            'platform': p.get('_platform', ''),
+            'missingCount': p.get('missingCount', 0),
+            'installedCount': p.get('installedCount', 0),
+            'vendorSeverity': p.get('vendorSeverity', ''),
+            'isSecurity': p.get('isSecurity', False),
+            'rebootRequired': p.get('rebootRequired', False),
+            'category': p.get('category', ''),
+        }
+        cves = p.get('cve') or p.get('cves') or []
+        if cves:
+            entry['cves'] = cves[:5]
+        kb = p.get('kb') or p.get('bulletin') or ''
+        if kb:
+            entry['kb'] = kb
+        patch_list.append(entry)
+
+    total = len(filtered)
+    top_missing = sum(p.get('missingCount', 0) for p in top_patches)
+    sev_str = ', '.join(f'{k}: {v}' for k, v in sorted(by_severity.items()))
+
+    result = {
+        'patches': patch_list,
+        'total': total,
+        'showing': len(patch_list),
+        'bySeverity': by_severity,
+        'byPlatform': by_platform,
+        'securityPatches': security_count,
+        'nonSecurityPatches': nonsecurity_count,
+        'rebootRequired': reboot_count,
+        'summary': (
+            f'{total} outstanding patches ({sev_str}). '
+            f'Security: {security_count}, non-security: {nonsecurity_count}. '
+            f'Reboot required: {reboot_count}. '
+            f'Top {len(patch_list)} patches affect {top_missing:,} asset-patch pairs.'
+        ),
+    }
+
+    result = _with_meta(result, 'patches', total)
+    return _apply_detail_level(result, detail, list_keys=['patches'])
+
+
 def eliminate_coverage(qids: list = None, cves: list = None, detail: str = "standard") -> dict:
     """Check which QIDs or CVEs have Eliminate mitigations available in the catalog."""
     if not qids and not cves:

@@ -1312,6 +1312,23 @@ def get_pm_assets(platform='Windows', limit=10):
         return []
 
 
+def get_pm_patches(platform='Windows', status=None, page_size=50):
+    """Get patch list from PM module, optionally filtered by status (e.g. Missing, Installed)."""
+    url = f"{GATEWAY_URL}/pm/v1/patches?platform={platform}&pageSize={page_size}"
+    if status:
+        url += f"&status={status}"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return []
+    try:
+        parsed = json.loads(data)
+        if isinstance(parsed, list):
+            return parsed
+        return parsed.get('patches', parsed.get('data', []))
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+
 def get_pm_job_summary(job_id):
     """Get deployment job result summary"""
     data = api_get(f"{GATEWAY_URL}/pm/v1/deploymentjob/{job_id}/deploymentjobresult/summary", gateway=True)
