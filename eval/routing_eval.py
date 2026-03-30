@@ -197,6 +197,24 @@ ROUTING_CASES: list[RoutingCase] = [
         "PM module details (get_pm_status deprecated, use get_eliminate_status)",
         wrong_tools=["get_patch_status"],
     ),
+    RoutingCase(
+        "Show me all in-progress patch jobs in Eliminate.",
+        "get_eliminate_status",
+        "In-progress Eliminate job status (status=Running)",
+        wrong_tools=["get_patch_status"],
+    ),
+    RoutingCase(
+        "Which vulnerabilities in our backlog have Eliminate mitigations?",
+        "get_eliminate_coverage",
+        "Coverage check for backlog vulns",
+        wrong_tools=["get_eliminate_status"],
+    ),
+    RoutingCase(
+        "Show me Eliminate catalog coverage for our top 50 vulns.",
+        "get_eliminate_coverage",
+        "Coverage check for top vulns list",
+        wrong_tools=["get_eliminate_status"],
+    ),
 ]
 
 

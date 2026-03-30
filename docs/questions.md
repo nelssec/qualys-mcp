@@ -205,12 +205,12 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 146. ✅ Are there any failed mitigation jobs?
 147. ✅ What vulnerabilities can be eliminated without patching?
 148. ✅ Show me all in-progress patch jobs in Eliminate.
-149. ⚠️ What's the success rate of our Eliminate patch deployments?
+149. ✅ What's the success rate of our Eliminate patch deployments?
 150. ⚠️ Which assets are targeted by current Eliminate jobs?
-151. ⚠️ What mitigation techniques are being used (registry, config, etc.)?
-152. ❌ Show me the Eliminate catalog coverage for our top 50 vulns.
-153. ❌ Which vulnerabilities in our backlog have Eliminate mitigations?
-154. ❌ How many QIDs does our current Eliminate catalog cover?
+151. ✅ What mitigation techniques are being used (registry, config, etc.)?
+152. ✅ Show me the Eliminate catalog coverage for our top 50 vulns.
+153. ✅ Which vulnerabilities in our backlog have Eliminate mitigations?
+154. ✅ How many QIDs does our current Eliminate catalog cover?
 155. ❌ What's the historical Eliminate job completion rate?
 156. ❌ Which Eliminate jobs failed and why?
 157. ❌ Show me Eliminate job results for the last 30 days.
@@ -740,7 +740,7 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 | Investigation Chaining | 10 | 7 | 3 | 0 | 85% |
 | Vulnerability Management | 90 | 58 | 14 | 18 | 72% |
 | Patch Management | 50 | 7 | 5 | 38 | 19% |
-| TruRisk Eliminate | 30 | 8 | 4 | 18 | 33% |
+| TruRisk Eliminate | 30 | 13 | 2 | 15 | 47% |
 | Cloud Security | 70 | 14 | 9 | 47 | 26% |
 | Container Security | 40 | 6 | 6 | 28 | 22% |
 | Web Application Security | 50 | 8 | 12 | 30 | 28% |
