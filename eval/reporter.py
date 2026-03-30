@@ -177,7 +177,8 @@ def cleanup_checkpoints(run_id: str) -> int:
 
 
 def save_results(
-    results: list[dict], summary: dict, run_date: str, model: str
+    results: list[dict], summary: dict, run_date: str, model: str,
+    timing: dict | None = None,
 ) -> Path:
     """Save results to eval_results/YYYY-MM-DD.json. Returns the file path."""
     RESULTS_DIR.mkdir(exist_ok=True)
@@ -202,6 +203,70 @@ def save_results(
         },
         "questions": results,
     }
+    if timing:
+        output["timing"] = timing
 
     result_file.write_text(json.dumps(output, indent=2))
     return result_file
+
+
+def parse_perf_log(path: str) -> dict:
+    """Parse MCP perf JSONL sidecar into cache/API summary counts."""
+    result = {"cache_hits_l1": 0, "cache_hits_l2": 0, "cache_misses": 0, "api_calls": {}}
+    try:
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                entry = json.loads(line)
+                event = entry.get("event")
+                if event == "cache_hit":
+                    level = entry.get("level", "L1")
+                    if level == "L1":
+                        result["cache_hits_l1"] += 1
+                    else:
+                        result["cache_hits_l2"] += 1
+                elif event == "cache_miss":
+                    result["cache_misses"] += 1
+                elif event == "api_call":
+                    provider = entry.get("provider", "unknown")
+                    result["api_calls"][provider] = result["api_calls"].get(provider, 0) + 1
+    except FileNotFoundError:
+        pass
+    return result
+
+
+def _fmt_duration(seconds: float) -> str:
+    """Format seconds into human-readable duration (e.g. '5h58m' or '42s')."""
+    if seconds < 60:
+        return f"{seconds:.0f}s"
+    minutes = int(seconds // 60)
+    secs = int(seconds % 60)
+    if minutes < 60:
+        return f"{minutes}m{secs}s" if secs else f"{minutes}m"
+    hours = minutes // 60
+    mins = minutes % 60
+    return f"{hours}h{mins:02d}m" if mins else f"{hours}h"
+
+
+def print_timing_summary(timing: dict) -> None:
+    """Print timing, cache, and API call summary table."""
+    total = _fmt_duration(timing["total_seconds"])
+    warmup = _fmt_duration(timing["warmup_seconds"])
+    avg = f"{timing['avg_per_question']}s/q"
+    p95 = f"{timing['p95_per_question']}s"
+    timeouts = timing["timeouts"]
+
+    print()
+    print(f"Timing:  total={total}  warmup={warmup}  avg={avg}  p95={p95}  timeouts={timeouts}")
+
+    l1 = timing.get("cache_hits_l1", 0)
+    l2 = timing.get("cache_hits_l2", 0)
+    miss = timing.get("cache_misses", 0)
+    print(f"Cache:   L1 hits={l1}  L2 hits={l2}  miss={miss}")
+
+    api = timing.get("api_calls", {})
+    if api:
+        parts = [f"{k.upper()}={v}" for k, v in sorted(api.items())]
+        print(f"APIs:    {'  '.join(parts)}")
