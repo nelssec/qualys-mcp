@@ -106,11 +106,11 @@ def investigate(topic: str, depth: str = "standard", prior_context: str = "", de
 
 @mcp.tool()
 def get_patch_status(limit: int = 20, tag: str = "", asset_group: str = "", detail: str = "standard") -> dict:
-    """[Patch Management] Patching coverage and gaps — TruRisk distribution across severity tiers and top unpatched assets ranked by risk.
+    """[Patch Posture] TruRisk-based patching coverage and gaps — risk distribution across severity tiers and top unpatched assets ranked by TruRisk score. This is a RISK POSTURE view from CSAM, NOT deployed/missing patch counts from the PM module.
 
-    USE WHEN: "how is our patching going?", "how many assets are unpatched?", assessing patch posture, or identifying top unpatched assets by risk tier.
-    DO NOT USE WHEN: Checking active patch job deployment, viewing PM job details per platform, or looking at single-asset patch details.
-    PREFER INSTEAD: get_eliminate_status when "what patches are deploying right now?" or active job status; get_asset for single-asset patch/vuln details.
+    USE WHEN: "how is our patching going?" (risk posture), "how many assets are unpatched?", assessing patch posture by TruRisk tier, or identifying top unpatched assets by risk score.
+    DO NOT USE WHEN: Asking about deployed vs missing patch counts, failed patch deployments, outstanding patches, or PM job status.
+    PREFER INSTEAD: get_eliminate_status when "how many patches are deployed vs missing?", "what patches failed?", "what Windows patches are outstanding?", or any PM job/deployment question; get_asset for single-asset patch/vuln details.
 
     Parameters:
         limit: max high-risk assets to return (default 20)
@@ -178,17 +178,20 @@ def get_recommendations(detail: str = "standard") -> dict:
 
 
 @mcp.tool()
-def get_eliminate_status(detail: str = "standard") -> dict:
-    """[TruRisk Eliminate] Active patch and mitigation deployment status — PM jobs, MTG jobs, patch catalog size, and managed asset counts for Windows and Linux.
+def get_eliminate_status(status: str = "", detail: str = "standard") -> dict:
+    """[TruRisk Eliminate] Patch deployment status — deployed/missing patch counts, PM jobs, MTG jobs, patch catalog, and managed assets for Windows and Linux.
 
-    USE WHEN: "what patches are deploying right now?", "are patches deploying?", "how many mitigation jobs are running?", "what's our patch catalog size?", or checking active risk elimination progress.
-    DO NOT USE WHEN: Assessing overall patch coverage by risk tier, viewing per-platform PM job details, or checking single-asset patch status.
-    PREFER INSTEAD: get_patch_status when "how is our patching going?" (coverage/gaps summary); get_asset for per-asset details.
+    USE WHEN: "how many patches are deployed vs missing?", "what patches failed to deploy?", "which assets are missing critical patches?", "what Windows patches are outstanding?", "what patches are deploying right now?", "are patches deploying?", "how many mitigation jobs are running?", "what's our patch catalog size?", or checking active risk elimination progress.
+    DO NOT USE WHEN: Assessing overall risk posture by TruRisk tier (use get_patch_status), or checking single-asset patch status (use get_asset).
+    PREFER INSTEAD: get_patch_status when "how is our patching going?" (TruRisk coverage/gaps); get_asset for per-asset details.
 
-    Returns: patchManagement (per-platform: totalJobs, activeJobs, byStatus, recentJobs, managedAssets), mitigations (per-platform: totalJobs, activeJobs, byStatus, recentJobs), patchCatalog (windows/linux totals and severity breakdown), summary.
+    Parameters:
+        status: filter jobs by status (e.g. "Failed", "Completed", "Running"). Empty = all jobs.
+
+    Returns: patchCounts (deployed/missing totals per platform), patchManagement (per-platform: totalJobs, activeJobs, byStatus, recentJobs, managedAssets), mitigations (per-platform: totalJobs, activeJobs, byStatus, recentJobs), patchCatalog (windows/linux totals and severity breakdown), summary.
 
     Performance: ~5s cold / ~3s warm (parallel PM+MTG+catalog queries)."""
-    return eliminate_status(detail=detail)
+    return eliminate_status(status=status, detail=detail)
 
 
 @mcp.tool()
