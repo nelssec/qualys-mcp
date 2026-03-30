@@ -34,6 +34,47 @@ from qualys.cache import (
 RETRY_STATUS = {429, 503, 502}
 KB_CONFLICT_RETRY_STATUS = {409}
 MAX_RETRIES = 4
+
+# ---------------------------------------------------------------------------
+# Performance logging (opt-in via MCP_PERF_LOG env var)
+# ---------------------------------------------------------------------------
+
+_PERF_LOG_PATH = os.environ.get("MCP_PERF_LOG")
+_PERF_LOG_LOCK = threading.Lock()
+
+
+def _perf_log(event: str, **fields):
+    """Append a JSONL entry to the perf log file (if MCP_PERF_LOG is set)."""
+    if not _PERF_LOG_PATH:
+        return
+    entry = {"event": event, "ts": time.time(), **fields}
+    try:
+        line = json.dumps(entry) + "\n"
+        with _PERF_LOG_LOCK:
+            with open(_PERF_LOG_PATH, "a") as f:
+                f.write(line)
+    except Exception:
+        pass
+
+
+def _provider_from_url(url: str) -> str:
+    """Detect Qualys API provider from URL path."""
+    if "/csam/" in url or "/cerberus/" in url:
+        return "csam"
+    if "/cloudview" in url:
+        return "cloudview"
+    if "/pm/" in url:
+        return "pm"
+    if "/etm/" in url:
+        return "etm"
+    if "qps.qualys.com" in url or "/qps/" in url:
+        return "vmdr"
+    if "/was/" in url:
+        return "was"
+    # Default: base URL means VMDR, gateway means csapi
+    if "/api/2.0/" in url:
+        return "vmdr"
+    return "csapi"
 KB_CONFLICT_MAX_RETRIES = 3
 KB_CONFLICT_BASE_DELAY = 3  # seconds
 KB_BUSY_MSG = "Knowledge base export is currently busy (concurrent request in progress). Please try again in a moment."
@@ -269,6 +310,7 @@ def _get_or_fetch(cache_dict, cache_time_dict, key, fetch_fn, ttl, disk_ttl=None
     now = datetime.now(timezone.utc)
     cached_time = cache_time_dict.get(key)
     if key in cache_dict and cached_time and (now - cached_time).total_seconds() < ttl:
+        _perf_log("cache_hit", key=key, level="L1")
         return cache_dict[key]
 
     # L2 disk cache check (before acquiring inflight lock)
@@ -278,6 +320,7 @@ def _get_or_fetch(cache_dict, cache_time_dict, key, fetch_fn, ttl, disk_ttl=None
             cache_dict[key] = disk_hit
             cache_time_dict[key] = datetime.now(timezone.utc)
             _log(f"Disk cache hit for {key}")
+            _perf_log("cache_hit", key=key, level="L2")
             return disk_hit
 
     with _inflight_lock:
@@ -305,6 +348,7 @@ def _get_or_fetch(cache_dict, cache_time_dict, key, fetch_fn, ttl, disk_ttl=None
         cache_time_dict[key] = datetime.now(timezone.utc)
         if disk_ttl is not None:
             disk_cache.set(key, result, disk_ttl)
+        _perf_log("cache_miss", key=key)
         return result
     finally:
         with _inflight_lock:
@@ -378,6 +422,8 @@ def get_bearer_token():
 
 
 def api_get(url, gateway=False, timeout=30, not_found_ok=False, server_error_sentinel=None):
+    provider = _provider_from_url(url)
+    _perf_log("api_call", provider=provider, endpoint=url.split("?")[0])
     for attempt in range(MAX_RETRIES):
         req = Request(url)
         if gateway:
@@ -429,6 +475,7 @@ def api_get(url, gateway=False, timeout=30, not_found_ok=False, server_error_sen
 
 def _csam_request(url, body, timeout=30):
     """POST to a CSAM endpoint with retry logic for 429/503/502."""
+    _perf_log("api_call", provider="csam", endpoint=url.split("?")[0])
     token = get_bearer_token()
     for attempt in range(CSAM_MAX_RETRIES):
         req = Request(url, data=body.encode(), method='POST')
@@ -479,6 +526,7 @@ def _is_etm_401(val):
 
 def etm_api(method, path, body=None, timeout=60):
     """Call ETM API. Returns parsed JSON, ETM_401_SENTINEL on 401, None on 404 or other errors."""
+    _perf_log("api_call", provider="etm", endpoint=path)
     token = get_bearer_token()
     url = f"{GATEWAY_URL}{path}"
     data = json.dumps(body).encode() if body else None
@@ -506,6 +554,7 @@ def etm_api(method, path, body=None, timeout=60):
 
 def etm_download(report_id, resource_name, timeout=60):
     """Download ETM report resource as parsed JSON list."""
+    _perf_log("api_call", provider="etm", endpoint=f"/etm/reports/{report_id}/{resource_name}")
     token = get_bearer_token()
     url = f"{GATEWAY_URL}/etm/api/rest/v1/reports/{report_id}/resources/{resource_name}"
     req = Request(url, method='GET')

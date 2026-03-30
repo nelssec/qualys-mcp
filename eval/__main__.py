@@ -15,6 +15,7 @@ import json as _json
 import os
 import random
 import sys
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -36,7 +37,9 @@ from .reporter import (
     compute_summary,
     get_previous_run,
     load_latest_checkpoint,
+    parse_perf_log,
     print_summary,
+    print_timing_summary,
     save_checkpoint,
     save_results,
 )
@@ -127,8 +130,14 @@ async def run_eval(args):
             print(f"Error: {var} not set")
             sys.exit(1)
 
+    # Set up perf logging sidecar
+    perf_log_path = f"/tmp/mcp_perf_{run_id}.jsonl"
+    os.environ["MCP_PERF_LOG"] = perf_log_path
+
     client = anthropic.Anthropic()
     server_params = get_server_params()
+
+    run_t0 = time.perf_counter()
 
     async with stdio_client(server_params) as (read_stream, write_stream):
         async with ClientSession(read_stream, write_stream) as session:
@@ -136,6 +145,8 @@ async def run_eval(args):
             tools = await get_mcp_tools(session)
             print(f"MCP server connected: {len(tools)} tools available")
             print()
+
+            warmup_seconds = round(time.perf_counter() - run_t0, 2)
 
             results = []
             sem = asyncio.Semaphore(args.concurrency)
@@ -161,6 +172,8 @@ async def run_eval(args):
                     variant_tag = f" (v{variant_index})" if variant_index > 0 else ""
                     print(f"{prefix} {q['category']} — {question_text[:60]}...{variant_tag}")
 
+                    q_t0 = time.perf_counter()
+                    timed_out = False
                     try:
                         resp = await asyncio.wait_for(
                             run_question(client, session, tools, question_text),
@@ -179,12 +192,14 @@ async def run_eval(args):
                             "score": "tool-error",
                             "reasoning": f"Question timed out after {QUESTION_TIMEOUT}s",
                         }
+                        timed_out = True
                     except Exception as e:
                         resp = {"response": "", "tool_calls": []}
                         judgment = {
                             "score": "tool-error",
                             "reasoning": f"Exception: {e}",
                         }
+                    elapsed = round(time.perf_counter() - q_t0, 2)
 
                     result = {
                         "id": q["id"],
@@ -198,12 +213,14 @@ async def run_eval(args):
                         "reasoning": judgment["reasoning"],
                         "tool_calls": resp["tool_calls"],
                         "response": resp["response"],
+                        "elapsed_seconds": elapsed,
+                        "timed_out": timed_out,
                     }
 
                     icon = {"correct": "✅", "partial": "⚠️", "wrong": "❌", "tool-error": "💥"}.get(
                         judgment["score"], "?"
                     )
-                    print(f"{prefix} {icon} {judgment['score']} — {judgment['reasoning'][:80]}")
+                    print(f"{prefix} {icon} {judgment['score']} ({elapsed:.1f}s) — {judgment['reasoning'][:80]}")
                     return result
 
             # MCP stdio transport is single-connection, so questions run sequentially
@@ -218,14 +235,42 @@ async def run_eval(args):
                     cp = save_checkpoint(all_results, now_ts, run_id, RUNNER_MODEL)
                     print(f"  💾 Checkpoint saved ({len(all_results)} questions) → {cp.name}")
 
+    total_seconds = round(time.perf_counter() - run_t0, 2)
+
     # Merge resumed results with new results for final output
     results = resumed_results + results
+
+    # Compute timing stats from per-question elapsed_seconds
+    elapsed_list = [r["elapsed_seconds"] for r in results if "elapsed_seconds" in r]
+    elapsed_sorted = sorted(elapsed_list) if elapsed_list else [0]
+    timeout_count = sum(1 for r in results if r.get("timed_out"))
+
+    def _percentile(sorted_vals, pct):
+        idx = int(len(sorted_vals) * pct / 100)
+        return sorted_vals[min(idx, len(sorted_vals) - 1)]
+
+    # Parse perf log for cache/API metrics
+    perf = parse_perf_log(perf_log_path)
+
+    timing = {
+        "total_seconds": total_seconds,
+        "warmup_seconds": warmup_seconds,
+        "avg_per_question": round(sum(elapsed_list) / len(elapsed_list), 1) if elapsed_list else 0,
+        "p50_per_question": round(_percentile(elapsed_sorted, 50), 1),
+        "p95_per_question": round(_percentile(elapsed_sorted, 95), 1),
+        "max_per_question": round(max(elapsed_list), 1) if elapsed_list else 0,
+        "timeouts": timeout_count,
+        "cache_hits_l1": perf["cache_hits_l1"],
+        "cache_hits_l2": perf["cache_hits_l2"],
+        "cache_misses": perf["cache_misses"],
+        "api_calls": perf["api_calls"],
+    }
 
     # Summarize and save
     summary = compute_summary(results)
     now = datetime.now(timezone.utc)
     run_date = now.strftime("%Y-%m-%d_%H%M%S")
-    result_file = save_results(results, summary, run_date, RUNNER_MODEL)
+    result_file = save_results(results, summary, run_date, RUNNER_MODEL, timing=timing)
     print(f"\nResults saved to {result_file}")
 
     # Clean up checkpoint files from this run on success
@@ -240,11 +285,19 @@ async def run_eval(args):
             result_file.parent.glob("*.json")
         )[-2].name if len(list(result_file.parent.glob("*.json"))) > 1 else "previous"
     print_summary(summary, run_date, result_file, prev_run)
+    print_timing_summary(timing)
 
     # Update questions file if requested
     if not args.no_update:
         update_questions_file(QUESTIONS_PATH, results)
         print(f"\nUpdated coverage tags in {QUESTIONS_PATH}")
+
+    # Clean up perf log sidecar
+    try:
+        os.unlink(perf_log_path)
+    except OSError:
+        pass
+    os.environ.pop("MCP_PERF_LOG", None)
 
     # Threshold check
     print(f"\n{'=' * 60}")
