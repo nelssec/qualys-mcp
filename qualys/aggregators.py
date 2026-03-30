@@ -3197,12 +3197,17 @@ def image_vulns(image_id: str, limit: int = 50, detail: str = "standard") -> dic
     )
 
     img = concurrent.get('img')
+    vulns = concurrent.get('vulns') or []
+
+    if not img and not vulns:
+        empty = _container_empty_response('image data')
+        empty['imageId'] = image_id
+        return empty
+
     if img:
         result['repo'] = img.get('repo', '')
         result['tag'] = img.get('tag', '')
         result['created'] = img.get('created', '')
-
-    vulns = concurrent.get('vulns') or []
     for v in vulns[:limit]:
         sev = v.get('severity', 0)
         if sev == 5:
@@ -3230,6 +3235,44 @@ def image_vulns(image_id: str, limit: int = 50, detail: str = "standard") -> dic
 
 
 # ---------------------------------------------------------------------------
+# _container_empty_response — graceful fallback when no container data exists
+# ---------------------------------------------------------------------------
+
+def _container_empty_response(context: str) -> dict:
+    """Build a descriptive empty response with vuln fallback context.
+
+    When containers/images return empty, this provides a useful response instead
+    of a bare empty dict. It attempts to fetch aggregate container vuln data from
+    /csapi/v1.3/vuln as fallback context.
+    """
+    result = {
+        'message': (
+            f'No {context} found. Container Security module is licensed but '
+            'no container agents are reporting data for this resource type.'
+        ),
+        'available_tools': [
+            'get_container_vuln_summary — image vulnerability ranking',
+            'get_image_vulns — deep dive into a specific image',
+            'get_running_containers — running container inventory',
+        ],
+    }
+
+    # Try vuln endpoint as fallback context
+    try:
+        vuln_ctx = get_container_vulns_summary()
+        if vuln_ctx and vuln_ctx.get('totalVulns'):
+            result['vulnContext'] = {
+                'note': 'Container vulnerability data IS available via the vuln database even though no live runtime data was returned.',
+                'totalContainerVulns': vuln_ctx['totalVulns'],
+                'severityBreakdown': vuln_ctx.get('severity', {}),
+            }
+    except Exception:
+        pass  # Best-effort fallback
+
+    return compact(result)
+
+
+# ---------------------------------------------------------------------------
 # container_vuln_summary
 # ---------------------------------------------------------------------------
 
@@ -3237,8 +3280,7 @@ def container_vuln_summary(limit: int = 20, detail: str = "standard") -> dict:
     """Top container images ranked by critical vulnerability count with severity breakdown."""
     images = get_images_by_vulns(limit=limit)
     if not images:
-        return compact({'error': 'No container images found — Container Security may not be enabled.',
-                        'images': [], 'summary': {}})
+        return _container_empty_response('container images')
 
     ranked = []
     totals = {'critical': 0, 'high': 0, 'medium': 0, 'low': 0, 'total': 0, 'patchable': 0}
@@ -3299,6 +3341,9 @@ def running_containers(limit: int = 50, detail: str = "standard") -> dict:
 
     containers = concurrent.get('containers') or []
     images_list = concurrent.get('images') or []
+
+    if not containers and not images_list:
+        return _container_empty_response('running containers')
 
     # Build image vuln lookup by imageId
     img_vulns = {}
