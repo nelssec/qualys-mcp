@@ -4324,9 +4324,76 @@ def vuln_exceptions(status: str = "Active", vuln_type: str = "", days_to_expiry:
 # compliance_posture
 # ---------------------------------------------------------------------------
 
+def _get_available_policy_titles() -> list[str]:
+    """Fetch policy titles from the compliance API and return a list of title strings (cached)."""
+    from qualys.cache import disk_cache, TTL_COMPLIANCE
+    _cache_key = "policy_titles_all"
+    cached = disk_cache.get(_cache_key)
+    if cached is not None:
+        return cached
+
+    titles: list[str] = []
+    policy_data = api_get(f"{BASE_URL}/api/4.0/fo/compliance/policy/?action=list", timeout=120)
+    if policy_data:
+        try:
+            root = ET.fromstring(policy_data if isinstance(policy_data, (str, bytes)) else policy_data)
+            for policy in (root.findall('.//POLICY') or root.findall('.//COMPLIANCE_POLICY') or []):
+                ptitle = policy.findtext('TITLE', '') or policy.findtext('NAME', '') or ''
+                if ptitle:
+                    titles.append(ptitle)
+        except ET.ParseError:
+            _log("Available frameworks: policy list returned non-XML")
+
+    if titles:
+        disk_cache.set(_cache_key, titles, TTL_COMPLIANCE)
+    return titles
+
+
+def _detect_framework_families(titles: list[str]) -> list[str]:
+    """Detect framework families (CIS Benchmark, DISA STIG, etc.) from policy titles."""
+    families: set[str] = set()
+    for title in titles:
+        t = title.upper()
+        if 'CIS' in t:
+            families.add('CIS Benchmark')
+        if 'DISA' in t or 'STIG' in t:
+            families.add('DISA STIG')
+        if 'PCI' in t and 'DSS' in t:
+            families.add('PCI-DSS')
+        if 'HIPAA' in t:
+            families.add('HIPAA')
+        if 'NIST' in t:
+            families.add('NIST')
+        if 'ISO' in t and '27001' in t:
+            families.add('ISO 27001')
+        if 'SOC' in t and '2' in t:
+            families.add('SOC 2')
+    return sorted(families)
+
+
+def list_compliance_frameworks() -> dict:
+    """List available compliance frameworks/policies on this tenant."""
+    titles = _get_available_policy_titles()
+    families = _detect_framework_families(titles)
+    return compact({
+        'policies': titles,
+        'frameworkFamilies': families,
+        'count': len(titles),
+        'hint': 'Use get_compliance_posture(framework="<name>") to query a specific framework.',
+    })
+
+
 def compliance_posture(framework: str = "", platform: str = "", limit: int = 20,
                        detail: str = "standard") -> dict:
     """Qualys Policy Compliance posture — pass/fail rates, top failing controls, and per-framework breakdown."""
+
+    # --- Handle framework="list" shortcut ---
+    if framework.lower() == "list":
+        result = list_compliance_frameworks()
+        if not result.get('policies'):
+            result['error'] = 'No compliance policies found. The Policy Compliance (PC) module may not be licensed.'
+            result['suggestion'] = 'Use get_cloud_risk() for cloud CIS compliance.'
+        return result
 
     def _empty_result():
         return compact({
@@ -4536,6 +4603,29 @@ def compliance_posture(framework: str = "", platform: str = "", limit: int = 20,
         cached['cacheAge'] = disk_cache.age(_cache_key) or 0
         return compact(cached)
 
+    # --- Framework availability check (early exit) ---
+    # When a specific framework is requested, check if it exists before trying
+    # all strategies. This prevents silent fallback to wrong-framework data.
+    if framework:
+        available_titles = _get_available_policy_titles()
+        if available_titles and not any(framework.lower() in t.lower() for t in available_titles):
+            families = _detect_framework_families(available_titles)
+            cat_str = ', '.join(families) if families else 'none detected'
+            return compact({
+                'error': 'not_configured',
+                'message': (
+                    f"{framework} compliance framework is not configured on this tenant. "
+                    f"Available frameworks: {cat_str}. "
+                    f"Use get_compliance_posture() without a framework filter to see all "
+                    f"configured policies."
+                ),
+                'availableFrameworks': available_titles,
+                'suggestion': (
+                    f"Use get_compliance_posture() without framework filter to see all "
+                    f"configured policies, or ask about {' or '.join(families[:2]) if families else 'available'} compliance."
+                ),
+            })
+
     # --- Strategy 0: PC v4 posture instances summary (fast) ---
     _log("Compliance posture: trying v4 posture instances summary...")
     instances_url = f"{BASE_URL}/rest/4.0/compliance/posture/instances"
@@ -4629,44 +4719,62 @@ def compliance_posture(framework: str = "", platform: str = "", limit: int = 20,
             _log("Compliance posture: control list returned non-XML")
 
     # --- Strategy 4: fall back to cloud compliance (get_compliance_gaps) ---
-    _log("Compliance posture: falling back to cloud compliance gaps...")
-    try:
-        gaps = get_compliance_gaps(limit=limit)
-        if gaps and (gaps.get('failingControls', 0) > 0 or gaps.get('pass_pct', 0) > 0):
-            total_failing = gaps.get('failingControls', 0)
-            pass_rate = gaps.get('pass_pct', 0)
-            total_ctrl = int(total_failing / (1 - pass_rate / 100)) if pass_rate < 100 and total_failing else total_failing
-            passing = total_ctrl - total_failing
+    # Only use cloud fallback when no framework filter or when it matches cloud data
+    # (cloud data is CIS-based). Skip for non-CIS frameworks to prevent wrong-framework results.
+    _cloud_fw_match = not framework or 'cis' in framework.lower() or 'cloud' in framework.lower()
+    if _cloud_fw_match:
+        _log("Compliance posture: falling back to cloud compliance gaps...")
+        try:
+            gaps = get_compliance_gaps(limit=limit)
+            if gaps and (gaps.get('failingControls', 0) > 0 or gaps.get('pass_pct', 0) > 0):
+                total_failing = gaps.get('failingControls', 0)
+                pass_rate = gaps.get('pass_pct', 0)
+                total_ctrl = int(total_failing / (1 - pass_rate / 100)) if pass_rate < 100 and total_failing else total_failing
+                passing = total_ctrl - total_failing
 
-            res = _empty_result()
-            res['summary']['controls'] = total_ctrl
-            res['summary']['passing'] = passing
-            res['summary']['failing'] = total_failing
-            res['summary']['pass_pct'] = pass_rate
-            res['summary']['frameworks'] = ['Cloud-CIS']
-            res['topFailingControls'] = [
-                {
-                    'controlId': f_item.get('controlId', ''),
-                    'title': '',
-                    'framework': 'Cloud-CIS',
-                    'failingAssets': f_item.get('failCount', 0),
-                    'severity': 'HIGH',
-                }
-                for f_item in gaps.get('topFailing', [])[:limit]
-            ]
-            res['source'] = 'cloud_compliance_fallback'
-            res['note'] = 'Data from cloud compliance evaluations (TotalCloud). Enable Policy Compliance module for on-prem/endpoint posture.'
-            out = _add_compliance_followups(_with_meta(res, 'topFailingControls'))
-            result = _apply_detail_level(out, detail, list_keys=['topFailingControls'])
-            disk_cache.set(_cache_key, result, TTL_COMPLIANCE)
-            return result
-    except Exception as e:
-        _log(f"Compliance posture: cloud fallback failed: {e}")
+                res = _empty_result()
+                res['summary']['controls'] = total_ctrl
+                res['summary']['passing'] = passing
+                res['summary']['failing'] = total_failing
+                res['summary']['pass_pct'] = pass_rate
+                res['summary']['frameworks'] = ['Cloud-CIS']
+                res['topFailingControls'] = [
+                    {
+                        'controlId': f_item.get('controlId', ''),
+                        'title': '',
+                        'framework': 'Cloud-CIS',
+                        'failingAssets': f_item.get('failCount', 0),
+                        'severity': 'HIGH',
+                    }
+                    for f_item in gaps.get('topFailing', [])[:limit]
+                ]
+                res['source'] = 'cloud_compliance_fallback'
+                res['note'] = 'Data from cloud compliance evaluations (TotalCloud). Enable Policy Compliance module for on-prem/endpoint posture.'
+                out = _add_compliance_followups(_with_meta(res, 'topFailingControls'))
+                result = _apply_detail_level(out, detail, list_keys=['topFailingControls'])
+                disk_cache.set(_cache_key, result, TTL_COMPLIANCE)
+                return result
+        except Exception as e:
+            _log(f"Compliance posture: cloud fallback failed: {e}")
 
     # --- No data available ---
     res = _empty_result()
-    res['error'] = 'PC module not licensed or no compliance data available'
-    res['suggestion'] = 'Enable the Qualys Policy Compliance (PC) module, or use get_cloud_risk() for cloud CIS compliance.'
+    if framework:
+        # Specific framework requested but no data found — return "not configured"
+        available = _get_available_policy_titles()
+        families = _detect_framework_families(available)
+        cat_str = ', '.join(families) if families else 'none found'
+        res['error'] = (
+            f"{framework} compliance data not available on this tenant. "
+            f"Configured policy families: {cat_str}. "
+            f"Use get_compliance_posture() without framework filter to see all "
+            f"configured policies, or get_compliance_posture(framework='list') "
+            f"to list available frameworks."
+        )
+        res['availableFrameworks'] = families
+    else:
+        res['error'] = 'PC module not licensed or no compliance data available'
+        res['suggestion'] = 'Enable the Qualys Policy Compliance (PC) module, or use get_cloud_risk() for cloud CIS compliance.'
     res['_followups'] = []
     return _with_meta(res, 'topFailingControls')
 
