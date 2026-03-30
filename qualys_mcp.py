@@ -644,7 +644,7 @@ def get_vuln_exceptions(status: str = "Active", vuln_type: str = "", days_to_exp
 
 @mcp.tool()
 def get_compliance_posture(framework: str = "", platform: str = "", limit: int = 20,
-                           detail: str = "standard") -> dict:
+                           detail: str = "standard", list_frameworks: bool = False) -> dict:
     """[PC] Qualys Policy Compliance posture — pass/fail rates, top failing controls, and per-framework breakdown (CIS, PCI-DSS, HIPAA, NIST, SOC2, ISO27001).
 
     USE WHEN: "are we passing CIS benchmarks?", compliance posture audit, audit readiness, or framework-specific control status. Covers on-prem and host-level compliance.
@@ -655,11 +655,13 @@ def get_compliance_posture(framework: str = "", platform: str = "", limit: int =
         framework: filter by framework name substring (e.g. 'CIS', 'PCI', 'HIPAA', 'NIST'). Empty = all.
         platform: filter by platform (e.g. 'Linux', 'Windows'). Empty = all.
         limit: max failing controls to return (default 20)
+        list_frameworks: if True, return only the list of configured compliance frameworks/policies.
 
-    Returns: summary (totalControls, passing, failing, passRate, affectedAssets, frameworks), topFailingControls (list with controlId, title, framework, failingAssets, severity), byFramework (pass rate per framework).
+    Returns: summary (totalControls, passing, failing, passRate, affectedAssets, frameworks), topFailingControls (list with controlId, title, framework, failingAssets, severity), byFramework (pass rate per framework). If framework not configured, returns error with available frameworks.
 
     Performance: ~5s cold. Falls back to cloud compliance if PC module not licensed."""
-    return compliance_posture(framework=framework, platform=platform, limit=limit, detail=detail)
+    return compliance_posture(framework=framework, platform=platform, limit=limit, detail=detail,
+                              list_frameworks=list_frameworks)
 
 
 @mcp.tool()

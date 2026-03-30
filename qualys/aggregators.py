@@ -4104,9 +4104,44 @@ def vuln_exceptions(status: str = "Active", vuln_type: str = "", days_to_expiry:
 # compliance_posture
 # ---------------------------------------------------------------------------
 
+_FRAMEWORKS_CACHE = {}
+_FRAMEWORKS_CACHE_TIME = {}
+
+
+def _get_available_frameworks():
+    """Return list of configured compliance framework names (cached)."""
+    from qualys.api import _get_or_fetch
+    from qualys.cache import TTL_COMPLIANCE
+
+    def _fetch():
+        url = f"{BASE_URL}/api/4.0/fo/compliance/policy/?action=list"
+        data = api_get(url, timeout=120)
+        frameworks = []
+        if data:
+            try:
+                root = ET.fromstring(data if isinstance(data, (str, bytes)) else data)
+                for policy in (root.findall('.//POLICY') or root.findall('.//COMPLIANCE_POLICY') or []):
+                    title = policy.findtext('TITLE', '') or policy.findtext('NAME', '') or ''
+                    if title:
+                        frameworks.append(title)
+            except ET.ParseError:
+                pass
+        return frameworks
+
+    return _get_or_fetch(_FRAMEWORKS_CACHE, _FRAMEWORKS_CACHE_TIME,
+                         'available_frameworks', _fetch, TTL_COMPLIANCE)
+
+
 def compliance_posture(framework: str = "", platform: str = "", limit: int = 20,
-                       detail: str = "standard") -> dict:
+                       detail: str = "standard", list_frameworks: bool = False) -> dict:
     """Qualys Policy Compliance posture — pass/fail rates, top failing controls, and per-framework breakdown."""
+
+    if list_frameworks:
+        policies = _get_available_frameworks() or []
+        return compact({
+            'configuredPolicies': policies,
+            'hint': 'Use framework parameter with a substring match (e.g. "CIS", "DISA") to filter.',
+        })
 
     def _empty_result():
         return compact({
@@ -4407,6 +4442,23 @@ def compliance_posture(framework: str = "", platform: str = "", limit: int = 20,
                 return result
         except ET.ParseError:
             _log("Compliance posture: control list returned non-XML")
+
+    # --- Framework not configured check ---
+    if framework:
+        policies = _get_available_frameworks() or []
+        if policies:
+            return compact({
+                'error': f'{framework} compliance not configured on this tenant.',
+                'configuredPolicies': policies,
+                'suggestion': (
+                    f'Use get_compliance_posture() without framework filter to see all '
+                    f'configured policies, or filter by a configured framework substring.'
+                ),
+                '_followups': [
+                    f'Available policies: {", ".join(policies[:10])}',
+                    'Call get_compliance_posture(list_frameworks=True) for full list.',
+                ],
+            })
 
     # --- Strategy 4: fall back to cloud compliance (get_compliance_gaps) ---
     _log("Compliance posture: falling back to cloud compliance gaps...")
