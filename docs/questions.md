@@ -6,13 +6,13 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 
 ## Investigation Chaining (meta-tool)
 
-1. ⚠️ Investigate CVE-2021-44228 (Log4Shell) completely — affected assets, patch status, exceptions
-2. ❌ Give me a full deep-dive on why our TruRisk score increased this week
+1. ✅ Investigate CVE-2021-44228 (Log4Shell) completely — affected assets, patch status, exceptions
+2. ✅ Give me a full deep-dive on why our TruRisk score increased this week
 3. ✅ Investigate our ransomware exposure end-to-end
-4. ⚠️ Do a complete investigation of asset server-prod-01
-5. ✅ Tell me everything about CVE-2024-3400 and our exposure
+4. ✅ Do a complete investigation of asset server-prod-01
+5. ⚠️ Tell me everything about CVE-2024-3400 and our exposure
 6. ✅ Why is our risk score high? Give me the full picture
-7. ⚠️ Investigate our compliance posture thoroughly
+7. ✅ Investigate our compliance posture thoroughly
 8. ⚠️ Chain: investigate Log4Shell → then show patch status for affected assets
 9. ✅ Investigate this week's top vulnerability priorities in depth
 10. ✅ Give me a complete cloud security investigation
@@ -22,13 +22,13 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 ## Vulnerability Management (VM) — 90 questions
 
 ### Daily operations
-1. ⚠️ What new vulnerabilities were detected overnight?
-2. ❌ What's my morning security summary?
+1. ✅ What new vulnerabilities were detected overnight?
+2. ✅ What's my morning security summary?
 3. ✅ What changed in my vulnerability posture this week?
-4. ⚠️ What are my top 10 riskiest vulnerabilities right now?
-5. ✅ Show me all vulnerabilities with active ransomware associations.
+4. ✅ What are my top 10 riskiest vulnerabilities right now?
+5. ⚠️ Show me all vulnerabilities with active ransomware associations.
 6. ✅ What vulnerabilities have public exploits available?
-7. ⚠️ What zero-days are we currently exposed to?
+7. ✅ What zero-days are we currently exposed to?
 8. ⚠️ Show me all Critical severity vulnerabilities detected in the last 7 days.
 9. ✅ What's my overall vulnerability count by severity?
 10. ✅ How many High/Critical vulns do I have that aren't patched?
