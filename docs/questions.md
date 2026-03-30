@@ -6,14 +6,14 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 
 ## Investigation Chaining (meta-tool)
 
-1. ⚠️ Investigate CVE-2021-44228 (Log4Shell) completely — affected assets, patch status, exceptions
+1. ❌ Investigate CVE-2021-44228 (Log4Shell) completely — affected assets, patch status, exceptions
 2. ⚠️ Give me a full deep-dive on why our TruRisk score increased this week
 3. ❌ Investigate our ransomware exposure end-to-end
 4. ❌ Do a complete investigation of asset server-prod-01
-5. ⚠️ Tell me everything about CVE-2024-3400 and our exposure
-6. ⚠️ Why is our risk score high? Give me the full picture
-7. ✅ Investigate our compliance posture thoroughly
-8. ⚠️ Chain: investigate Log4Shell → then show patch status for affected assets
+5. ✅ Tell me everything about CVE-2024-3400 and our exposure
+6. ✅ Why is our risk score high? Give me the full picture
+7. ⚠️ Investigate our compliance posture thoroughly
+8. ❌ Chain: investigate Log4Shell → then show patch status for affected assets
 9. ✅ Investigate this week's top vulnerability priorities in depth
 10. ✅ Give me a complete cloud security investigation
 
@@ -22,14 +22,14 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 ## Vulnerability Management (VM) — 90 questions
 
 ### Daily operations
-1. ⚠️ What new vulnerabilities were detected overnight?
+1. ❌ What new vulnerabilities were detected overnight?
 2. ⚠️ What's my morning security summary?
 3. ❌ What changed in my vulnerability posture this week?
 4. ❌ What are my top 10 riskiest vulnerabilities right now?
-5. ⚠️ Show me all vulnerabilities with active ransomware associations.
-6. ⚠️ What vulnerabilities have public exploits available?
-7. ✅ What zero-days are we currently exposed to?
-8. ⚠️ Show me all Critical severity vulnerabilities detected in the last 7 days.
+5. ✅ Show me all vulnerabilities with active ransomware associations.
+6. ✅ What vulnerabilities have public exploits available?
+7. ⚠️ What zero-days are we currently exposed to?
+8. ❌ Show me all Critical severity vulnerabilities detected in the last 7 days.
 9. ✅ What's my overall vulnerability count by severity?
 10. ✅ How many High/Critical vulns do I have that aren't patched?
 
@@ -205,12 +205,12 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 146. ✅ Are there any failed mitigation jobs?
 147. ✅ What vulnerabilities can be eliminated without patching?
 148. ✅ Show me all in-progress patch jobs in Eliminate.
-149. ⚠️ What's the success rate of our Eliminate patch deployments?
+149. ✅ What's the success rate of our Eliminate patch deployments?
 150. ⚠️ Which assets are targeted by current Eliminate jobs?
-151. ⚠️ What mitigation techniques are being used (registry, config, etc.)?
-152. ❌ Show me the Eliminate catalog coverage for our top 50 vulns.
-153. ❌ Which vulnerabilities in our backlog have Eliminate mitigations?
-154. ❌ How many QIDs does our current Eliminate catalog cover?
+151. ✅ What mitigation techniques are being used (registry, config, etc.)?
+152. ✅ Show me the Eliminate catalog coverage for our top 50 vulns.
+153. ✅ Which vulnerabilities in our backlog have Eliminate mitigations?
+154. ✅ How many QIDs does our current Eliminate catalog cover?
 155. ❌ What's the historical Eliminate job completion rate?
 156. ❌ Which Eliminate jobs failed and why?
 157. ❌ Show me Eliminate job results for the last 30 days.
@@ -740,7 +740,7 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 | Investigation Chaining | 10 | 7 | 3 | 0 | 85% |
 | Vulnerability Management | 90 | 58 | 14 | 18 | 72% |
 | Patch Management | 50 | 7 | 5 | 38 | 19% |
-| TruRisk Eliminate | 30 | 8 | 4 | 18 | 33% |
+| TruRisk Eliminate | 30 | 13 | 2 | 15 | 47% |
 | Cloud Security | 70 | 14 | 9 | 47 | 26% |
 | Container Security | 40 | 6 | 6 | 28 | 22% |
 | Web Application Security | 50 | 8 | 12 | 30 | 28% |
