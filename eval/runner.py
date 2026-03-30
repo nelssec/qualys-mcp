@@ -315,6 +315,8 @@ def get_server_params() -> StdioServerParameters:
         env["QUALYS_BASE_URL"] = os.environ["QUALYS_BASE_URL"]
     if os.environ.get("QUALYS_GATEWAY_URL"):
         env["QUALYS_GATEWAY_URL"] = os.environ["QUALYS_GATEWAY_URL"]
+    if os.environ.get("MCP_PERF_LOG"):
+        env["MCP_PERF_LOG"] = os.environ["MCP_PERF_LOG"]
     if not env.get("QUALYS_POD") and not env.get("QUALYS_BASE_URL"):
         raise EnvironmentError("Set QUALYS_POD or QUALYS_BASE_URL in environment")
     return StdioServerParameters(
