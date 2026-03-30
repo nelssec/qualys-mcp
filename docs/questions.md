@@ -570,16 +570,16 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 ## Compliance — 45 questions
 
 ### Policy compliance
-436. ⚠️ What's our CIS Benchmark compliance score?
+436. ✅ What's our CIS Benchmark compliance score?
 437. ⚠️ Show me all failing CIS controls for Windows Server.
 438. ⚠️ What's our policy compliance rate for Linux systems?
 439. ⚠️ Which systems are failing the most compliance checks?
 440. ⚠️ What's our PCI-DSS compliance status?
-441. ❌ Show me all failing PCI-DSS controls.
-442. ❌ What's our HIPAA technical control compliance rate?
+441. ⚠️ Show me all failing PCI-DSS controls.
+442. ⚠️ What's our HIPAA technical control compliance rate?
 443. ⚠️ Show me compliance failures by severity.
-444. ❌ What's our SOC 2 relevant control pass rate?
-445. ⚠️ Which systems fail the NIST 800-53 controls?
+444. ⚠️ What's our SOC 2 relevant control pass rate?
+445. ✅ Which systems fail the NIST 800-53 controls?
 446. ⚠️ Show me our ISO 27001 compliance gaps.
 447. ❌ What FedRAMP controls are we failing?
 448. ❌ Show me DISA STIG compliance for our network devices.
