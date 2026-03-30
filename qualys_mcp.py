@@ -354,7 +354,7 @@ def get_cloud_controls(provider: str = 'all', service: str = '', result: str = '
         account_id: filter to specific account ID. Leave empty for first account per provider.
         limit: max controls to return (default 50)
 
-    Returns: controls (list ranked by failedResources with controlId, controlName, service, criticality, result, failedResources, passedResources, accountId, provider), byService (service distribution), filters.
+    Returns: controls (list ranked by failedResources with controlId, controlName, service, criticality, result, failedResources, passedResources, accountId, provider), byService (service distribution), passRate (overall resource pass rate %), failedControlCount, passedControlCount, totalResourcesFailed, totalResourcesPassed, filters.
 
     Performance: ~4s (parallel evaluation fetch per provider)."""
     return cloud_controls(provider=provider, service=service, result_filter=result, account_id=account_id, limit=limit, detail=detail)
