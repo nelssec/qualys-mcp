@@ -754,3 +754,312 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 | **Total** | **570** | **170** | **125** | **275** | **43%** |
 
 > **Updated v2.16:** 570 questions across 14 categories. Coverage at 43% (170 ✅) with 29 active tools. New: 55 questions covering 2026 threat landscape (high-impact CVEs, NIST CSF 2.0, PCI-DSS v4.0, DORA, AI/LLM security, cloud-native attacks, multi-cloud posture). Strongest categories: Investigation (85%), Growth Engine (90%), VM (72%), EDR+FIM (61%), Certificates (60%). See `docs/gaps.md` for detailed gap analysis.
+
+---
+
+<!-- conversations: BEGIN (parsed by eval/conversations.py — do not remove this marker) -->
+
+```yaml
+conversations:
+
+  # ── Context Carryover (5 scenarios) ──────────────────────────────
+
+  - name: "log4shell-investigation"
+    category: "context-carryover"
+    turns:
+      - user: "Investigate Log4Shell in our environment"
+        expect: "mentions CVE-2021-44228, affected assets count, severity"
+      - user: "Which of those affected assets are running in production?"
+        expect: "filters or references previous Log4Shell results, mentions production assets"
+        context_check: "uses asset count or names from turn 1"
+      - user: "What's the patch status for those production assets?"
+        expect: "patch availability or status for the production assets identified"
+        context_check: "references production assets from turn 2"
+      - user: "Generate a remediation plan for the top 5 by TruRisk"
+        expect: "remediation plan mentioning TruRisk scores, prioritized assets from prior context"
+        context_check: "uses TruRisk scores or asset info from prior turns"
+
+  - name: "critical-vuln-drilldown"
+    category: "context-carryover"
+    turns:
+      - user: "What are our most critical vulnerabilities right now?"
+        expect: "lists critical/high severity vulns with counts or details"
+      - user: "Tell me more about the top one"
+        expect: "detailed information about the highest severity vuln from turn 1"
+        context_check: "references the specific vuln identified as top in turn 1"
+      - user: "How many assets does it affect?"
+        expect: "asset count for the specific vulnerability discussed"
+        context_check: "refers to the same vulnerability from turn 2"
+      - user: "What's the fix?"
+        expect: "patch or remediation info for that vulnerability"
+        context_check: "provides fix for the vulnerability from prior turns"
+
+  - name: "cloud-posture-investigation"
+    category: "context-carryover"
+    turns:
+      - user: "Give me an overview of our cloud security posture"
+        expect: "cloud security summary across providers, control pass/fail counts"
+      - user: "Which provider has the most failures?"
+        expect: "identifies the worst cloud provider from the overview"
+        context_check: "uses data from the cloud overview in turn 1"
+      - user: "What are the critical failures there?"
+        expect: "lists critical failing controls for the identified provider"
+        context_check: "drills into the provider identified in turn 2"
+      - user: "How do we fix those?"
+        expect: "remediation steps for the critical failures"
+        context_check: "references the specific failures from turn 3"
+
+  - name: "patch-status-workflow"
+    category: "context-carryover"
+    turns:
+      - user: "What's our overall patching status?"
+        expect: "patching metrics, coverage percentage, or open patch counts"
+      - user: "Which systems are furthest behind?"
+        expect: "identifies systems with most missing patches"
+        context_check: "uses patching data from turn 1"
+      - user: "What patches are they missing?"
+        expect: "specific missing patches for the behind systems"
+        context_check: "references the systems identified in turn 2"
+
+  - name: "asset-investigation-flow"
+    category: "context-carryover"
+    turns:
+      - user: "Show me our riskiest assets"
+        expect: "list of high-risk assets with risk scores"
+      - user: "What's running on the top one?"
+        expect: "software, OS, or services on the riskiest asset"
+        context_check: "references the specific asset from turn 1"
+      - user: "Does it have any EOL software?"
+        expect: "end-of-life software check for that asset"
+        context_check: "checks the same asset from turn 2"
+      - user: "What's the full vulnerability list for it?"
+        expect: "vulnerability list for the asset under investigation"
+        context_check: "still referring to the same asset"
+
+  # ── Pronoun / Reference Resolution (5 scenarios) ────────────────
+
+  - name: "pronoun-top-vulns"
+    category: "reference-resolution"
+    turns:
+      - user: "What are our top 10 vulnerabilities by TruRisk?"
+        expect: "list of top vulnerabilities ranked by TruRisk score"
+      - user: "Which of those have known exploits?"
+        expect: "filters the top 10 to those with exploit availability"
+        context_check: "filters from the list in turn 1, not a new search"
+      - user: "Now just the Windows ones"
+        expect: "further filters to Windows-only vulnerabilities"
+        context_check: "applies OS filter to the already-filtered list"
+      - user: "What's the patch info for those?"
+        expect: "patch availability for the filtered Windows vulns"
+        context_check: "references the Windows-filtered vulns from turn 3"
+
+  - name: "pronoun-asset-group"
+    category: "reference-resolution"
+    turns:
+      - user: "Which asset group has the highest risk?"
+        expect: "identifies the riskiest asset group"
+      - user: "Drill into that one"
+        expect: "details about the identified asset group"
+        context_check: "references the asset group from turn 1"
+      - user: "What vulns are driving the risk there?"
+        expect: "top vulnerabilities in that asset group"
+        context_check: "scoped to the same asset group"
+      - user: "How would we remediate those?"
+        expect: "remediation guidance for the group's top vulns"
+        context_check: "references the vulns from turn 3"
+
+  - name: "pronoun-detection-investigate"
+    category: "reference-resolution"
+    turns:
+      - user: "What detections fired this week?"
+        expect: "recent detection or vulnerability activity"
+      - user: "Tell me about the most severe one"
+        expect: "details on the highest severity detection"
+        context_check: "references specific detection from turn 1"
+      - user: "Which assets does it affect?"
+        expect: "assets affected by that detection"
+        context_check: "uses the detection from turn 2"
+
+  - name: "pronoun-dashboard-worst"
+    category: "reference-resolution"
+    turns:
+      - user: "Give me a vulnerability dashboard summary"
+        expect: "summary with severity counts, risk scores, or key metrics"
+      - user: "What's the worst category?"
+        expect: "identifies the weakest area from the dashboard"
+        context_check: "references dashboard data from turn 1"
+      - user: "Show me the details on that"
+        expect: "drill-down into the worst category"
+        context_check: "references the category from turn 2"
+      - user: "What should we prioritize first?"
+        expect: "prioritized action items for that category"
+        context_check: "scoped to the same category"
+
+  - name: "pronoun-severity-filter"
+    category: "reference-resolution"
+    turns:
+      - user: "Show me all critical severity vulnerabilities"
+        expect: "list or count of critical vulnerabilities"
+      - user: "How many of those are actively exploited?"
+        expect: "filters criticals to actively exploited subset"
+        context_check: "filters from critical vulns in turn 1"
+      - user: "Prioritize them for me"
+        expect: "prioritized list of the actively exploited criticals"
+        context_check: "prioritizes the filtered set from turn 2"
+      - user: "Give me a brief I can send to management"
+        expect: "executive summary of the prioritized critical vulns"
+        context_check: "summarizes the context from prior turns"
+
+  # ── Investigation Pivot (5 scenarios) ───────────────────────────
+
+  - name: "pivot-cloud-to-iam"
+    category: "investigation-pivot"
+    turns:
+      - user: "What's our cloud security posture?"
+        expect: "cloud posture overview across providers"
+      - user: "Focus on AWS"
+        expect: "AWS-specific security findings or controls"
+        context_check: "narrows to AWS from the overview"
+      - user: "What IAM issues do we have?"
+        expect: "IAM-related findings or misconfigurations in AWS"
+        context_check: "further narrows to IAM within AWS"
+      - user: "How does Azure compare?"
+        expect: "Azure security posture, possibly compared to AWS"
+        context_check: "pivots to Azure while referencing AWS context"
+
+  - name: "pivot-vuln-to-patch"
+    category: "investigation-pivot"
+    turns:
+      - user: "Investigate CVE-2024-3400"
+        expect: "details about CVE-2024-3400, affected systems"
+      - user: "What assets are affected?"
+        expect: "list of affected assets"
+        context_check: "assets for the specific CVE"
+      - user: "What's the patch status?"
+        expect: "patch availability and deployment status"
+        context_check: "patch info for the CVE's affected assets"
+      - user: "How long has this been open?"
+        expect: "timeline or age of the vulnerability exposure"
+        context_check: "references the same CVE context"
+
+  - name: "pivot-edr-to-vulns"
+    category: "investigation-pivot"
+    turns:
+      - user: "Any EDR detections recently?"
+        expect: "recent EDR detection activity or alerts"
+      - user: "What do we know about the host that triggered it?"
+        expect: "asset details for the host with the detection"
+        context_check: "references the host from EDR detection"
+      - user: "Does that host have any unpatched vulns?"
+        expect: "vulnerability status for the identified host"
+        context_check: "checks vulns on the same host"
+
+  - name: "pivot-was-to-remediation"
+    category: "investigation-pivot"
+    turns:
+      - user: "How are our web applications doing security-wise?"
+        expect: "web application security summary"
+      - user: "Which app has the most findings?"
+        expect: "identifies the worst web application"
+        context_check: "references WAS data from turn 1"
+      - user: "What kind of vulnerabilities does it have?"
+        expect: "vulnerability types for that application (XSS, SQLi, etc.)"
+        context_check: "details for the specific app from turn 2"
+      - user: "What should the dev team fix first?"
+        expect: "prioritized remediation for the app's vulns"
+        context_check: "scoped to the same application"
+
+  - name: "pivot-compliance-to-remediation"
+    category: "investigation-pivot"
+    turns:
+      - user: "Where do we stand on compliance?"
+        expect: "compliance posture summary, framework pass/fail rates"
+      - user: "What controls are we failing?"
+        expect: "list of failing compliance controls"
+        context_check: "references compliance data from turn 1"
+      - user: "What's the remediation plan for those?"
+        expect: "remediation steps for failing controls"
+        context_check: "addresses the specific failing controls from turn 2"
+      - user: "Which ones can we fix fastest?"
+        expect: "quick-win controls prioritized by effort"
+        context_check: "prioritizes from the remediation plan"
+
+  # ── Natural Analyst Workflow (5 scenarios) ──────────────────────
+
+  - name: "workflow-morning-standup"
+    category: "natural-workflow"
+    turns:
+      - user: "Morning standup — what's new since yesterday?"
+        expect: "recent security changes, new detections, or vuln updates"
+      - user: "Anything related to ransomware?"
+        expect: "ransomware-associated vulnerabilities or threat intel"
+        context_check: "filters recent activity to ransomware context"
+      - user: "How many assets are exposed?"
+        expect: "asset count for ransomware exposure"
+        context_check: "references the ransomware vulns from turn 2"
+      - user: "Draft a quick CISO brief on this"
+        expect: "executive-style brief covering the ransomware situation"
+        context_check: "summarizes all prior context into a brief"
+
+  - name: "workflow-weekly-review"
+    category: "natural-workflow"
+    turns:
+      - user: "Weekly security review — give me the highlights"
+        expect: "weekly summary of security posture changes"
+      - user: "What are the worst open issues?"
+        expect: "top unresolved security issues"
+        context_check: "references the weekly review context"
+      - user: "Create a fix plan for those"
+        expect: "remediation plan for the worst issues"
+        context_check: "plan for the issues identified in turn 2"
+      - user: "Format that as a ticket I can assign"
+        expect: "structured ticket format with assignable action items"
+        context_check: "formats the fix plan from turn 3"
+
+  - name: "workflow-incident-response"
+    category: "natural-workflow"
+    turns:
+      - user: "We might have a security incident — what's our current exposure to actively exploited vulns?"
+        expect: "actively exploited vulnerabilities in the environment"
+      - user: "What's the scope — how many systems?"
+        expect: "system count and scope for actively exploited vulns"
+        context_check: "scopes the exploited vulns from turn 1"
+      - user: "What's the remediation path?"
+        expect: "remediation steps for the exposed systems"
+        context_check: "remediation for the scoped systems"
+      - user: "Give me a timeline estimate"
+        expect: "estimated remediation timeline"
+        context_check: "timeline based on the remediation plan"
+
+  - name: "workflow-executive-prep"
+    category: "natural-workflow"
+    turns:
+      - user: "I'm prepping for a board meeting — what are our key security metrics?"
+        expect: "high-level security KPIs and metrics"
+      - user: "What's the risk story — are we getting better or worse?"
+        expect: "trend analysis of security posture"
+        context_check: "builds on the metrics from turn 1"
+      - user: "What's our biggest risk right now?"
+        expect: "top risk area with supporting data"
+        context_check: "references the trend/metrics context"
+      - user: "What's our recommendation to the board?"
+        expect: "strategic recommendation with supporting evidence"
+        context_check: "synthesizes all prior context"
+
+  - name: "workflow-audit-prep"
+    category: "natural-workflow"
+    turns:
+      - user: "We have a compliance audit next week — give me the current state"
+        expect: "compliance posture summary across frameworks"
+      - user: "Which controls are we failing?"
+        expect: "list of failing controls"
+        context_check: "references compliance data from turn 1"
+      - user: "Where are the gaps?"
+        expect: "gap analysis for compliance coverage"
+        context_check: "builds on failing controls from turn 2"
+      - user: "What evidence can we show for the passing controls?"
+        expect: "evidence or documentation for passing controls"
+        context_check: "references the passing controls from the posture overview"
+```
+
+<!-- conversations: END -->

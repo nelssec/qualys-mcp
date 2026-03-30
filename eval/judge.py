@@ -110,31 +110,50 @@ async def judge_conversation_turn(
     current_question: str,
     tool_calls: list[dict],
     response: str,
+    expect: str | None = None,
+    context_check: str | None = None,
 ) -> dict:
     """Use Claude-as-judge to score a single turn within a conversation.
 
-    Returns {"score": str, "reasoning": str}.
+    When *expect* is provided the judge uses it as the acceptance criteria.
+    When *context_check* is provided the judge also evaluates whether the
+    assistant correctly referenced prior conversation context.
+
+    Returns {"score": str, "reasoning": str, "context_ok": bool | None}.
     """
     tool_calls_text = json.dumps(tool_calls, indent=2) if tool_calls else "No tool calls made."
 
-    user_msg = f"""## Conversation History
-{conversation_history}
+    sections = [
+        f"## Conversation History\n{conversation_history}",
+        f"## Current Turn Question\n{current_question}",
+    ]
+    if expect:
+        sections.append(f"## Expected Answer Criteria\n{expect}")
+    if context_check:
+        sections.append(
+            f"## Context Carryover Check\n"
+            f"Verify the assistant: {context_check}\n"
+            f"Set context_ok to true if the assistant correctly used prior context, false otherwise."
+        )
+    sections.append(f"## Tool Calls (this turn)\n{tool_calls_text}")
+    sections.append(f"## Assistant Response (this turn)\n{response}")
 
-## Current Turn Question
-{current_question}
+    system = CONV_JUDGE_SYSTEM
+    if context_check:
+        system += (
+            '\n\nIMPORTANT: Your JSON response MUST include a "context_ok" boolean field '
+            "indicating whether the assistant correctly used context from prior turns.\n"
+            'Example: {"score": "correct", "reasoning": "...", "context_ok": true}'
+        )
 
-## Tool Calls (this turn)
-{tool_calls_text}
-
-## Assistant Response (this turn)
-{response}"""
+    user_msg = "\n\n".join(sections)
 
     resp = await asyncio.to_thread(
         _create_message_with_retry,
         client,
         model=JUDGE_MODEL,
         max_tokens=256,
-        system=CONV_JUDGE_SYSTEM,
+        system=system,
         messages=[{"role": "user", "content": user_msg}],
     )
 
@@ -146,8 +165,9 @@ async def judge_conversation_turn(
             score = parsed.get("score", "wrong")
             if score not in CONV_SCORE_WEIGHTS:
                 score = "wrong"
-            return {"score": score, "reasoning": parsed.get("reasoning", "")}
+            context_ok = parsed.get("context_ok") if context_check else None
+            return {"score": score, "reasoning": parsed.get("reasoning", ""), "context_ok": context_ok}
         except json.JSONDecodeError:
             pass
 
-    return {"score": "wrong", "reasoning": f"Judge returned unparseable response: {text[:200]}"}
+    return {"score": "wrong", "reasoning": f"Judge returned unparseable response: {text[:200]}", "context_ok": None}
