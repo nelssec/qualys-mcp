@@ -1213,9 +1213,12 @@ def get_was_findings(limit=100, severity=None, days=None, app_name=None):
 # ---------------------------------------------------------------------------
 
 
-def get_pm_jobs(platform='Windows', limit=10):
-    """Get Patch Management deployment jobs"""
-    data = api_get(f"{GATEWAY_URL}/pm/v1/deploymentjobs?platform={platform}&pageSize={limit}", gateway=True, not_found_ok=True)
+def get_pm_jobs(platform='Windows', limit=10, status=None):
+    """Get Patch Management deployment jobs, optionally filtered by status (e.g. Running, Completed, Failed)."""
+    url = f"{GATEWAY_URL}/pm/v1/deploymentjobs?platform={platform}&pageSize={limit}"
+    if status:
+        url += f"&status={status}"
+    data = api_get(url, gateway=True, not_found_ok=True)
     if data is None:
         return []
     try:
@@ -1260,9 +1263,12 @@ def get_pm_job_summary(job_id):
         return {}
 
 
-def get_mtg_jobs(platform='Windows', limit=10):
-    """Get TruRisk Mitigate deployment jobs"""
-    data = api_get(f"{GATEWAY_URL}/mtg/v1/deploymentjobs?platform={platform}&pageSize={limit}", gateway=True, not_found_ok=True)
+def get_mtg_jobs(platform='Windows', limit=10, status=None):
+    """Get TruRisk Mitigate deployment jobs, optionally filtered by status (e.g. Running, Completed, Failed)."""
+    url = f"{GATEWAY_URL}/mtg/v1/deploymentjobs?platform={platform}&pageSize={limit}"
+    if status:
+        url += f"&status={status}"
+    data = api_get(url, gateway=True, not_found_ok=True)
     if data is None:
         return []
     try:
@@ -1278,6 +1284,20 @@ def get_mtg_job_detail(job_id):
         return json.loads(data) if data else {}
     except (json.JSONDecodeError, TypeError):
         return {}
+
+
+def get_etm_mitigations(page_size=100):
+    """Get ETM mitigation catalog (technique types: REGISTRY, CONFIG, WORKAROUND, PATCH)."""
+    for path in (
+        f'/etm/api/rest/v1/mitigations?pageSize={page_size}',
+        f'/mtg/v1/mitigations?pageSize={page_size}',
+    ):
+        result = etm_api('GET', path)
+        if result is not None and not _is_etm_401(result):
+            if isinstance(result, list):
+                return result
+            return result.get('data', result.get('mitigations', []))
+    return []
 
 
 # ---------------------------------------------------------------------------
