@@ -1148,6 +1148,43 @@ def get_cdr(days=7, limit=100, severity=None, cloud_provider=None, category=None
     return results
 
 
+def get_container_vulns_summary():
+    """Fetch container vuln count + severity breakdown from /csapi/v1.3/vuln with groupBy.
+
+    Returns dict with totalVulns and severity breakdown, or None on failure.
+    Used as fallback context when no running containers/images are found.
+    """
+    # Get total count
+    url_count = f"{GATEWAY_URL}/csapi/v1.3/vuln?pageSize=1&pageNumber=1"
+    data = api_get(url_count, gateway=True, not_found_ok=True)
+    total = 0
+    try:
+        parsed = json.loads(data) if data else {}
+        total = parsed.get('count', 0)
+    except (json.JSONDecodeError, TypeError):
+        pass
+
+    if not total:
+        return None
+
+    # Get severity breakdown via groupBy
+    url_sev = f"{GATEWAY_URL}/csapi/v1.3/vuln/count?groupBy=severity"
+    data_sev = api_get(url_sev, gateway=True, not_found_ok=True)
+    severity = {}
+    try:
+        parsed_sev = json.loads(data_sev) if data_sev else {}
+        # Response format may vary — handle list of {key, count} or dict
+        if isinstance(parsed_sev, list):
+            for item in parsed_sev:
+                severity[item.get('key', item.get('severity', 'unknown'))] = item.get('count', 0)
+        elif isinstance(parsed_sev, dict):
+            severity = parsed_sev
+    except (json.JSONDecodeError, TypeError):
+        pass
+
+    return {'totalVulns': total, 'severity': severity}
+
+
 def get_image_details(image_id):
     data = api_get(f"{GATEWAY_URL}/csapi/v1.3/images/{image_id}", gateway=True)
     try:
