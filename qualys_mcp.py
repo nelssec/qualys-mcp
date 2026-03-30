@@ -400,7 +400,7 @@ def get_tech_debt(limit: int = 100, days: int = 30, detail: str = "standard") ->
 def get_container_vuln_summary(limit: int = 20, detail: str = "standard") -> dict:
     """[Container Security] Top container images ranked by critical vulnerability count — severity breakdown across all images with patch availability. @fast
 
-    USE WHEN: "show me vulnerability counts by image", "which container images have the most critical vulns?", container security overview, image risk ranking, or container vulnerability audit.
+    USE WHEN: "show me vulnerability counts by image", "which container images have the most critical vulns?", "what vulnerabilities are in our container images?", container security overview, image risk ranking, or container vulnerability audit.
     DO NOT USE WHEN: Investigating a single specific image (use get_image_vulns instead), looking at host-level vulnerabilities, or checking cloud posture.
     PREFER INSTEAD: get_image_vulns for single-image deep dive; get_running_containers for running container context; get_etm_findings for host-level vulnerabilities.
 
@@ -408,8 +408,9 @@ def get_container_vuln_summary(limit: int = 20, detail: str = "standard") -> dic
         limit: max images to return (default 20). Use higher for full inventory.
 
     Returns: summary (critical/high/medium/low/total/patchable across all images), imageCount, images (list ranked by critical vulns with repo, tag, severity counts, patchable).
+    When no container images are deployed: returns posture summary with explanation, containerVulnCount from vuln endpoint, and available_tools list — never returns bare empty response.
 
-    Performance: ~3s (single paginated API call)."""
+    Performance: ~3s (single paginated API call). Falls back to /csapi/v1.3/vuln if image inventory is empty."""
     return container_vuln_summary(limit=limit, detail=detail)
 
 
@@ -425,7 +426,7 @@ def get_image_vulns(image_id: str = "", limit: int = 50, detail: str = "standard
         image_id: TotalCloud imageId (from get_asset_inventory or get_weekly_priorities container risk section). Leave empty to list top images by critical vuln count.
         limit: max vulns/images to return (default 50)
 
-    Returns: With image_id: imageId, repo, tag, created, stats (critical/high/medium/low/total), vulns (list with qid, cve, severity, title, fixVersion). Without image_id: ranked list of images with severity counts.
+    Returns: With image_id: imageId, repo, tag, created, stats (critical/high/medium/low/total), vulns (list with qid, cve, severity, title, fixVersion). Without image_id: ranked list of images with severity counts (falls back to vuln endpoint if image inventory is empty).
 
     Performance: ~3s (parallel image details + vulns API)."""
     if not image_id:
@@ -437,7 +438,7 @@ def get_image_vulns(image_id: str = "", limit: int = 50, detail: str = "standard
 def get_running_containers(limit: int = 50, detail: str = "standard") -> dict:
     """[Container Security] Running containers with image vulnerability context — identifies containers with unpatched critical vulns. @slow
 
-    USE WHEN: "show me all running containers with unpatched critical vulns", "which containers are most at risk?", container runtime security audit, or finding containers that need immediate patching.
+    USE WHEN: "show me all running containers with unpatched critical vulns", "which containers are most at risk?", "what containers are running right now?", container runtime security audit, or finding containers that need immediate patching.
     DO NOT USE WHEN: Looking at container images without runtime context (use get_container_vuln_summary), investigating a single image (use get_image_vulns), or checking host-level vulns.
     PREFER INSTEAD: get_container_vuln_summary for image-level vuln ranking without runtime context; get_image_vulns for single-image deep dive.
 
@@ -447,6 +448,7 @@ def get_running_containers(limit: int = 50, detail: str = "standard") -> dict:
         limit: max containers to return (default 50)
 
     Returns: summary (totalRunning, withCriticalVulns, withUnpatchedCritical), containers (list sorted by critical vuln count with containerId, name, imageRepo, imageTag, host, critical/high/medium/patchable counts).
+    When no containers are deployed: returns posture summary with explanation, containerVulnCount, and available_tools list — never returns bare empty response.
 
     Performance: ~5s (parallel containers + images API)."""
     return running_containers(limit=limit, detail=detail)

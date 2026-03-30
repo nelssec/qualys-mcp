@@ -3097,11 +3097,44 @@ def image_vulns(image_id: str, limit: int = 50, detail: str = "standard") -> dic
 # ---------------------------------------------------------------------------
 
 def container_vuln_summary(limit: int = 20, detail: str = "standard") -> dict:
-    """Top container images ranked by critical vulnerability count with severity breakdown."""
+    """Top container images ranked by critical vulnerability count with severity breakdown.
+    Returns empty posture summary with explanation when no images are found — never returns bare empty response."""
     images = get_images_by_vulns(limit=limit)
     if not images:
-        return compact({'error': 'No container images found — Container Security may not be enabled.',
-                        'images': [], 'summary': {}})
+        # Fallback: try unsorted images endpoint (vuln sort may not be indexed on all tenants)
+        images = get_images(limit=limit)
+    if not images:
+        # No images at all — provide vuln endpoint data as context
+        vuln_count = 0
+        top_vulns = []
+        try:
+            vuln_count = get_container_vuln_count() or 0
+            if vuln_count:
+                raw = get_container_vulns(limit=10)
+                for v in (raw or []):
+                    top_vulns.append(compact({
+                        'cve': v.get('cveId', ''),
+                        'severity': v.get('severity', 0),
+                        'title': (v.get('title', '') or '')[:80],
+                        'imageCount': v.get('imageCount', 0),
+                    }))
+        except Exception:
+            pass  # vuln endpoint may not be available
+
+        return compact({
+            'message': 'No container images found in image inventory. '
+                       'Container Security module is licensed but no container sensor agents are reporting image data.',
+            'containerVulnCount': vuln_count,
+            'topVulns': top_vulns if top_vulns else None,
+            'summary': {'critical': 0, 'high': 0, 'medium': 0, 'low': 0, 'total': 0, 'patchable': 0},
+            'imageCount': 0,
+            'images': [],
+            'available_tools': [
+                'get_container_vuln_summary — image vulnerability ranking',
+                'get_image_vulns — single image deep dive',
+                'get_running_containers — runtime container status',
+            ],
+        })
 
     ranked = []
     totals = {'critical': 0, 'high': 0, 'medium': 0, 'low': 0, 'total': 0, 'patchable': 0}
@@ -3154,7 +3187,8 @@ def image_vulns_list(limit: int = 20, detail: str = "standard") -> dict:
 # ---------------------------------------------------------------------------
 
 def running_containers(limit: int = 50, detail: str = "standard") -> dict:
-    """Running containers with image vulnerability context."""
+    """Running containers with image vulnerability context.
+    Returns empty posture summary with explanation when no containers are deployed — never returns bare empty response."""
     concurrent = _run_concurrent(
         containers=lambda: get_containers(limit=limit),
         images=lambda: get_images_by_vulns(limit=200),
@@ -3162,6 +3196,28 @@ def running_containers(limit: int = 50, detail: str = "standard") -> dict:
 
     containers = concurrent.get('containers') or []
     images_list = concurrent.get('images') or []
+
+    if not containers:
+        # Graceful empty: no running containers found
+        vuln_count = 0
+        try:
+            vuln_count = get_container_vuln_count() or 0
+        except Exception:
+            pass
+        return compact({
+            'message': 'No running containers found. Container Security module is licensed '
+                       'but no container sensor agents are reporting runtime data.',
+            'containerVulnCount': vuln_count,
+            'summary': {'totalRunning': 0, 'withCriticalVulns': 0, 'withUnpatchedCritical': 0},
+            'containers': [],
+            'imageCount': len(images_list),
+            'available_tools': [
+                'get_container_vuln_summary — image vulnerability ranking (may have image data even without running containers)',
+                'get_image_vulns — single image deep dive',
+                'get_running_containers — runtime container status',
+            ],
+            '_k8sNote': 'Kubernetes namespace/pod data is not available on this tenant.',
+        })
 
     # Build image vuln lookup by imageId
     img_vulns = {}

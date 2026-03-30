@@ -1148,6 +1148,20 @@ def get_cdr(days=7, limit=100, severity=None, cloud_provider=None, category=None
     return results
 
 
+def get_container_vulns(limit=50, group_by=None):
+    """Fetch container vulnerabilities from /csapi/v1.3/vuln with optional groupBy."""
+    url = f"{GATEWAY_URL}/csapi/v1.3/vuln?sort=severity:desc"
+    if group_by:
+        url += f"&groupBy={group_by}"
+    return _paginate_json(url, limit, fetch_all=False)
+
+
+def get_container_vuln_count():
+    """Fast count of total container vulnerabilities."""
+    url = f"{GATEWAY_URL}/csapi/v1.3/vuln"
+    return _paginate_json(url, 1, count_only=True)
+
+
 def get_image_details(image_id):
     data = api_get(f"{GATEWAY_URL}/csapi/v1.3/images/{image_id}", gateway=True)
     try:
