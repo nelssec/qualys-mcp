@@ -1224,11 +1224,13 @@ def get_pm_jobs(platform='Windows', limit=10):
         return []
 
 
-def get_pm_patches_count(platform='Windows', group_by=None):
-    """Get patch counts, optionally grouped by vendorSeverity or appFamily"""
+def get_pm_patches_count(platform='Windows', group_by=None, status=None):
+    """Get patch counts, optionally grouped by vendorSeverity or appFamily, filtered by status (e.g. Missing, Deployed, Installed)"""
     url = f"{GATEWAY_URL}/pm/v1/patches/count?platform={platform}"
     if group_by:
         url += f"&groupBy={group_by}"
+    if status:
+        url += f"&status={status}"
     data = api_get(url, gateway=True, not_found_ok=True)
     if data is None:
         return {}
