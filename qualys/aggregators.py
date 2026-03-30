@@ -1955,6 +1955,101 @@ def eliminate_status(detail: str = "standard", status: str = "") -> dict:
     return _apply_detail_level(result, detail)
 
 
+def outstanding_patches(platform: str = "", severity: str = "", limit: int = 25, detail: str = "standard") -> dict:
+    """Return outstanding (missing) patches ranked by missingCount."""
+    platforms = [platform] if platform else ['Windows', 'Linux']
+
+    tasks = {}
+    for plat in platforms:
+        key = plat.lower()
+        if severity:
+            tasks[key] = lambda p=plat, s=severity: get_pm_patches(p, status='Missing', severity=s, page_size=50)
+        else:
+            tasks[key] = lambda p=plat: get_pm_patches(p, status='Missing', page_size=50)
+
+    concurrent = _run_concurrent(**tasks)
+
+    all_patches = []
+    for plat in platforms:
+        key = plat.lower()
+        raw = concurrent.get(key) or []
+        for p in raw:
+            p['platform'] = plat
+        all_patches.extend(raw)
+
+    if not all_patches:
+        msg = 'No outstanding patches found'
+        if platform:
+            msg += f' for {platform}'
+        if severity:
+            msg += f' at {severity} severity'
+        msg += '. Patch Management module may not be enabled, or all patches are deployed.'
+        return _with_meta({'message': msg, 'patches': [], 'summary': msg})
+
+    # Sort by missingCount descending
+    all_patches.sort(key=lambda p: p.get('missingCount', 0), reverse=True)
+    top = all_patches[:limit]
+
+    # Group by security vs non-security
+    security = [p for p in top if p.get('isSecurity')]
+    non_security = [p for p in top if not p.get('isSecurity')]
+
+    # Group by reboot required
+    reboot_required = [p for p in top if p.get('rebootRequired')]
+    no_reboot = [p for p in top if not p.get('rebootRequired')]
+
+    def _format_patch(p):
+        out = {
+            'title': p.get('title', ''),
+            'platform': p.get('platform', ''),
+            'missingCount': p.get('missingCount', 0),
+            'installedCount': p.get('installedCount', 0),
+            'vendorSeverity': p.get('vendorSeverity', ''),
+            'isSecurity': p.get('isSecurity', False),
+            'rebootRequired': p.get('rebootRequired', False),
+            'category': p.get('category', ''),
+        }
+        if p.get('cve'):
+            out['cves'] = p['cve'] if isinstance(p['cve'], list) else [p['cve']]
+        if p.get('kb'):
+            out['kb'] = p['kb']
+        if p.get('bulletin'):
+            out['bulletin'] = p['bulletin']
+        if p.get('appFamily'):
+            out['appFamily'] = p['appFamily']
+        return out
+
+    formatted = [_format_patch(p) for p in top]
+
+    total_missing = sum(p.get('missingCount', 0) for p in all_patches)
+    sev_counts = {}
+    for p in all_patches:
+        s = p.get('vendorSeverity', 'Unknown')
+        sev_counts[s] = sev_counts.get(s, 0) + 1
+
+    result = {
+        'patches': formatted,
+        'totalOutstanding': len(all_patches),
+        'totalMissingInstances': total_missing,
+        'bySeverity': sev_counts,
+        'securityPatches': len(security),
+        'nonSecurityPatches': len(non_security),
+        'rebootRequired': len(reboot_required),
+        'noReboot': len(no_reboot),
+        'summary': (
+            f'{len(all_patches)} outstanding patches ({total_missing:,} total missing instances). '
+            f'Security: {len([p for p in all_patches if p.get("isSecurity")])}, '
+            f'non-security: {len([p for p in all_patches if not p.get("isSecurity")])}. '
+            f'By severity: {", ".join(f"{k}: {v}" for k, v in sorted(sev_counts.items()))}. '
+            f'Reboot required: {len([p for p in all_patches if p.get("rebootRequired")])}. '
+            f'Top patch: {top[0].get("title", "N/A")} (missing on {top[0].get("missingCount", 0)} assets).'
+        ),
+    }
+
+    result = _with_meta(result, 'patches', total=len(all_patches))
+    return _apply_detail_level(result, detail, list_keys=['patches'])
+
+
 def eliminate_coverage(qids: list = None, cves: list = None, detail: str = "standard") -> dict:
     """Check which QIDs or CVEs have Eliminate mitigations available in the catalog."""
     if not qids and not cves:

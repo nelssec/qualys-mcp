@@ -1321,6 +1321,23 @@ def get_pm_job_summary(job_id):
         return {}
 
 
+def get_pm_patches(platform='Windows', status='Missing', severity=None, page_size=50):
+    """Get patch list from /pm/v1/patches, optionally filtered by status and vendorSeverity."""
+    url = f"{GATEWAY_URL}/pm/v1/patches?platform={platform}&pageSize={page_size}"
+    if status:
+        url += f"&status={status}"
+    if severity:
+        url += f"&vendorSeverity={severity}"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return []
+    try:
+        parsed = json.loads(data)
+        return parsed if isinstance(parsed, list) else parsed.get('patches', parsed.get('data', []))
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+
 def get_mtg_jobs(platform='Windows', limit=10, status=None):
     """Get TruRisk Mitigate deployment jobs, optionally filtered by status (e.g. Running, Completed, Failed)."""
     url = f"{GATEWAY_URL}/mtg/v1/deploymentjobs?platform={platform}&pageSize={limit}"

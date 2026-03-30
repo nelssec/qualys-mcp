@@ -13,6 +13,7 @@ from qualys.aggregators import (
     search_vulns_agg,
     recommendations,
     eliminate_status,
+    outstanding_patches,
     eliminate_coverage,
     scanner_health,
     etm_findings,
@@ -183,9 +184,9 @@ def get_recommendations(detail: str = "standard") -> dict:
 def get_eliminate_status(status: str = "", detail: str = "standard") -> dict:
     """[TruRisk Eliminate] Patch deployment status — deployed/missing patch counts, PM jobs, MTG jobs, patch catalog, deployment success rates, mitigation technique breakdown, SLA compliance summary, and managed assets for Windows and Linux.
 
-    USE WHEN: "how many patches are deployed vs missing?", "what patches failed to deploy?", "what's the success rate of our patch deployments?", "what mitigation techniques are being used?", "which assets are missing critical patches?", "what Windows patches are outstanding?", "what patches are deploying right now?", "are patches deploying?", "how many mitigation jobs are running?", "what's our patch catalog size?", or checking active risk elimination progress. Also handles: SLA compliance, patches within SLA, remediation deadlines, overdue patches, patch SLA rate, time to patch, remediation SLA.
-    DO NOT USE WHEN: Assessing overall risk posture by TruRisk tier (use get_patch_status), checking single-asset patch status (use get_asset), or checking mitigation coverage for specific QIDs/CVEs (use get_eliminate_coverage).
-    PREFER INSTEAD: get_patch_status when "how is our patching going?" (TruRisk coverage/gaps); get_asset for per-asset details; get_eliminate_coverage when checking which vulns have mitigations available.
+    USE WHEN: "how many patches are deployed vs missing?", "what patches failed to deploy?", "what's the success rate of our patch deployments?", "what mitigation techniques are being used?", "what patches are deploying right now?", "are patches deploying?", "how many mitigation jobs are running?", "what's our patch catalog size?", or checking active risk elimination progress. Also handles: SLA compliance, patches within SLA, remediation deadlines, overdue patches, patch SLA rate, time to patch, remediation SLA.
+    DO NOT USE WHEN: Assessing overall risk posture by TruRisk tier (use get_patch_status), checking single-asset patch status (use get_asset), checking mitigation coverage for specific QIDs/CVEs (use get_eliminate_coverage), or listing outstanding patches, missing patches, which patches need to be deployed, or patches by severity (use get_outstanding_patches).
+    PREFER INSTEAD: get_outstanding_patches when "outstanding patches", "missing patches", "which patches need to be deployed", "patches by severity"; get_patch_status when "how is our patching going?" (TruRisk coverage/gaps); get_asset for per-asset details; get_eliminate_coverage when checking which vulns have mitigations available.
 
     Parameters:
         status: filter jobs by status (e.g. "Failed", "Completed", "Running"). "Running" returns in-progress jobs. Empty = all jobs. Status is passed to the API for server-side filtering.
@@ -194,6 +195,25 @@ def get_eliminate_status(status: str = "", detail: str = "standard") -> dict:
 
     Performance: ~5s cold / ~3s warm (parallel PM+MTG+catalog queries)."""
     return eliminate_status(status=status, detail=detail)
+
+
+@mcp.tool()
+def get_outstanding_patches(platform: str = "", severity: str = "", limit: int = 25, detail: str = "standard") -> dict:
+    """[TruRisk Eliminate] Outstanding (missing) patches ranked by number of assets missing them — patch names, missing/installed counts, severity, security flag, reboot required, CVEs, grouped by security vs non-security and reboot vs no-reboot.
+
+    USE WHEN: "outstanding patches", "missing patches", "which patches need to be deployed?", "what patches are missing?", "patches by severity", "how many assets need this patch?", "critical missing patches", "which patches affect the most assets?", "reboot required patches", "security patches outstanding".
+    DO NOT USE WHEN: Checking deployment job status or success rates (use get_eliminate_status), checking overall TruRisk patch coverage (use get_patch_status), or investigating a specific CVE (use investigate_cve).
+    PREFER INSTEAD: get_eliminate_status for deployment job status and success rates; get_patch_status for TruRisk coverage/gaps; investigate_cve for single-CVE deep-dive.
+
+    Parameters:
+        platform: filter by platform — "Windows", "Linux", or "" for both.
+        severity: filter by vendor severity — "Critical", "Important", "Moderate", or "" for all.
+        limit: max patches to return (default 25). Patches are ranked by missingCount descending.
+
+    Returns: patches (ranked list with title, platform, missingCount, installedCount, vendorSeverity, isSecurity, rebootRequired, category, cves, kb), totalOutstanding, totalMissingInstances, bySeverity, securityPatches, nonSecurityPatches, rebootRequired, noReboot, summary.
+
+    Performance: ~3s cold / ~2s warm (parallel per-platform patch queries)."""
+    return outstanding_patches(platform=platform, severity=severity, limit=limit, detail=detail)
 
 
 @mcp.tool()
