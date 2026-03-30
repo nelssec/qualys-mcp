@@ -229,9 +229,9 @@ def get_scanner_health(detail: str = "standard") -> dict:
 
 @mcp.tool()
 def get_etm_findings(qql: str = "", report_id: str = "", detail: str = "standard") -> dict:
-    """[Enterprise TruRisk] Confirmed vulnerability findings in YOUR environment from VMDR scans. Returns per-asset findings with QDS, CVSS, patch status, CVE mapping. @slow
+    """[Enterprise TruRisk] Confirmed vulnerability findings in YOUR environment from VMDR scans. Returns per-asset findings with QDS, CVSS, patch status, CVE mapping, and vulnerability age analysis. @slow
 
-    USE WHEN: User asks what vulns exist on their assets — "show me all critical vulns", "find Log4Shell across the environment", "what's confirmed in our scans?". Supports QQL-style filtering.
+    USE WHEN: User asks what vulns exist on their assets — "show me all critical vulns", "find Log4Shell across the environment", "what's confirmed in our scans?", "how old are our vulnerabilities?", "what's the average vulnerability age?", "which vulns have been open longest?", "vulnerability backlog", "SLA compliance" (age vs SLA thresholds). Supports QQL-style filtering.
     DO NOT USE WHEN: Searching the KB for newly published vulns (not yet scanned), doing single-CVE investigation with asset software search, or checking cloud misconfigs.
     PREFER INSTEAD: search_vulns for KB-only search (published vulns, not your detections); investigate_cve for single-CVE deep-dive with asset impact; get_cloud_risk for cloud misconfigurations.
 
@@ -243,7 +243,7 @@ def get_etm_findings(qql: str = "", report_id: str = "", detail: str = "standard
       - `vulnerabilities.vulnerability.isPatchAvailable:true` — patchable only
     report_id: Ignored (kept for backward compatibility).
 
-    Returns: findings (per-asset entries with cveId, qid, severity, qds, isPatchAvailable), summary (totalFindings, uniqueAssets, uniqueCVEs, patchable, bySeverity), topCVEs.
+    Returns: findings (per-asset entries with cveId, qid, severity, qds, isPatchAvailable, firstFound), summary (totalFindings, uniqueAssets, uniqueCVEs, patchable, bySeverity), topCVEs, vuln_age_summary (avg_age_days, oldest vuln, age buckets: under_30d/30_60d/60_90d/over_90d).
 
     Performance: ~2s warm (cached) / 1-3 min cold (VMDR API fetch + KB enrichment). Results cached for 1 hour."""
     return etm_findings(qql=qql, report_id=report_id, detail=detail)
@@ -251,16 +251,16 @@ def get_etm_findings(qql: str = "", report_id: str = "", detail: str = "standard
 
 @mcp.tool()
 def get_morning_report(quick: bool = False, detail: str = "standard") -> dict:
-    """[Daily Briefing] Morning security report or fast environment snapshot. @slow when quick=False
+    """[Daily Briefing] Morning security report or fast environment snapshot. Includes TruRisk trend (improving/worsening/stable vs 7 days ago). @slow when quick=False
 
-    USE WHEN: "what happened overnight?", "morning report", "give me a briefing", "what's new today?", "what does our environment look like?", environment overview, asset demographics, shift handover, or starting a session. This is the best first-call for daily situational awareness.
+    USE WHEN: "what happened overnight?", "morning report", "give me a briefing", "what's new today?", "what does our environment look like?", environment overview, asset demographics, shift handover, starting a session, "how has our risk changed?", "vulnerability trend", "are things getting better or worse?", "month over month change", "risk trend". This is the best first-call for daily situational awareness. NOTE: Qualys does not store historical time-series data — the truriskTrend compares current vs 7-day-old snapshots. For longer trends, state this limitation explicitly rather than timing out.
     DO NOT USE WHEN: Planning the week's work, deep-diving a specific CVE, or investigating cloud-specific threats.
     PREFER INSTEAD: get_weekly_priorities when "what should I work on this week?" or "top priorities"; investigate_cve for single-CVE deep-dive; get_cloud_risk for cloud threat hunting.
 
     Parameters:
         quick: True for fast environment snapshot only (<3s) — asset counts by OS, cloud, EOL, criticality. False (default) for full daily briefing (~8s).
 
-    Returns (quick=False): environment (healthScore, totalAssets, highRiskAssets, eolSystems), newVulns (24h counts by severity + criticalVulns list), threats (ransomwareLinked, activelyExploited, cisaKev), topRiskAssets, actionItems, truriskTrend.
+    Returns (quick=False): environment (healthScore, totalAssets, highRiskAssets, eolSystems), newVulns (24h counts by severity + criticalVulns list), threats (ransomwareLinked, activelyExploited, cisaKev), topRiskAssets, actionItems, truriskTrend (current score, direction: improving/worsening/stable, delta vs 7 days ago).
     Returns (quick=True): totalAssets, byOS, byCloud, eolCounts, byCriticality, summary.
 
     Performance: ~8s cold / ~4s warm (quick=False). <3s (quick=True)."""
@@ -560,14 +560,14 @@ def get_webapp_vulns(severity: int = 0, days: int = 0, app_name: str = "", owasp
 
 @mcp.tool()
 def get_risk_by_tag(tag: str, limit: int = 10, detail: str = "standard") -> dict:
-    """[Asset Risk] Aggregate risk for a tag group — TruRisk tier distribution, top risky assets, and EOL counts scoped to a specific tag.
+    """[Asset Risk] Aggregate risk for a tag group — TruRisk tier distribution, top risky assets, and EOL counts scoped to a specific tag. Tags represent teams, business groups, environments, and compliance scopes.
 
-    USE WHEN: User asks about risk for a team, environment, or tag segment — "what's the risk for PCI assets?", "show me Production risk", "how is the DMZ doing?", or any business-unit/compliance-scope risk question.
+    USE WHEN: User asks about risk for a team, environment, business group, department, or tag segment — "what's the risk for PCI assets?", "show me Production risk", "how is the DMZ doing?", "which team has the highest TruRisk?", "business group risk breakdown", "department vulnerability exposure", "which business groups have the highest aggregate TruRisk?", "which teams have the most vulnerabilities?". Call once per tag/team to compare.
     DO NOT USE WHEN: You need global risk overview (not scoped to a tag), single-asset details, or cloud posture.
-    PREFER INSTEAD: get_weekly_priorities for global risk overview across all assets; get_asset for single-asset drill-down; get_cloud_risk for cloud-specific posture.
+    PREFER INSTEAD: get_weekly_priorities for global risk overview across all assets; get_asset for single-asset drill-down; get_cloud_risk for cloud-specific posture. Use get_asset_inventory(list_tags=True) first to discover available tag names, then call get_risk_by_tag for each.
 
     Parameters:
-        tag: tag name to filter by (e.g. 'PCI', 'Production', 'DMZ', 'AWS', 'HIPAA')
+        tag: tag name to filter by (e.g. 'PCI', 'Production', 'DMZ', 'AWS', 'HIPAA', 'Engineering', 'Finance'). Use get_asset_inventory(list_tags=True) to discover available tags.
         limit: max top-risk assets to return (default 10)
 
     Returns: assets (total, critical, high, elevated counts), topRiskAssets (ranked list), eolCount, summary string.
@@ -644,9 +644,9 @@ def get_scan_status(state: str = "Running,Paused,Queued,Error", days: int = 7, l
 def get_asset_inventory(query: str = "", tag: str = "", os: str = "", days_since_seen: int = 0,
                         eol_only: bool = False, limit: int = 50,
                         list_tags: bool = False, list_groups: bool = False, detail: str = "standard") -> dict:
-    """[CSAM] Asset inventory search — find assets by OS, tag, keyword, EOL status, or staleness. Also lists tags and asset groups.
+    """[CSAM] Asset inventory search — find assets by OS, tag, keyword, EOL status, or staleness. Includes last VM scan date for each asset. Also lists tags and asset groups.
 
-    USE WHEN: Searching for assets by name/OS/tag, finding stale assets, building asset lists for remediation, finding container image IDs for get_image_vulns, browsing available tags, or listing asset groups.
+    USE WHEN: Searching for assets by name/OS/tag, finding stale assets, building asset lists for remediation, finding container image IDs for get_image_vulns, browsing available tags, listing asset groups, "when was each asset last scanned?", "which assets haven't been scanned recently?", "show scan coverage".
     DO NOT USE WHEN: Looking at single-asset risk details or wanting risk-ranked asset lists.
     PREFER INSTEAD: get_asset for single-asset risk details; get_weekly_priorities for risk-ranked asset lists; get_morning_report(quick=True) for quick environment counts.
 
@@ -666,7 +666,7 @@ def get_asset_inventory(query: str = "", tag: str = "", os: str = "", days_since
         list_tags: if True, return sorted list of all distinct tag names (replaces get_tags)
         list_groups: if True, return sorted list of all distinct asset group names (replaces get_asset_groups)
 
-    Returns: summary (total, returned, byOS, byTag, eolCount), assets (list with id, name, ip, os, lastSeen, tags, truRiskScore, openVulns, eolStatus).
+    Returns: summary (total, returned, byOS, byTag, eolCount), assets (list with id, name, ip, os, lastSeen, lastScanned, daysSinceScan, tags, truRiskScore, openVulns, eolStatus).
     With list_tags=True: adds tags (sorted list of distinct tag names).
     With list_groups=True: adds assetGroups (sorted list of distinct group names).
 

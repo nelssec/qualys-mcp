@@ -531,6 +531,40 @@ def _format_vmdr_as_etm_findings(det_tuples):
     capped_findings = findings[:200]
     top_cves = sorted(by_cve.items(), key=lambda x: (-x[1]['count'], -x[1]['severity']))[:20]
 
+    # Vulnerability age summary from firstFound dates
+    vuln_age_summary = {}
+    ages = []
+    now = datetime.now(timezone.utc)
+    for f in findings:
+        ff = f.get('firstFound', '')
+        if not ff:
+            continue
+        try:
+            dt = datetime.fromisoformat(ff.replace('Z', '+00:00')) if 'T' in ff else datetime.strptime(ff, '%Y-%m-%d').replace(tzinfo=timezone.utc)
+            age_days = (now - dt).days
+            ages.append((age_days, f))
+        except (ValueError, TypeError):
+            pass
+    if ages:
+        ages.sort(key=lambda x: -x[0])
+        avg_age = round(sum(a for a, _ in ages) / len(ages))
+        oldest = ages[0]
+        buckets = {'under_30d': 0, '30_60d': 0, '60_90d': 0, 'over_90d': 0}
+        for age_days, _ in ages:
+            if age_days < 30:
+                buckets['under_30d'] += 1
+            elif age_days < 60:
+                buckets['30_60d'] += 1
+            elif age_days < 90:
+                buckets['60_90d'] += 1
+            else:
+                buckets['over_90d'] += 1
+        vuln_age_summary = {
+            'avg_age_days': avg_age,
+            'oldest': {'qid': oldest[1].get('qid', ''), 'title': oldest[1].get('title', ''), 'age_days': oldest[0], 'assetName': oldest[1].get('assetName', '')},
+            'buckets': buckets,
+        }
+
     result = {
         'reportStatus': 'COMPLETED',
         'findings': capped_findings,
@@ -544,6 +578,8 @@ def _format_vmdr_as_etm_findings(det_tuples):
         },
         'topCVEs': [{'cve': cve, 'qid': info.get('qid', ''), 'assets': info['count'], 'severity': info['severity'], 'title': info['title'][:80]} for cve, info in top_cves],
     }
+    if vuln_age_summary:
+        result['vuln_age_summary'] = vuln_age_summary
 
     result['_next'] = _build_next(result, 'get_etm_findings')
     _track_usage('get_etm_findings', {},
@@ -4025,7 +4061,7 @@ def asset_inventory(query: str = "", tag: str = "", os: str = "", days_since_see
     f = filters if filters else None
     data = _run_concurrent(
         assets=lambda: csam_search(filters=f, limit=limit, fetch_all=False,
-                                   fields="assetName,dnsName,netbiosName,address,lastModifiedDate,operatingSystem,hardware,tags,vulnerabilities,tagList,riskScore,criticality"),
+                                   fields="assetName,dnsName,netbiosName,address,lastModifiedDate,operatingSystem,hardware,tags,vulnerabilities,tagList,riskScore,criticality,lastVmScannedDate,sensorLastUpdatedDate"),
         total=lambda: csam_count(filters=f),
     )
     assets = data.get('assets', [])
@@ -4057,17 +4093,29 @@ def asset_inventory(query: str = "", tag: str = "", os: str = "", days_since_see
         vulns_info = a.get('vulnerabilities', {}) or {}
         open_vulns = vulns_info.get('count', 0) or 0
 
-        result_assets.append({
+        last_vm_scan = a.get('lastVmScannedDate', '') or ''
+        days_since_scan = None
+        if last_vm_scan:
+            try:
+                scan_dt = datetime.fromisoformat(last_vm_scan.replace('Z', '+00:00')) if 'T' in last_vm_scan else datetime.strptime(last_vm_scan, '%Y-%m-%d').replace(tzinfo=timezone.utc)
+                days_since_scan = (datetime.now(timezone.utc) - scan_dt).days
+            except (ValueError, TypeError):
+                pass
+
+        asset_entry = {
             'id': a.get('assetId', ''),
             'name': a.get('assetName', '') or a.get('dnsName', '') or a.get('netbiosName', ''),
             'ip': a.get('address', '') or a.get('ipAddress', ''),
             'os': os_name,
             'lastSeen': short_date(a.get('lastModifiedDate', '') or a.get('sensorLastUpdatedDate', '')),
+            'lastScanned': short_date(last_vm_scan) if last_vm_scan else None,
+            'daysSinceScan': days_since_scan,
             'tags': asset_tags,
             'truRiskScore': a.get('riskScore', 0) or a.get('truRiskScore', 0) or 0,
             'openVulns': open_vulns,
             'eolStatus': lifecycle if lifecycle else 'Active',
-        })
+        }
+        result_assets.append(asset_entry)
 
     result_assets.sort(key=lambda x: -x['truRiskScore'])
     out = compact({

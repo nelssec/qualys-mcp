@@ -215,6 +215,44 @@ ROUTING_CASES: list[RoutingCase] = [
         "Coverage check for top vulns list",
         wrong_tools=["get_eliminate_status"],
     ),
+
+    # Vuln age / SLA questions → get_etm_findings
+    RoutingCase(
+        "Which teams have the highest average vulnerability age?",
+        "get_etm_findings",
+        "Vuln age analysis (vuln_age_summary in response)",
+        wrong_tools=["search_vulns"],
+    ),
+    RoutingCase(
+        "What percentage of our vulnerabilities are within SLA?",
+        "get_etm_findings",
+        "SLA compliance uses vuln age buckets from findings",
+        wrong_tools=["search_vulns"],
+    ),
+
+    # Team / business group risk → get_risk_by_tag
+    RoutingCase(
+        "Which business groups have the highest aggregate TruRisk?",
+        "get_risk_by_tag",
+        "Business group risk breakdown via tags",
+        wrong_tools=["get_weekly_priorities"],
+    ),
+
+    # Last scan date → get_asset_inventory
+    RoutingCase(
+        "When was each asset last scanned?",
+        "get_asset_inventory",
+        "Asset inventory includes lastScanned date",
+        wrong_tools=["get_scan_status"],
+    ),
+
+    # Trend questions → get_morning_report
+    RoutingCase(
+        "How has our risk changed over the last week?",
+        "get_morning_report",
+        "Trend / change question — truriskTrend in morning report",
+        wrong_tools=["get_weekly_priorities"],
+    ),
 ]
 
 
