@@ -13,6 +13,7 @@ from qualys.aggregators import (
     search_vulns_agg,
     recommendations,
     eliminate_status,
+    outstanding_patches,
     eliminate_coverage,
     scanner_health,
     etm_findings,
@@ -184,7 +185,8 @@ def get_recommendations(detail: str = "standard") -> dict:
 def get_eliminate_status(status: str = "", detail: str = "standard") -> dict:
     """[TruRisk Eliminate] Patch deployment status — deployed/missing patch counts, PM jobs, MTG jobs, patch catalog, deployment success rates, mitigation technique breakdown, SLA compliance summary, and managed assets for Windows and Linux.
 
-    USE WHEN: "how many patches are deployed vs missing?", "what patches failed to deploy?", "what's the success rate of our patch deployments?", "what mitigation techniques are being used?", "which assets are missing critical patches?", "what Windows patches are outstanding?", "what patches are deploying right now?", "are patches deploying?", "how many mitigation jobs are running?", "what's our patch catalog size?", or checking active risk elimination progress. Also handles: SLA compliance, patches within SLA, remediation deadlines, overdue patches, patch SLA rate, time to patch, remediation SLA.
+    USE WHEN: "how many patches are deployed vs missing?", "what patches failed to deploy?", "what's the success rate of our patch deployments?", "what mitigation techniques are being used?", "which assets are missing critical patches?", "what patches are deploying right now?", "are patches deploying?", "how many mitigation jobs are running?", "what's our patch catalog size?", or checking active risk elimination progress. Also handles: SLA compliance, patches within SLA, remediation deadlines, overdue patches, patch SLA rate, time to patch, remediation SLA, outstanding patches, missing patches, which patches need to be deployed, patches by severity.
+    NOTE: For detailed outstanding patch lists (patch names, missing counts, severity breakdown), prefer get_outstanding_patches instead.
     DO NOT USE WHEN: Assessing overall risk posture by TruRisk tier (use get_patch_status), checking single-asset patch status (use get_asset), or checking mitigation coverage for specific QIDs/CVEs (use get_eliminate_coverage).
     PREFER INSTEAD: get_patch_status when "how is our patching going?" (TruRisk coverage/gaps); get_asset for per-asset details; get_eliminate_coverage when checking which vulns have mitigations available.
 
@@ -195,6 +197,25 @@ def get_eliminate_status(status: str = "", detail: str = "standard") -> dict:
 
     Performance: ~5s cold / ~3s warm (parallel PM+MTG+catalog queries)."""
     return eliminate_status(status=status, detail=detail)
+
+
+@mcp.tool()
+def get_outstanding_patches(platform: str = "", severity: str = "", top_n: int = 20, detail: str = "standard") -> dict:
+    """[Patch Management] Outstanding patches — lists missing patches ranked by affected asset count, with security/reboot breakdowns and severity filtering.
+
+    USE WHEN: "what patches are outstanding?", "which patches are missing?", "what Windows patches need to be deployed?", "which patches require a reboot?", "what security patches are missing?", "what critical patches are outstanding?", "patches by severity", "top missing patches", "how many patches are outstanding?", "which patches affect the most assets?".
+    DO NOT USE WHEN: Checking deployment job status or success rates (use get_eliminate_status), checking overall patch posture by TruRisk (use get_patch_status), or investigating a specific CVE (use investigate_cve).
+    PREFER INSTEAD: get_eliminate_status for deployment job status; get_patch_status for TruRisk patch posture; investigate_cve for single-CVE deep-dive.
+
+    Parameters:
+        platform: filter by platform — "Windows", "Linux", or "Mac". Empty = all platforms.
+        severity: filter by vendor severity — "Critical", "Important", "Moderate". Empty = all severities.
+        top_n: number of top patches to return, sorted by missingCount descending (default 20).
+
+    Returns: totalOutstanding (patch count), totalMissingInstalls, securityPatches, nonSecurityPatches, rebootRequired, topPatches (list with title, missingCount, vendorSeverity, isSecurity, rebootRequired, cveCount, platform, category, kb), summary.
+
+    Performance: ~3s cold / ~2s warm (parallel per-platform queries)."""
+    return outstanding_patches(platform=platform, severity=severity, top_n=top_n, detail=detail)
 
 
 @mcp.tool()
