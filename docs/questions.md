@@ -12,7 +12,7 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 4. ⚠️ Do a complete investigation of asset server-prod-01
 5. ✅ Tell me everything about CVE-2024-3400 and our exposure
 6. ✅ Why is our risk score high? Give me the full picture
-7. ⚠️ Investigate our compliance posture thoroughly
+7. ✅ Investigate our compliance posture thoroughly
 8. ⚠️ Chain: investigate Log4Shell → then show patch status for affected assets
 9. ✅ Investigate this week's top vulnerability priorities in depth
 10. ✅ Give me a complete cloud security investigation
@@ -571,15 +571,15 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 
 ### Policy compliance
 436. ✅ What's our CIS Benchmark compliance score?
-437. ✅ Show me all failing CIS controls for Windows Server.
-438. ✅ What's our policy compliance rate for Linux systems?
-439. ✅ Which systems are failing the most compliance checks?
-440. ✅ What's our PCI-DSS compliance status?
-441. ✅ Show me all failing PCI-DSS controls.
+437. ⚠️ Show me all failing CIS controls for Windows Server.
+438. ⚠️ What's our policy compliance rate for Linux systems?
+439. ⚠️ Which systems are failing the most compliance checks?
+440. ⚠️ What's our PCI-DSS compliance status?
+441. ⚠️ Show me all failing PCI-DSS controls.
 442. ⚠️ What's our HIPAA technical control compliance rate?
-443. ✅ Show me compliance failures by severity.
+443. ⚠️ Show me compliance failures by severity.
 444. ⚠️ What's our SOC 2 relevant control pass rate?
-445. ⚠️ Which systems fail the NIST 800-53 controls?
+445. ✅ Which systems fail the NIST 800-53 controls?
 446. ⚠️ Show me our ISO 27001 compliance gaps.
 447. ❌ What FedRAMP controls are we failing?
 448. ❌ Show me DISA STIG compliance for our network devices.
