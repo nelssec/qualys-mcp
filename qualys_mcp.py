@@ -43,9 +43,55 @@ from qualys.aggregators import (
     reports_agg,
     summarize_investigation_agg,
     cache_status_agg,
+    threat_actor_exposure_agg,
 )
 
 mcp = FastMCP("qualys-mcp")
+
+# ---------------------------------------------------------------------------
+# Threat actor & industry lookup maps
+# ---------------------------------------------------------------------------
+
+APT_MAP = {
+    # Iran
+    "iran": ["APT33", "APT34", "APT35", "OilRig", "Charming Kitten", "Elfin"],
+    "iranian": ["APT33", "APT34", "APT35", "OilRig", "Charming Kitten", "Elfin"],
+    # North Korea
+    "north korea": ["Lazarus", "APT38", "Kimsuky", "HIDDEN COBRA"],
+    "north korean": ["Lazarus", "APT38", "Kimsuky", "HIDDEN COBRA"],
+    "dprk": ["Lazarus", "APT38", "Kimsuky", "HIDDEN COBRA"],
+    "lazarus": ["Lazarus", "APT38"],
+    # Russia
+    "russia": ["APT28", "APT29", "Sandworm", "Cozy Bear", "Fancy Bear"],
+    "russian": ["APT28", "APT29", "Sandworm", "Cozy Bear", "Fancy Bear"],
+    # China
+    "china": ["APT41", "APT10", "Volt Typhoon", "Salt Typhoon"],
+    "chinese": ["APT41", "APT10", "Volt Typhoon", "Salt Typhoon"],
+    # Generic ransomware
+    "ransomware": ["LockBit", "ALPHV", "BlackCat", "Cl0p", "RansomHub"],
+    # Direct APT references (resolve to themselves)
+    "apt33": ["APT33"], "apt34": ["APT34"], "apt35": ["APT35"],
+    "apt28": ["APT28"], "apt29": ["APT29"], "apt38": ["APT38"],
+    "apt41": ["APT41"], "apt10": ["APT10"],
+    "sandworm": ["Sandworm"], "cozy bear": ["APT29", "Cozy Bear"],
+    "fancy bear": ["APT28", "Fancy Bear"],
+    "volt typhoon": ["Volt Typhoon"], "salt typhoon": ["Salt Typhoon"],
+    "kimsuky": ["Kimsuky"], "oilrig": ["OilRig"],
+    "charming kitten": ["Charming Kitten"],
+    "lockbit": ["LockBit"], "alphv": ["ALPHV"], "blackcat": ["BlackCat"],
+    "cl0p": ["Cl0p"], "ransomhub": ["RansomHub"],
+}
+
+INDUSTRY_MAP = {
+    "healthcare": ["healthcare", "medical", "hospital", "HIPAA"],
+    "health": ["healthcare", "medical", "hospital", "HIPAA"],
+    "finance": ["financial", "banking", "SWIFT"],
+    "financial": ["financial", "banking", "SWIFT"],
+    "banking": ["financial", "banking", "SWIFT"],
+    "energy": ["energy", "ICS", "SCADA", "OT"],
+    "government": ["government", "federal", "public sector"],
+    "federal": ["government", "federal", "public sector"],
+}
 
 
 # ---------------------------------------------------------------------------
@@ -165,6 +211,47 @@ def search_vulns(days: int = 7, threat_type: str = "", software: str = "", limit
 
     Performance: ~5s cold / ~3s warm (KB cached)."""
     return search_vulns_agg(days=days, threat_type=threat_type, software=software, limit=limit, tag=tag, asset_group=asset_group, detail=detail)
+
+
+@mcp.tool()
+def get_threat_actor_exposure(threat_actor: str, limit: int = 20, detail: str = "standard") -> dict:
+    """[Threat Intelligence] Threat actor exposure — CVEs attributed to APT groups, nation-states, ransomware gangs, or industry-targeted threats, cross-referenced with active detections in your environment. @slow
+
+    USE WHEN asked about:
+    - Nation-state or APT threats: "Iranian APT", "Russian hackers", "Chinese threat actors", "North Korean attacks"
+    - Specific APT groups: "APT33", "APT28", "Lazarus Group", "Sandworm", "Volt Typhoon"
+    - Industry-specific threats: "healthcare threats", "finance sector attacks", "energy sector targeting"
+    - Ransomware groups: "ransomware groups targeting us", "LockBit", "ALPHV", "Cl0p"
+    - General: "threat actor exposure", "APT exposure", "which APTs are targeting us", "nation-state threats"
+    DO NOT USE WHEN: Looking up a single CVE (use investigate_cve), searching KB by software name (use search_vulns), or checking overall risk posture (use get_morning_report).
+    PREFER INSTEAD: search_vulns for RTI tag filtering (Ransomware, Active_Attacks); investigate_cve for single-CVE deep-dive.
+
+    Parameters:
+        threat_actor: Name, nation, APT group, or industry — e.g. "Iran", "APT33", "Lazarus", "Russian", "healthcare", "ransomware"
+        limit: Max number of vulnerabilities to return (default 20)
+
+    Returns: tagsSearched, totalInKB, activeInEnvironment, severityBreakdown, vulns (with activeInEnv flag), affectedHosts, summary.
+
+    Performance: ~10s cold / ~5s warm (KB + VMDR detection queries)."""
+    key = threat_actor.lower().strip()
+
+    # Resolve actor to KB search tags
+    actor_tags = APT_MAP.get(key) or INDUSTRY_MAP.get(key)
+    if not actor_tags:
+        # Fuzzy match: check if key is substring of any map key
+        for map_key, tags in {**APT_MAP, **INDUSTRY_MAP}.items():
+            if key in map_key or map_key in key:
+                actor_tags = tags
+                break
+
+    if not actor_tags:
+        return {
+            'error': f"Unknown threat actor or industry: {threat_actor}",
+            'hint': "Try nation names (Iran, Russia, China, North Korea), APT groups (APT33, Lazarus, Sandworm), industries (healthcare, finance, energy), or ransomware.",
+            'summary': f"Unknown threat actor or industry: {threat_actor}.",
+        }
+
+    return threat_actor_exposure_agg(threat_actor=threat_actor, actor_tags=actor_tags, limit=limit, detail=detail)
 
 
 @mcp.tool()
