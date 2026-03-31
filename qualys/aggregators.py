@@ -1482,6 +1482,149 @@ def search_vulns_agg(days: int = 7, threat_type: str = "", software: str = "", l
     return _apply_detail_level(result, detail, list_keys=['vulns'])
 
 
+def threat_actor_exposure_agg(threat_actor: str, actor_tags: list[str], limit: int = 20, detail: str = "standard") -> dict:
+    """Search KB for vulns attributed to threat actor tags, then cross-reference with active VMDR detections."""
+    result = {
+        'threatActor': threat_actor,
+        'tagsSearched': actor_tags,
+        'totalInKB': 0,
+        'activeInEnvironment': 0,
+        'severityBreakdown': {'critical': 0, 'high': 0, 'medium': 0, 'low': 0},
+        'vulns': [],
+        'affectedHosts': [],
+        'summary': '',
+    }
+
+    # Step 1: Search KB for vulns matching threat actor tags
+    # Fetch recent KB entries with threat intel info
+    data = api_get(
+        f"{BASE_URL}/api/2.0/fo/knowledge_base/vuln/?action=list&details=All"
+        f"&show_supported_modules_info=0",
+        timeout=60
+    )
+    if data == 'KB_BUSY':
+        result['summary'] = KB_BUSY_MSG
+        return _with_meta(result, 'vulns')
+    if not data:
+        result['summary'] = 'Failed to fetch KB data'
+        return _with_meta(result, 'vulns')
+
+    try:
+        root = ET.fromstring(data)
+    except ET.ParseError:
+        result['summary'] = 'Failed to parse KB data'
+        return _with_meta(result, 'vulns')
+
+    # Find vulns whose threat_intel tags or title/diagnosis match actor tags
+    tag_lower = [t.lower() for t in actor_tags]
+    matching_vulns = []
+
+    for v in root.findall('.//VULN'):
+        parsed = parse_vuln_xml(v)
+        KB_CACHE[parsed['qid']] = parsed
+
+        # Match on threat_intel tags
+        ti_lower = [t.lower() for t in parsed.get('threat_intel', [])]
+        matched = any(tag in ti_text for tag in tag_lower for ti_text in ti_lower)
+
+        # Also match on title/diagnosis for industry/actor keywords
+        if not matched:
+            title_diag = (parsed.get('title', '') + ' ' + parsed.get('diagnosis', '')).lower()
+            matched = any(tag in title_diag for tag in tag_lower)
+
+        if matched:
+            matching_vulns.append(parsed)
+
+    result['totalInKB'] = len(matching_vulns)
+
+    if not matching_vulns:
+        result['summary'] = f"No vulnerabilities found in Qualys KB matching {threat_actor} (tags searched: {', '.join(actor_tags)}). This actor may use zero-days or vulns not yet attributed in the KB."
+        return _with_meta(result, 'vulns')
+
+    # Sort by severity desc, then by QDS desc
+    matching_vulns.sort(key=lambda x: (-x['severity'], -x.get('qds', 0)))
+
+    # Step 2: Cross-reference with active VMDR detections
+    matching_qids = {v['qid'] for v in matching_vulns}
+
+    # Fetch detections (severity 3+ covers medium/high/critical)
+    concurrent = _run_concurrent(
+        det_sev5=lambda: get_detections(severity=5),
+        det_sev4=lambda: get_detections(severity=4),
+        det_sev3=lambda: get_detections(severity=3),
+    )
+    all_detections = []
+    for key in ('det_sev5', 'det_sev4', 'det_sev3'):
+        dets = concurrent.get(key)
+        if dets:
+            all_detections.extend(dets)
+
+    # Filter detections to only those matching our QIDs
+    active_dets = [d for d in all_detections if d.get('qid') in matching_qids]
+    active_qids = {d['qid'] for d in active_dets}
+    result['activeInEnvironment'] = len(active_qids)
+
+    # Build host impact summary
+    host_map = {}  # hostname -> {qids, severity_max}
+    for d in active_dets:
+        host = d.get('hostname') or d.get('ip') or d.get('host_id', 'unknown')
+        if host not in host_map:
+            host_map[host] = {'hostname': host, 'ip': d.get('ip', ''), 'qidCount': 0, 'maxSeverity': 0}
+        host_map[host]['qidCount'] += 1
+        host_map[host]['maxSeverity'] = max(host_map[host]['maxSeverity'], d.get('severity', 0))
+
+    # Top affected hosts
+    sorted_hosts = sorted(host_map.values(), key=lambda x: (-x['maxSeverity'], -x['qidCount']))
+    result['affectedHosts'] = sorted_hosts[:10]
+
+    # Get real QDS scores for top vulns
+    top_qids = [v['qid'] for v in matching_vulns[:30] if v.get('qid')]
+    qds_scores = get_qds_for_qids(top_qids) if top_qids else {}
+
+    # Build severity breakdown and vuln list
+    for v in matching_vulns:
+        sev = v['severity']
+        if sev >= 5:
+            result['severityBreakdown']['critical'] += 1
+        elif sev >= 4:
+            result['severityBreakdown']['high'] += 1
+        elif sev >= 3:
+            result['severityBreakdown']['medium'] += 1
+        else:
+            result['severityBreakdown']['low'] += 1
+
+    for v in matching_vulns[:limit]:
+        real_qds = qds_scores.get(v['qid'], 0)
+        vuln_entry = {
+            'qid': v['qid'],
+            'title': v['title'][:100] if detail != "detailed" else v['title'],
+            'severity': v['severity'],
+            'qds': real_qds or v.get('qds', 0),
+            'cvss_v3': v.get('cvss_v3'),
+            'cves': v.get('cves', []),
+            'patchAvailable': v.get('patch_available', False),
+            'has_exploit': v.get('has_exploit', False),
+            'threatIntel': v.get('threat_intel', []),
+            'ransomware': v.get('ransomware', False),
+            'activeInEnv': v['qid'] in active_qids,
+        }
+        result['vulns'].append(vuln_entry)
+
+    active_count = sum(1 for v in result['vulns'] if v['activeInEnv'])
+    patched = sum(1 for v in matching_vulns if v.get('patch_available'))
+    host_count = len(host_map)
+    sev = result['severityBreakdown']
+    result['summary'] = (
+        f"{len(matching_vulns)} KB vulns attributed to {threat_actor} "
+        f"({sev['critical']} critical, {sev['high']} high). "
+        f"{len(active_qids)} actively detected in your environment across {host_count} hosts. "
+        f"{patched} have patches available."
+    )
+
+    result = _with_meta(result, 'vulns', result['totalInKB'])
+    return _apply_detail_level(result, detail, list_keys=['vulns', 'affectedHosts'])
+
+
 def recommendations(detail: str = "standard") -> dict:
     result = {'recommendations': [], 'coverage': {}, 'summary': ''}
     recs = []
