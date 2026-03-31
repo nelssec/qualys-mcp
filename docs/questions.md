@@ -10,7 +10,7 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 2. ✅ Give me a full deep-dive on why our TruRisk score increased this week
 3. ✅ Investigate our ransomware exposure end-to-end
 4. ✅ Do a complete investigation of asset server-prod-01
-5. ⚠️ Tell me everything about CVE-2024-3400 and our exposure
+5. ✅ Tell me everything about CVE-2024-3400 and our exposure
 6. ✅ Why is our risk score high? Give me the full picture
 7. ✅ Investigate our compliance posture thoroughly
 8. ⚠️ Chain: investigate Log4Shell → then show patch status for affected assets
@@ -26,7 +26,7 @@ Coverage key: ✅ Fully covered | ⚠️ Partially covered | ❌ Not covered
 2. ✅ What's my morning security summary?
 3. ✅ What changed in my vulnerability posture this week?
 4. ✅ What are my top 10 riskiest vulnerabilities right now?
-5. ⚠️ Show me all vulnerabilities with active ransomware associations.
+5. ✅ Show me all vulnerabilities with active ransomware associations.
 6. ✅ What vulnerabilities have public exploits available?
 7. ✅ What zero-days are we currently exposed to?
 8. ⚠️ Show me all Critical severity vulnerabilities detected in the last 7 days.
