@@ -1384,7 +1384,7 @@ def search_vulns_agg(days: int = 7, threat_type: str = "", software: str = "", l
     data = api_get(
         f"{BASE_URL}/api/2.0/fo/knowledge_base/vuln/?action=list&details=All"
         f"&published_after={after}",
-        timeout=30
+        timeout=120
     )
     if data == 'KB_BUSY':
         result['summary'] = KB_BUSY_MSG
@@ -1497,10 +1497,11 @@ def threat_actor_exposure_agg(threat_actor: str, actor_tags: list[str], limit: i
 
     # Step 1: Search KB for vulns matching threat actor tags
     # Fetch recent KB entries with threat intel info
+    kb_after = (datetime.now(timezone.utc) - timedelta(days=730)).strftime('%Y-%m-%d')
     data = api_get(
         f"{BASE_URL}/api/2.0/fo/knowledge_base/vuln/?action=list&details=All"
-        f"&show_supported_modules_info=0",
-        timeout=60
+        f"&show_supported_modules_info=0&published_after={kb_after}",
+        timeout=120
     )
     if data == 'KB_BUSY':
         result['summary'] = KB_BUSY_MSG
@@ -1645,7 +1646,7 @@ def recommendations(detail: str = "standard") -> dict:
         fim=lambda: _fetch_fim_events_raw(5, 7),
         edr=lambda: _fetch_edr_events_raw(5),
         certs=lambda: get_certificates(5, 30),
-        ransomware_vulns=lambda: search_vulns_agg(days=30, threat_type='Ransomware'),
+        ransomware_vulns=lambda: search_vulns_agg(days=7, threat_type='Ransomware', limit=10),
     )
 
     total = concurrent.get('total') or 0
@@ -2521,9 +2522,6 @@ def morning_report(quick: bool = False, detail: str = "standard") -> dict:
         posture=lambda: get_security_posture(),
         priorities=lambda: weekly_priorities(),
         new_vulns=lambda: search_vulns_agg(days=1),
-        ransomware=lambda: search_vulns_agg(days=1, threat_type='Ransomware'),
-        active=lambda: search_vulns_agg(days=1, threat_type='Active_Attacks'),
-        cisa=lambda: search_vulns_agg(days=1, threat_type='Cisa_Known_Exploited_Vulns'),
         trurisk_now=lambda: csam_search(limit=100, fields="truRisk"),
         trurisk_7d=lambda: csam_search(
             filters=[{"field": "asset.lastModifiedDate", "operator": "LESS",
@@ -2552,13 +2550,14 @@ def morning_report(quick: bool = False, detail: str = "standard") -> dict:
         'withThreatIntel': new.get('withThreatIntel', 0),
     }
 
-    ransomware_data = concurrent.get('ransomware') or {}
-    active_data = concurrent.get('active') or {}
-    cisa_data = concurrent.get('cisa') or {}
+    all_new_vulns = new.get('vulns') or []
+    def _count_threat(vulns, tag):
+        tag_lower = tag.lower()
+        return sum(1 for v in vulns if any(tag_lower in t.lower() for t in v.get('threat_intel', [])))
     result['threats'] = {
-        'ransomwareLinked': ransomware_data.get('totalMatching', 0),
-        'activelyExploited': active_data.get('totalMatching', 0),
-        'cisaKev': cisa_data.get('totalMatching', 0),
+        'ransomwareLinked': _count_threat(all_new_vulns, 'Ransomware'),
+        'activelyExploited': _count_threat(all_new_vulns, 'Active_Attacks'),
+        'cisaKev': _count_threat(all_new_vulns, 'Cisa_Known_Exploited_Vulns'),
     }
 
     critical_new = []
@@ -4943,12 +4942,17 @@ def compliance_posture(framework: str = "", platform: str = "", limit: int = 20,
             _log("Compliance posture: policy list returned non-XML")
 
     if policy_ids:
-        _log(f"Compliance posture: found {len(policy_ids)} policies, fetching posture (max 5)...")
-        for pid in policy_ids[:5]:
-            posture_data = api_get(
-                f"{BASE_URL}/api/2.0/fo/compliance/posture/info/?action=list&policy_id={pid}",
+        _log(f"Compliance posture: found {len(policy_ids)} policies, fetching posture (max 5) in parallel...")
+        policy_tasks = {
+            f"policy_{pid}": (lambda p=pid: api_get(
+                f"{BASE_URL}/api/2.0/fo/compliance/posture/info/?action=list&policy_id={p}",
                 timeout=120
-            )
+            ))
+            for pid in policy_ids[:5]
+        }
+        policy_results = _run_concurrent(**policy_tasks)
+        for pid in policy_ids[:5]:
+            posture_data = policy_results.get(f"policy_{pid}")
             if posture_data:
                 try:
                     root = ET.fromstring(posture_data if isinstance(posture_data, (str, bytes)) else posture_data)
