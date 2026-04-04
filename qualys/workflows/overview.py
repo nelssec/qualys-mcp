@@ -104,9 +104,15 @@ def _summarize(data):
     if findings:
         headline = findings[0]
 
+    risk = "unknown"
+    if stats.get("scanners_offline", 0) > 0 or stats.get("scan_errors", 0) > 0:
+        risk = "medium"
+    if stats.get("findings_count", 0) > 50:
+        risk = "high"
+
     return {
         "headline": headline,
-        "risk_level": "unknown",
+        "risk_level": risk,
         "key_findings": findings[:5],
         "stats": {k: v for k, v in stats.items() if v is not None},
     }
