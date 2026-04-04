@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "qualys-mcp"
-version = "2.16.0"
+version = "3.0.0"
 description = "MCP server for Qualys security APIs - natural language interaction with vulnerability, asset, and cloud security data"
 readme = "README.md"
 license = "MIT"
@@ -45,13 +45,19 @@ Issues = "https://github.com/nelssec/qualys-mcp/issues"
 [project.scripts]
 qualys-mcp = "qualys_mcp:main"
 
+[project.optional-dependencies.dev]
+dev = [
+    "pytest>=7.0",
+]
+
 [tool.hatch.build.targets.wheel]
-packages = ["."]
-only-include = ["qualys_mcp.py"]
+packages = ["qualys", "."]
+only-include = ["qualys_mcp.py", "qualys/"]
 
 [tool.hatch.build.targets.sdist]
 include = [
     "qualys_mcp.py",
+    "qualys/",
     "README.md",
     "LICENSE",
     "pyproject.toml",
