@@ -1072,7 +1072,7 @@ def get_images(limit=100, severity=None, count_only=False):
     url = f"{GATEWAY_URL}/csapi/v1.3/images?sort=created:desc"
     if severity:
         url += f"&filter=vulnerabilities.severity:{severity}"
-    return _paginate_json(url, limit, count_only=count_only)
+    return _paginate_json(url, limit, count_only=count_only, fetch_all=False)
 
 
 def get_images_by_vulns(limit=50):
@@ -1085,7 +1085,7 @@ def get_containers(limit=100, count_only=False, filter_str=None):
     """Fetch containers with pagination. Default filter: state:RUNNING."""
     filt = filter_str or "state:RUNNING"
     url = f"{GATEWAY_URL}/csapi/v1.3/containers?filter={filt}"
-    return _paginate_json(url, limit, count_only=count_only)
+    return _paginate_json(url, limit, count_only=count_only, fetch_all=False)
 
 
 def get_connectors(provider='aws', limit=50):
