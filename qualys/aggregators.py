@@ -1844,7 +1844,7 @@ def outstanding_patches(platform: str = "", severity: str = "", top_n: int = 20,
     if platform:
         platforms = [platform.strip().capitalize()]
     else:
-        platforms = ['Windows', 'Linux', 'Mac']
+        platforms = ['Windows', 'Linux']
 
     sev_filter = severity.strip().capitalize() if severity else ""
 
