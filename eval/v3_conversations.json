@@ -1,0 +1,363 @@
+[
+  {
+    "id": 26,
+    "title": "CrackArmor Campaign Investigation",
+    "category": "Threat Intelligence",
+    "turns": [
+      "what is the CrackArmor campaign and should i be worried about it",
+      "which CVEs are associated with CrackArmor",
+      "are we exposed to any of those CVEs in our environment",
+      "what threat actors are behind this campaign",
+      "give me a summary i can send to the CISO"
+    ]
+  },
+  {
+    "id": 27,
+    "title": "Iran APT33 Energy Sector Targeting",
+    "category": "Threat Intelligence",
+    "turns": [
+      "i'm seeing news about APT33 targeting energy sector companies, are we at risk",
+      "what CVEs is APT33 actively exploiting right now",
+      "do we have any of those in our environment",
+      "any EDR or endpoint events related to this campaign",
+      "which assets are most exposed and how do we protect them"
+    ]
+  },
+  {
+    "id": 28,
+    "title": "Volt Typhoon / Salt Typhoon Chinese Infrastructure Targeting",
+    "category": "Threat Intelligence",
+    "turns": [
+      "tell me about Volt Typhoon and Salt Typhoon — are we a target",
+      "what techniques and CVEs are these groups using",
+      "do we run any of the targeted network infrastructure — routers, VPNs, firewalls",
+      "what's our exposure look like if they came after us",
+      "what hardening steps should we prioritize given this threat"
+    ]
+  },
+  {
+    "id": 29,
+    "title": "RansomHub Healthcare Ransomware Triage",
+    "category": "Threat Intelligence",
+    "turns": [
+      "RansomHub is hitting healthcare organizations — what's our ransomware exposure look like",
+      "which CVEs are they using to get initial access",
+      "how many of our assets are vulnerable to those specific CVEs",
+      "what's our patch status on the RansomHub-associated vulnerabilities",
+      "walk me through the remediation priorities"
+    ]
+  },
+  {
+    "id": 30,
+    "title": "Ivanti Connect Secure Zero-Day Chain Incident Response",
+    "category": "Vulnerability Management",
+    "turns": [
+      "CVE-2024-21887 and CVE-2023-46805 are being chained in attacks on Ivanti Connect Secure — do we run Ivanti",
+      "how many Ivanti assets do we have and what versions are they running",
+      "are both CVEs present on the same assets — that's the dangerous combo",
+      "any EDR or FIM events on those Ivanti hosts that look suspicious",
+      "what's the remediation path and what mitigations can we apply right now while we wait for patches",
+      "draft me an incident response summary for this"
+    ]
+  },
+  {
+    "id": 31,
+    "title": "FortiManager FortiJump CVE-2024-47575 Exposure",
+    "category": "Vulnerability Management",
+    "turns": [
+      "there's a critical zero-day in FortiManager called FortiJump — CVE-2024-47575 — do we run FortiManager",
+      "what versions do we have and are they in the vulnerable range",
+      "how many assets are affected and where are they sitting in the network",
+      "what mitigations has Fortinet published while we wait for the patch",
+      "what's the risk if we can't patch immediately — is this being actively exploited"
+    ]
+  },
+  {
+    "id": 32,
+    "title": "XZ Utils Supply Chain Attack CVE-2024-3094",
+    "category": "Vulnerability Management",
+    "turns": [
+      "the XZ Utils supply chain backdoor CVE-2024-3094 is huge news — check our Linux fleet",
+      "which Linux distributions and versions are affected",
+      "how many of our Linux assets have the compromised xz-utils package",
+      "are any of those systems internet-facing or running sshd",
+      "what's the remediation — downgrade or patch, and what's the fastest path"
+    ]
+  },
+  {
+    "id": 33,
+    "title": "Lazarus Group Financial Services Targeting",
+    "category": "Threat Intelligence",
+    "turns": [
+      "Lazarus Group is reportedly targeting financial services firms — check our APT exposure",
+      "what CVEs and techniques is Lazarus currently using",
+      "do we have active vulnerabilities that match their known TTPs",
+      "any threat indicators or EDR activity that might suggest reconnaissance against us",
+      "what's our overall risk posture against Lazarus and what should we do about it"
+    ]
+  },
+  {
+    "id": 34,
+    "title": "CISA KEV Deadline Review",
+    "category": "Vulnerability Management",
+    "turns": [
+      "CISA KEV deadlines are coming up — which known exploited vulnerabilities do we still have open",
+      "how many of those are past their remediation deadline",
+      "which assets still have open KEV findings",
+      "what's blocking remediation on the overdue ones",
+      "give me a prioritized list to work through this week"
+    ]
+  },
+  {
+    "id": 35,
+    "title": "Zero-Day Firewall Triage",
+    "category": "Vulnerability Management",
+    "turns": [
+      "we just got alerted about a new zero-day on firewall appliances — help me triage this",
+      "what firewall vendors and products do we have in the environment",
+      "are any of those exposed to the internet directly",
+      "what do we know about exploitation — is there a working exploit in the wild",
+      "what can we do right now before a patch is available"
+    ]
+  },
+  {
+    "id": 36,
+    "title": "Monday Morning Security Standup",
+    "category": "Vulnerability Management",
+    "turns": [
+      "good morning, i need to run the weekly standup — what happened over the weekend",
+      "anything new that came in from threat intel",
+      "what are the top priorities for the team this week",
+      "which items are overdue from last week",
+      "give me a quick briefing i can kick off the standup with"
+    ]
+  },
+  {
+    "id": 37,
+    "title": "Sprint Planning — Patch Prioritization",
+    "category": "Patch Management",
+    "turns": [
+      "sprint planning today — help me figure out what to patch this sprint",
+      "which vulns give us the best risk reduction per effort",
+      "focus on the ones with active exploits in the wild",
+      "are there any compensating mitigations we can apply for things we can't patch this sprint",
+      "give me a ranked list of 10 vulnerabilities to commit to this sprint"
+    ]
+  },
+  {
+    "id": 38,
+    "title": "PCI Audit Preparation",
+    "category": "Compliance",
+    "turns": [
+      "PCI audit is in 3 weeks — where do we stand on compliance",
+      "which controls are we failing right now",
+      "how many systems are failing those controls",
+      "do we have any exceptions that auditors are going to scrutinize",
+      "what's our remediation plan for the gaps and can we close them in time"
+    ]
+  },
+  {
+    "id": 39,
+    "title": "Board Report Preparation",
+    "category": "Vulnerability Management",
+    "turns": [
+      "board meeting next week — i need to put together the security section, help me gather the data",
+      "what's our overall risk score and trend over the past quarter",
+      "what were the top 3 security events or risks this quarter",
+      "what's the ROI story on the security investments we've made",
+      "draft me an executive summary i can put in the board deck"
+    ]
+  },
+  {
+    "id": 40,
+    "title": "Container Image Security Review",
+    "category": "Container Security",
+    "turns": [
+      "i need to do a container security review — what's the state of our images",
+      "which images have critical vulnerabilities",
+      "which of those vulnerable images are actually running in production right now",
+      "what's the worst container in prod from a risk perspective",
+      "what's the remediation plan — rebuild from scratch or patch in place"
+    ]
+  },
+  {
+    "id": 41,
+    "title": "Multi-Cloud Security Posture Review",
+    "category": "Cloud Security",
+    "turns": [
+      "i need a full cloud security posture review across all our cloud providers",
+      "which provider has the worst posture right now",
+      "break down the AWS findings by account — which accounts are failing the most",
+      "what are the highest severity misconfigurations across all providers",
+      "which findings are internet-exposed and need immediate attention"
+    ]
+  },
+  {
+    "id": 42,
+    "title": "Certificate Rotation Planning",
+    "category": "Asset Management",
+    "turns": [
+      "i need to plan certificate rotations — what certs are expiring in the next 90 days",
+      "any already expired that we missed",
+      "are there any weak cipher suites or deprecated TLS versions we should fix at the same time",
+      "which systems are highest priority — customer-facing, internal, etc",
+      "give me a rotation schedule i can bring to the team"
+    ]
+  },
+  {
+    "id": 43,
+    "title": "EOL System Remediation Planning",
+    "category": "Asset Management",
+    "turns": [
+      "i need to tackle our EOL system problem — what are we dealing with",
+      "which EOL systems are internet-facing or in a high-risk zone",
+      "what's the actual vulnerability exposure on those EOL systems",
+      "help me prioritize which to upgrade or decommission first",
+      "what does a realistic 90-day remediation plan look like"
+    ]
+  },
+  {
+    "id": 44,
+    "title": "Vulnerability Exception Review",
+    "category": "Vulnerability Management",
+    "turns": [
+      "time for our quarterly exception review — show me what we have approved",
+      "which exceptions are expiring in the next 30 days",
+      "any of those excepted vulnerabilities now showing active exploitation in the wild",
+      "which exceptions do you think we should reconsider based on current threat intel",
+      "help me draft justifications for the ones we want to renew"
+    ]
+  },
+  {
+    "id": 45,
+    "title": "Scanner Fleet Health Check",
+    "category": "Asset Management",
+    "turns": [
+      "i need to check our scanner fleet health — how are they doing",
+      "which scanners are offline or not responding",
+      "when did those last successfully complete a scan",
+      "how much of our environment has stale scan data because of this",
+      "what do we need to do to get full coverage back"
+    ]
+  },
+  {
+    "id": 46,
+    "title": "Full Risk Assessment to Remediation Pipeline",
+    "category": "Vulnerability Management",
+    "turns": [
+      "give me a full risk assessment — where do we stand overall",
+      "what's the single highest-risk CVE in our environment right now, tell me everything about it",
+      "how many assets are affected and what business systems are at stake",
+      "what does remediation look like for that CVE — patch, workaround, timeline",
+      "does remediating that CVE also help with any compliance gaps we have"
+    ]
+  },
+  {
+    "id": 47,
+    "title": "CVE Incident Response Workflow",
+    "category": "Vulnerability Management",
+    "turns": [
+      "CVE-2024-6387 regreSSHion just dropped — are we affected",
+      "pull up all the assets running vulnerable OpenSSH versions",
+      "any endpoint detection events on those hosts in the last 24 hours",
+      "which assets should we prioritize for emergency patching",
+      "what's the full incident response action plan"
+    ]
+  },
+  {
+    "id": 48,
+    "title": "Compliance-Driven Remediation Workflow",
+    "category": "Compliance",
+    "turns": [
+      "our SOC2 audit found gaps — help me figure out what to fix first",
+      "which failing controls have the most systems out of compliance",
+      "what patches or config changes would close the most compliance gaps",
+      "can we use the eliminate/mitigation program to address any of these without patching",
+      "once we remediate, how do we verify the controls are passing again"
+    ]
+  },
+  {
+    "id": 49,
+    "title": "Cloud to Container Risk Chain",
+    "category": "Cloud Security",
+    "turns": [
+      "i want to map our full cloud risk — start with cloud posture across all accounts",
+      "now show me the container images running in the worst cloud accounts",
+      "any web applications hosted in those same cloud environments with vulnerabilities",
+      "are there any certificate issues on the web apps in those cloud accounts",
+      "give me the full risk chain from cloud misconfiguration to container to app to cert"
+    ]
+  },
+  {
+    "id": 50,
+    "title": "Threat Intelligence to Action Workflow",
+    "category": "Threat Intelligence",
+    "turns": [
+      "tell me about BlackCat/ALPHV ransomware group — are they relevant to us",
+      "check our exposure to the CVEs BlackCat is actively exploiting",
+      "based on our exposure, prioritize which patches we need to deploy urgently",
+      "does remediating these patches help with our CIS benchmark compliance",
+      "summarize the threat, our exposure, and the action plan"
+    ]
+  },
+  {
+    "id": 51,
+    "title": "QID Deep-Dive Investigation Workflow",
+    "category": "Vulnerability Management",
+    "turns": [
+      "i keep seeing QID 375560 show up in reports — what is it exactly",
+      "what's the QDS score on that and why is it ranked so high",
+      "show me all the assets that have that QID open right now",
+      "what's the fix and is it a simple patch or is there more to it",
+      "can we bulk-remediate this or does each asset need to be handled individually"
+    ]
+  },
+  {
+    "id": 52,
+    "title": "Tag-Based Risk Reduction Workflow",
+    "category": "Vulnerability Management",
+    "turns": [
+      "i want to understand risk by asset tag — which of our tagged groups is in the worst shape",
+      "drill into the Production tag — what does the vulnerability landscape look like there",
+      "what are the top 5 vulns driving risk in that production group",
+      "what would our TruRisk score look like if we patched just those top 5",
+      "help me build a remediation plan just for the production tag"
+    ]
+  },
+  {
+    "id": 53,
+    "title": "Multi-CVE Triage and Prioritization",
+    "category": "Vulnerability Management",
+    "turns": [
+      "i have three CVEs i need to triage: CVE-2024-38063, CVE-2024-43461, and CVE-2024-38217 — give me the rundown on each",
+      "which of the three is the highest severity and most actively exploited",
+      "how many assets do we have exposed to each one",
+      "given our exposure, which should we patch first and what's the order",
+      "do any of these have compensating mitigations i can apply while the patches roll out"
+    ]
+  },
+  {
+    "id": 54,
+    "title": "Weekly Security Review",
+    "category": "Vulnerability Management",
+    "turns": [
+      "friday afternoon — let's do the weekly security review, what's the headline",
+      "what new vulnerabilities came in this week that we need to care about",
+      "anything from threat intel that changes our priorities",
+      "what actions do i need to assign to the team for next week",
+      "generate me a weekly summary i can email to leadership"
+    ]
+  },
+  {
+    "id": 55,
+    "title": "Post-Incident Cleanup Workflow",
+    "category": "Vulnerability Management",
+    "turns": [
+      "we just contained an incident on our web tier — help me understand what happened from a vulnerability standpoint",
+      "which CVEs on those web servers could have been the initial access vector",
+      "how many other systems in our environment have the same vulnerabilities — what's the blast radius",
+      "what's the full remediation plan to make sure this can't happen again",
+      "how do we verify we're clean and not still compromised on any other systems"
+    ]
+  }
+]
