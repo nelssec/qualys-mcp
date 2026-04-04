@@ -3508,7 +3508,14 @@ def _container_empty_response(context: str) -> dict:
 
 def container_vuln_summary(limit: int = 20, detail: str = "standard") -> dict:
     """Top container images ranked by critical vulnerability count with severity breakdown."""
-    images = get_images_by_vulns(limit=limit)
+    concurrent = _run_concurrent(
+        images=lambda: get_images_by_vulns(limit=limit),
+        total_images=lambda: get_images(1, count_only=True),
+        total_vuln_images=lambda: get_images(1, severity=5, count_only=True),
+    )
+    images = concurrent.get('images') or []
+    total_images = concurrent.get('total_images') or 0
+    total_vuln_images = concurrent.get('total_vuln_images') or 0
     if not images:
         return _container_empty_response('container images')
 
@@ -3542,10 +3549,12 @@ def container_vuln_summary(limit: int = 20, detail: str = "standard") -> dict:
 
     result = {
         'summary': totals,
+        'totalImages': total_images,
+        'totalVulnerableImages': total_vuln_images,
         'imageCount': len(ranked),
         'images': ranked,
     }
-    out = _with_meta(result, 'images', len(ranked))
+    out = _with_meta(result, 'images', len(ranked), total_images)
     return _apply_detail_level(out, detail, list_keys=['images'])
 
 
@@ -3566,10 +3575,12 @@ def running_containers(limit: int = 50, detail: str = "standard") -> dict:
     """Running containers with image vulnerability context."""
     concurrent = _run_concurrent(
         containers=lambda: get_containers(limit=limit),
+        total_containers=lambda: get_containers(1, count_only=True),
         images=lambda: get_images_by_vulns(limit=200),
     )
 
     containers = concurrent.get('containers') or []
+    total_containers = concurrent.get('total_containers') or len(containers)
     images_list = concurrent.get('images') or []
 
     if not containers and not images_list:
@@ -3613,7 +3624,8 @@ def running_containers(limit: int = 50, detail: str = "standard") -> dict:
 
     result = {
         'summary': {
-            'totalRunning': len(rows),
+            'totalRunning': total_containers,
+            'returned': len(rows),
             'withCriticalVulns': sum(1 for r in rows if r.get('critical', 0) > 0),
             'withUnpatchedCritical': len(unpatched_critical),
         },
