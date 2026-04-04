@@ -1077,7 +1077,7 @@ def get_images(limit=100, severity=None, count_only=False):
 
 def get_images_by_vulns(limit=50):
     """Fetch container images ranked by critical vulnerability count (descending)."""
-    url = f"{GATEWAY_URL}/csapi/v1.3/images?sort=vulnerabilities.severity5:desc"
+    url = f"{GATEWAY_URL}/csapi/v1.3/images?sort=created:desc&filter=vulnerabilities.severity:5"
     return _paginate_json(url, limit, fetch_all=False)
 
 
@@ -1134,7 +1134,7 @@ def get_evaluations_filtered(account_id, provider='aws', limit=500, filter_str='
 def get_cdr(days=7, limit=100, severity=None, cloud_provider=None, category=None):
     end = datetime.now(timezone.utc)
     start = end - timedelta(days=days)
-    url = f"{GATEWAY_URL}/cdr-api/rest/v1/findings/?startAt={start.isoformat()}Z&endAt={end.isoformat()}Z"
+    url = f"{GATEWAY_URL}/cdr-api/rest/v1/findings/?startAt={start.strftime('%Y-%m-%dT%H:%M:%SZ')}&endAt={end.strftime('%Y-%m-%dT%H:%M:%SZ')}"
     if severity:
         url += f"&severity={severity}"
     if cloud_provider:
