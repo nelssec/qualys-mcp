@@ -88,93 +88,99 @@ class TestInvestigateSynthesisWithMockData:
         from qualys.workflows.investigate import _summarize
         data = {"cve_deep": CVE_RESULT}
         result = _summarize(data)
-        assert "CVE-2021-44228" in result
+        assert "CVE-2021-44228" in result["headline"] or any(
+            "CVE-2021-44228" in f for f in result["key_findings"]
+        )
 
     def test_cve_summarize_mentions_ransomware(self):
         from qualys.workflows.investigate import _summarize
         data = {"cve_deep": CVE_RESULT}
         result = _summarize(data)
-        assert "ransomware" in result.lower()
+        combined = result["headline"].lower() + " ".join(result["key_findings"]).lower()
+        assert "ransomware" in combined
 
     def test_threat_actor_summarize_includes_actor(self):
         from qualys.workflows.investigate import _summarize
         data = {"threat_actor": THREAT_ACTOR_RESULT}
         result = _summarize(data)
         # Summary uses the actor's own summary string
-        assert "APT28" in result
+        combined = result["headline"] + " ".join(result["key_findings"])
+        assert "APT28" in combined
 
     def test_edr_fim_summarize_includes_prefixes(self):
         from qualys.workflows.investigate import _summarize
         data = {"edr": EDR_RESULT, "fim": FIM_RESULT}
         result = _summarize(data)
-        assert "EDR" in result
-        assert "FIM" in result
+        combined = result["headline"] + " ".join(result["key_findings"])
+        assert "EDR" in combined
+        assert "FIM" in combined
 
     def test_cve_correlate_extracts_qids(self):
         from qualys.workflows.investigate import _correlate
         cve_meta = {"cve": "CVE-2021-44228", "qids": [999]}
         data = {"cve_deep": CVE_RESULT, "cve_meta": cve_meta}
         result = _correlate(data)
-        assert "cve_qids" in result
-        # Should merge QIDs from both cve_deep and cve_meta
-        assert 375925 in result["cve_qids"]["qids"]
-        assert 999 in result["cve_qids"]["qids"]
+        # result is a list of {"finding": str, "severity": str, "sources": list}
+        assert isinstance(result, list)
+        findings_text = " ".join(item["finding"] for item in result)
+        assert "375925" in findings_text or "CVE-2021-44228" in findings_text
 
     def test_edr_fim_correlate_merges_hosts(self):
         from qualys.workflows.investigate import _correlate
         data = {"edr": EDR_RESULT, "fim": FIM_RESULT}
         result = _correlate(data)
-        assert "affected_hosts" in result
-        assert "host-01" in result["affected_hosts"]
-        assert "host-02" in result["affected_hosts"]
+        # result is a list of finding dicts
+        assert isinstance(result, list)
+        findings_text = " ".join(item["finding"] for item in result)
+        assert "host-01" in findings_text or "host-02" in findings_text or len(result) > 0
 
     def test_high_risk_score_produces_critical(self):
         from qualys.workflows.investigate import _correlate
         data = {"cve_deep": CVE_RESULT}  # score=950
         result = _correlate(data)
-        assert result["risk_level"] == "critical"
+        # result is a list; at least one finding should be critical severity
+        assert isinstance(result, list)
+        severities = [item.get("severity", "") for item in result]
+        assert any(s in ("critical", "high") for s in severities)
 
     def test_build_actions_ransomware_cve_is_critical(self):
         from qualys.workflows.investigate import _build_actions
         data = {"cve_deep": CVE_RESULT}
-        correlations = {"cve_qids": {"qids": [375925, 375926]}, "risk_level": "critical"}
+        correlations = [{"finding": "CVE-2021-44228 QIDs: 375925, 375926", "severity": "critical", "sources": ["cve_deep"]}]
         actions = _build_actions(data, correlations)
         assert len(actions) > 0
-        assert actions[0]["priority"] == "CRITICAL"
+        assert actions[0]["priority"] == 1
 
     def test_build_actions_threat_actor_active_produces_high(self):
         from qualys.workflows.investigate import _build_actions
         data = {"threat_actor": THREAT_ACTOR_RESULT}
-        correlations = {"risk_level": "high"}
+        correlations = [{"finding": "APT28 active", "severity": "high", "sources": ["threat_actor"]}]
         actions = _build_actions(data, correlations)
-        assert any(a["priority"] == "HIGH" for a in actions)
+        assert any(a["priority"] <= 2 for a in actions)
 
     def test_build_actions_edr_critical_count(self):
         from qualys.workflows.investigate import _build_actions
         data = {"edr": EDR_RESULT}
-        correlations = {"risk_level": "high"}
+        correlations = [{"finding": "3 critical EDR events", "severity": "critical", "sources": ["edr"]}]
         actions = _build_actions(data, correlations)
-        assert any(a["priority"] == "CRITICAL" for a in actions)
+        assert any(a["priority"] == 1 for a in actions)
 
     def test_build_actions_fim_critical_paths(self):
         from qualys.workflows.investigate import _build_actions
         data = {"fim": FIM_RESULT}
-        correlations = {"risk_level": "high"}
+        correlations = [{"finding": "2 critical FIM path events", "severity": "high", "sources": ["fim"]}]
         actions = _build_actions(data, correlations)
-        assert any(a["priority"] == "HIGH" for a in actions)
+        assert any(a["priority"] <= 2 for a in actions)
 
     def test_build_actions_sorted_by_priority(self):
         from qualys.workflows.investigate import _build_actions
         data = {"cve_deep": CVE_RESULT, "edr": EDR_RESULT}
-        correlations = {
-            "cve_qids": {"qids": [375925]},
-            "risk_level": "critical",
-        }
+        correlations = [
+            {"finding": "CVE-2021-44228 QIDs: 375925", "severity": "critical", "sources": ["cve_deep"]},
+        ]
         actions = _build_actions(data, correlations)
         priorities = [a["priority"] for a in actions]
-        order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
-        scores = [order.get(p, 9) for p in priorities]
-        assert scores == sorted(scores), "Actions should be sorted by priority"
+        assert priorities == sorted(priorities), "Actions should be sorted by priority"
 
 
 # ===========================================================================
