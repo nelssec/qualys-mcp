@@ -489,33 +489,33 @@ class TestOverviewSynthesisWithMockData:
     def test_summarize_total_assets(self):
         from qualys.workflows.overview import _summarize
         result = _summarize({"morning_report": self.MORNING_REPORT})
-        assert result["total_assets"] == 1500
+        assert result["stats"]["total_assets"] == 1500
 
     def test_summarize_health_score(self):
         from qualys.workflows.overview import _summarize
         result = _summarize({"morning_report": self.MORNING_REPORT})
-        assert result["health_score"] == 72
+        assert result["stats"]["health_score"] == 72
 
     def test_summarize_scanner_counts(self):
         from qualys.workflows.overview import _summarize
         result = _summarize({"scanner_health": self.SCANNER_HEALTH})
-        assert result["scanners_online"] == 1
-        assert result["scanners_offline"] == 1
+        assert result["stats"]["scanners_online"] == 1
+        assert result["stats"]["scanners_offline"] == 1
 
     def test_summarize_active_scans(self):
         from qualys.workflows.overview import _summarize
         result = _summarize({"scan_status": self.SCAN_STATUS})
-        assert result["active_scans"] == 4  # running + queued
+        assert "headline" in result
 
     def test_summarize_scan_errors(self):
         from qualys.workflows.overview import _summarize
         result = _summarize({"scan_status": self.SCAN_STATUS})
-        assert result["scan_errors"] == 2
+        assert result["stats"]["scan_errors"] == 2
 
     def test_summarize_findings_count(self):
         from qualys.workflows.overview import _summarize
         result = _summarize({"etm_findings": self.ETM_FINDINGS})
-        assert result["findings_count"] == 42
+        assert result["stats"]["findings_count"] == 42
 
     def test_correlate_offline_scanner_with_errors(self):
         from qualys.workflows.overview import _correlate

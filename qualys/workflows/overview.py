@@ -56,54 +56,60 @@ def _build_plan(
 # Synthesis helpers
 # ---------------------------------------------------------------------------
 
-def _summarize(data: dict) -> dict:
-    """Extract high-level metrics from workflow results."""
-    summary = {
-        "total_assets": 0,
-        "health_score": None,
-        "scanners_online": 0,
-        "scanners_offline": 0,
-        "active_scans": 0,
-        "scan_errors": 0,
-        "findings_count": 0,
-    }
+def _summarize(data):
+    findings = []
+    stats = {}
 
-    # morning_report data
     mr = data.get("morning_report") or {}
     if isinstance(mr, dict) and "error" not in mr:
         env = mr.get("environment") or {}
-        summary["total_assets"] = (
-            env.get("totalAssets")
-            or mr.get("assetsTotal")
-            or mr.get("totalAssets")
-            or 0
-        )
-        summary["health_score"] = env.get("healthScore") or mr.get("healthScore")
+        total_assets = env.get("totalAssets") or mr.get("assetsTotal") or 0
+        health = env.get("healthScore") or mr.get("healthScore")
+        if total_assets:
+            stats["total_assets"] = total_assets
+        if health is not None:
+            stats["health_score"] = health
+        mr_summary = mr.get("summary")
+        if isinstance(mr_summary, str) and mr_summary:
+            findings.append(mr_summary)
+        elif isinstance(mr_summary, dict) and mr_summary.get("headline"):
+            findings.append(mr_summary["headline"])
 
-    # scanner_health data
     sh = data.get("scanner_health") or {}
     if isinstance(sh, dict) and "error" not in sh:
-        scan_status_info = sh.get("scanStatus") or {}
         scanners = sh.get("scanners") or []
-        online = sum(1 for s in scanners if s.get("status", "").lower() == "online")
+        online = sum(1 for s in scanners if isinstance(s, dict) and s.get("status", "").lower() == "online")
         offline = len(scanners) - online
-        summary["scanners_online"] = online
-        summary["scanners_offline"] = offline
+        stats["scanners_online"] = online
+        stats["scanners_offline"] = offline
+        if offline:
+            findings.append(f"{offline} scanners offline")
 
-    # scan_status data
     ss = data.get("scan_status") or {}
     if isinstance(ss, dict) and "error" not in ss:
-        stats = ss.get("stats") or {}
-        summary["active_scans"] = stats.get("running", 0) + stats.get("queued", 0)
-        summary["scan_errors"] = stats.get("errors", 0)
+        ss_stats = ss.get("stats") or {}
+        errors = ss_stats.get("errors", 0)
+        if errors:
+            stats["scan_errors"] = errors
+            findings.append(f"{errors} scan errors")
 
-    # etm_findings data
     ef = data.get("etm_findings") or {}
     if isinstance(ef, dict) and "error" not in ef:
-        findings = ef.get("findings") or []
-        summary["findings_count"] = ef.get("total", len(findings))
+        ef_findings = ef.get("findings") or []
+        count = ef.get("total", len(ef_findings))
+        if count:
+            stats["findings_count"] = count
 
-    return summary
+    headline = "Security overview complete"
+    if findings:
+        headline = findings[0]
+
+    return {
+        "headline": headline,
+        "risk_level": "unknown",
+        "key_findings": findings[:5],
+        "stats": {k: v for k, v in stats.items() if v is not None},
+    }
 
 
 def _correlate(data: dict) -> list[dict]:
