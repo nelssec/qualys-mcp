@@ -5,7 +5,10 @@ filtering helpers.
 """
 
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FuturesTimeout
 from qualys.api import _run_concurrent, _log
+
+AGGREGATOR_TIMEOUT = 120
 
 
 # ---------------------------------------------------------------------------
@@ -27,11 +30,11 @@ def _safe_call(name, fn):
 # ---------------------------------------------------------------------------
 
 
-def _dispatch(plan):
-    """Run a dict of {name: callable} concurrently.
+def _dispatch(plan, timeout=AGGREGATOR_TIMEOUT):
+    """Run a dict of {name: callable} concurrently with per-task timeout.
 
-    Each callable is wrapped in _safe_call so failures are captured as None
-    rather than propagating.
+    Each callable is wrapped in _safe_call so failures are captured as None.
+    Tasks that exceed `timeout` seconds are cancelled and return None.
 
     Returns:
         (results_dict, elapsed_ms) — elapsed_ms is an int.
@@ -39,12 +42,34 @@ def _dispatch(plan):
     if not plan:
         return {}, 0
 
-    wrapped = {name: (lambda n=name, f=fn: _safe_call(n, f)) for name, fn in plan.items()}
-
     start = time.monotonic()
-    results = _run_concurrent(**wrapped)
-    elapsed_ms = int((time.monotonic() - start) * 1000)
+    results = {}
 
+    with ThreadPoolExecutor(max_workers=min(len(plan), 8)) as executor:
+        futures = {
+            executor.submit(_safe_call, name, fn): name
+            for name, fn in plan.items()
+        }
+        try:
+            for future in as_completed(futures, timeout=timeout * 2):
+                name = futures[future]
+                try:
+                    results[name] = future.result(timeout=5)
+                except (FuturesTimeout, TimeoutError):
+                    _log(f"Workflow aggregator '{name}' timed out after {timeout}s")
+                    results[name] = None
+                except Exception as e:
+                    _log(f"Workflow aggregator '{name}' failed: {e}")
+                    results[name] = None
+        except (FuturesTimeout, TimeoutError):
+            _log(f"Workflow dispatch timed out after {timeout * 2}s — some aggregators incomplete")
+
+    for name in plan:
+        if name not in results:
+            _log(f"Workflow aggregator '{name}' did not complete within timeout")
+            results[name] = None
+
+    elapsed_ms = int((time.monotonic() - start) * 1000)
     return results, elapsed_ms
 
 
