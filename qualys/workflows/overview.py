@@ -63,7 +63,7 @@ def _summarize(data):
     mr = data.get("morning_report") or {}
     if isinstance(mr, dict) and "error" not in mr:
         env = mr.get("environment") or {}
-        total_assets = env.get("totalAssets") or mr.get("assetsTotal") or 0
+        total_assets = env.get("totalAssets") or mr.get("totalAssets") or mr.get("assetsTotal") or 0
         health = env.get("healthScore") or mr.get("healthScore")
         if total_assets:
             stats["total_assets"] = total_assets
