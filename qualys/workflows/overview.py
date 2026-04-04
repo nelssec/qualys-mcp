@@ -253,7 +253,8 @@ def security_overview(
         detail=detail,
     )
 
-    results, elapsed_ms = _dispatch(plan)
+    overview_timeout = 30 if quick else 120
+    results, elapsed_ms = _dispatch(plan, timeout=overview_timeout)
 
     envelope = _build_envelope(
         workflow="security_overview",
