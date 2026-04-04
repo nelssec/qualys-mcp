@@ -2473,13 +2473,13 @@ def morning_report(quick: bool = False, detail: str = "standard") -> dict:
             windows=lambda: csam_count([{"field": "operatingSystem.name", "operator": "CONTAINS", "value": "Windows"}]),
             linux=lambda: csam_count([{"field": "operatingSystem.name", "operator": "CONTAINS", "value": "Linux"}]),
             macos=lambda: csam_count([{"field": "operatingSystem.name", "operator": "CONTAINS", "value": "Mac"}]),
-            cloud_aws=lambda: csam_count([{"field": "asset.cloudProvider", "operator": "EQUALS", "value": "AWS"}]),
-            cloud_azure=lambda: csam_count([{"field": "asset.cloudProvider", "operator": "EQUALS", "value": "AZURE"}]),
-            cloud_gcp=lambda: csam_count([{"field": "asset.cloudProvider", "operator": "EQUALS", "value": "GCP"}]),
+            cloud_aws=lambda: csam_count([{"field": "cloud.provider", "operator": "EQUALS", "value": "AWS"}]),
+            cloud_azure=lambda: csam_count([{"field": "cloud.provider", "operator": "EQUALS", "value": "AZURE"}]),
+            cloud_gcp=lambda: csam_count([{"field": "cloud.provider", "operator": "EQUALS", "value": "GCP"}]),
             eol_os=lambda: csam_count([{"field": "operatingSystem.lifecycle.stage", "operator": "CONTAINS", "value": "EOL"}]),
             eol_hw=lambda: csam_count([{"field": "hardware.lifecycle.stage", "operator": "CONTAINS", "value": "EOL"}]),
-            crit_high=lambda: csam_count([{"field": "asset.criticality", "operator": "GREATER", "value": "7"}]),
-            crit_med=lambda: csam_count([{"field": "asset.criticality", "operator": "GREATER", "value": "4"}]),
+            crit_high=lambda: csam_count([{"field": "asset.criticalityScore", "operator": "GREATER", "value": "7"}]),
+            crit_med=lambda: csam_count([{"field": "asset.criticalityScore", "operator": "GREATER", "value": "4"}]),
         )
         total = concurrent.get('total') or 0
         windows = concurrent.get('windows') or 0
@@ -4001,7 +4001,7 @@ def risk_by_tag(tag: str, limit: int = 10, detail: str = "standard") -> dict:
         'summary': '',
     }
 
-    tag_filter = [{"field": "asset.tags.name", "operator": "EQUALS", "value": tag}]
+    tag_filter = [{"field": "asset.tag.name", "operator": "EQUALS", "value": tag}]
 
     concurrent = _run_concurrent(
         total=lambda: csam_count(tag_filter),

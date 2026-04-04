@@ -913,9 +913,9 @@ def _scope_filters(base_filters, tag='', asset_group=''):
     """Append tag and/or asset_group CSAM filters to a base filter list."""
     filters = list(base_filters) if base_filters else []
     if tag:
-        filters.append({"field": "asset.tags.name", "operator": "EQUALS", "value": tag})
+        filters.append({"field": "asset.tag.name", "operator": "EQUALS", "value": tag})
     if asset_group:
-        filters.append({"field": "asset.assetGroups.name", "operator": "EQUALS", "value": asset_group})
+        filters.append({"field": "asset.businessInfo.supportGroup", "operator": "EQUALS", "value": asset_group})
     return filters or None
 
 
