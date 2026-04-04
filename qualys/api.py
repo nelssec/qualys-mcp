@@ -1142,7 +1142,8 @@ def get_cdr(days=7, limit=100, severity=None, cloud_provider=None, category=None
     if category:
         url += f"&category={category}"
     results = _paginate_json(url, limit, data_key='content', count_key='totalElements',
-                              page_param='pageNumber', size_param='limit',
+                              page_param='pageNumber', size_param='pageSize',
+                              page_start=0, fetch_all=False,
                               server_error_sentinel='CDR_UNAVAILABLE',
                               not_found_ok=True)
     return results
