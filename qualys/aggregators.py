@@ -3051,7 +3051,7 @@ def cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7, per
         result['perAccount'] = per_acct
 
     eval_tasks = {
-        f'evals_{p}': (lambda p=p, a=a: get_evaluations(a, p, 500))
+        f'evals_{p}': (lambda p=p, a=a: get_evaluations(a, p, min(limit * 5, 200)))
         for p, a in first_accounts.items()
     }
     if include_threats:
