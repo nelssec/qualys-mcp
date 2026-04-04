@@ -651,9 +651,6 @@ def assess_risk(
             days=days,
             include_expired=include_expired,
             weak_only=weak_only,
-            protocol_filter=protocol_filter,
-            weak_ciphers=weak_ciphers,
-            insecure_renegotiation=insecure_renegotiation,
             limit=limit,
         )
         plan["cert_security_posture"] = lambda: cert_security_posture(
