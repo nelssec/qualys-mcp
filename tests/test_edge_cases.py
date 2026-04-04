@@ -446,18 +446,17 @@ class TestComplianceCorrelateEdgeCases:
     def test_no_exceptions_data_returns_empty(self):
         from qualys.workflows.compliance import _correlate
         result = _correlate({})
-        assert result["expiring_soon"] == []
-        assert result["at_risk_count"] == 0
+        assert result == []
 
     def test_non_dict_exceptions_returns_empty(self):
         from qualys.workflows.compliance import _correlate
-        result = _correlate({"exceptions": "not-a-dict"})
-        assert result["expiring_soon"] == []
+        result = _correlate({"vuln_exceptions": "not-a-dict"})
+        assert result == []
 
     def test_exceptions_with_no_expiring_soon(self):
         from qualys.workflows.compliance import _correlate
         data = {
-            "exceptions": {
+            "vuln_exceptions": {
                 "exceptions": [
                     {"id": "e1", "daysUntilExpiry": 30},
                     {"id": "e2", "daysUntilExpiry": 14},
@@ -465,12 +464,12 @@ class TestComplianceCorrelateEdgeCases:
             }
         }
         result = _correlate(data)
-        assert result["at_risk_count"] == 0
+        assert result == []
 
     def test_expiring_soon_threshold_is_7_days(self):
         from qualys.workflows.compliance import _correlate
         data = {
-            "exceptions": {
+            "vuln_exceptions": {
                 "exceptions": [
                     {"id": "e1", "daysUntilExpiry": 7},
                     {"id": "e2", "daysUntilExpiry": 8},
@@ -479,7 +478,8 @@ class TestComplianceCorrelateEdgeCases:
             }
         }
         result = _correlate(data)
-        assert result["at_risk_count"] == 2  # e1 (7) and e3 (0)
+        # e1 (7 <= 7) and e3 (0 <= 7) are expiring soon → one correlation entry
+        assert len(result) == 1
 
 
 # ===========================================================================
@@ -502,8 +502,7 @@ class TestRemediationPartialFailures:
     def test_correlate_with_no_patches_returns_empty(self):
         from qualys.workflows.remediation import _correlate
         result = _correlate({})
-        assert result["unmitigated_qids"] == []
-        assert result["unmitigated_count"] == 0
+        assert result == []
 
     def test_build_actions_with_empty_data_returns_list(self):
         from qualys.workflows.remediation import _build_actions

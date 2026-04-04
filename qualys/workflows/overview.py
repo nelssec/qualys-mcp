@@ -33,36 +33,21 @@ def _build_plan(
     scan_state: str,
     limit: int,
     detail: str,
-) -> list[dict]:
-    """Build the ordered list of workflow steps based on dispatch rules."""
+) -> dict:
+    """Build dispatch plan dict based on dispatch rules."""
     days = _PERIOD_DAYS.get(period, 1)
-    plan = []
+    plan = {}
 
-    # Always: morning report
-    plan.append({
-        "key": "morning_report",
-        "fn": lambda q=quick, d=detail: morning_report(quick=q, detail=d),
-    })
+    plan["morning_report"] = lambda q=quick, d=detail: morning_report(quick=q, detail=d)
 
-    # Infrastructure scope: scanner health + scan status
     if scope in ("all", "infrastructure"):
-        plan.append({
-            "key": "scanner_health",
-            "fn": lambda d=detail: scanner_health(detail=d),
-        })
-        plan.append({
-            "key": "scan_status",
-            "fn": lambda s=scan_state, dy=days, lm=limit, d=detail: scan_status(
-                state=s, days=dy, limit=lm, detail=d
-            ),
-        })
+        plan["scanner_health"] = lambda d=detail: scanner_health(detail=d)
+        plan["scan_status"] = lambda s=scan_state, dy=days, lm=limit, d=detail: scan_status(
+            state=s, days=dy, limit=lm, detail=d
+        )
 
-    # Findings scope or explicit QQL
     if scope in ("all", "findings") or qql:
-        plan.append({
-            "key": "etm_findings",
-            "fn": lambda q=qql, d=detail: etm_findings(qql=q, detail=d),
-        })
+        plan["etm_findings"] = lambda q=qql, d=detail: etm_findings(qql=q, detail=d)
 
     return plan
 
@@ -264,20 +249,17 @@ def security_overview(
 
     results, elapsed_ms = _dispatch(plan)
 
-    summary = _summarize(results)
-    correlations = _correlate(results)
-    actions = _build_actions(results, correlations)
-
     envelope = _build_envelope(
         workflow="security_overview",
-        period=period,
-        scope=scope,
-        elapsed_ms=elapsed_ms,
-        summary=summary,
-        actions=actions,
-        correlations=correlations,
-        data=results,
-        detail=detail,
+        aggregators_called=list(plan.keys()),
+        results=results,
+        execution_time_ms=elapsed_ms,
+        summary_fn=_summarize,
+        correlate_fn=_correlate,
+        actions_fn=lambda data: _build_actions(data, _correlate(data)),
     )
+
+    if detail == "detailed":
+        envelope["_raw_results"] = results
 
     return _apply_detail(envelope, detail)

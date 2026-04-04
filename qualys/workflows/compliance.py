@@ -42,41 +42,20 @@ def _build_plan(
     - If a specific framework is set (not "" and not "list"), skip
       list_compliance_frameworks.
     """
-    plan: list[dict[str, Any]] = []
+    plan = {}
 
-    # Always fetch posture data
-    plan.append({
-        "key": "posture",
-        "fn": compliance_posture,
-        "kwargs": {
-            "framework": framework,
-            "platform": platform,
-            "limit": limit,
-            "detail": detail,
-        },
-    })
+    plan["compliance_posture"] = lambda: compliance_posture(
+        framework=framework, platform=platform, limit=limit, detail=detail,
+    )
 
-    # List frameworks when no specific framework is requested
     if not framework or framework.lower() == "list":
-        plan.append({
-            "key": "frameworks",
-            "fn": list_compliance_frameworks,
-            "kwargs": {},
-        })
+        plan["list_compliance_frameworks"] = lambda: list_compliance_frameworks()
 
-    # Optionally include active exceptions
     if include_exceptions:
-        plan.append({
-            "key": "exceptions",
-            "fn": vuln_exceptions,
-            "kwargs": {
-                "status": exception_status,
-                "vuln_type": vuln_type,
-                "days_to_expiry": days_to_expiry,
-                "limit": limit,
-                "detail": detail,
-            },
-        })
+        plan["vuln_exceptions"] = lambda: vuln_exceptions(
+            status=exception_status, vuln_type=vuln_type,
+            days_to_expiry=days_to_expiry, limit=limit, detail=detail,
+        )
 
     return plan
 
@@ -91,8 +70,8 @@ def _summarize(data: dict[str, Any]) -> dict[str, Any]:
     - frameworks: list of framework names seen
     - total_controls: int total controls evaluated
     """
-    posture = data.get("posture", {})
-    exceptions_data = data.get("exceptions", {})
+    posture = data.get("compliance_posture", {})
+    exceptions_data = data.get("vuln_exceptions", {})
 
     # Navigate into nested summary if present
     posture_summary = posture.get("summary", posture)
@@ -118,12 +97,28 @@ def _summarize(data: dict[str, Any]) -> dict[str, Any]:
         by_fw = posture.get("byFramework", {})
         frameworks = list(by_fw.keys()) if isinstance(by_fw, dict) else []
 
+    findings = []
+    headline = "Compliance posture assessed"
+    if pass_rate > 0:
+        headline = f"Compliance: {pass_rate}% pass rate"
+        findings.append(f"Overall pass rate: {pass_rate}%")
+    if failing:
+        headline += f", {failing} failing controls"
+        findings.append(f"{failing} failing controls identified")
+    if exception_count:
+        findings.append(f"{exception_count} active risk acceptances")
+
     return {
-        "pass_rate": pass_rate,
-        "failing_controls": failing,
-        "total_controls": total,
-        "exception_count": exception_count,
-        "frameworks": frameworks,
+        "headline": headline,
+        "risk_level": "low" if pass_rate >= 90 else "medium" if pass_rate >= 70 else "high" if pass_rate > 0 else "unknown",
+        "key_findings": findings[:5],
+        "stats": {
+            "pass_rate": pass_rate,
+            "failing_controls": failing,
+            "total_controls": total,
+            "exception_count": exception_count,
+            "frameworks": frameworks,
+        },
     }
 
 
@@ -134,9 +129,10 @@ def _correlate(data: dict[str, Any]) -> dict[str, Any]:
     - expiring_soon: list of exception records with daysUntilExpiry <= 7
     - at_risk_count: int number of such exceptions
     """
-    exceptions_data = data.get("exceptions", {})
+    correlations = []
+    exceptions_data = data.get("vuln_exceptions", {})
     if not isinstance(exceptions_data, dict):
-        return {"expiring_soon": [], "at_risk_count": 0}
+        return correlations
 
     all_exceptions = exceptions_data.get("exceptions", [])
     expiring_soon = [
@@ -145,67 +141,32 @@ def _correlate(data: dict[str, Any]) -> dict[str, Any]:
         and exc["daysUntilExpiry"] <= 7
     ]
 
-    return {
-        "expiring_soon": expiring_soon,
-        "at_risk_count": len(expiring_soon),
-    }
+    if expiring_soon:
+        correlations.append({
+            "finding": f"{len(expiring_soon)} risk acceptances expiring within 7 days — may impact compliance posture",
+            "severity": "high",
+            "sources": ["compliance_posture", "vuln_exceptions"],
+        })
+
+    return correlations
 
 
-def _build_actions(
-    data: dict[str, Any],
-    correlations: dict[str, Any],
-) -> list[str]:
-    """Build a prioritised list of remediation actions.
+def _build_actions(data, correlations):
+    actions = []
+    priority = 1
 
-    Surfaces:
-    1. Top failing controls as direct remediation items.
-    2. Warnings about exceptions expiring within 7 days.
-    """
-    actions: list[str] = []
+    posture = data.get("compliance_posture", {})
+    for ctrl in (posture.get("topFailingControls") or [])[:5]:
+        if isinstance(ctrl, dict):
+            actions.append({
+                "priority": priority,
+                "action": f"Remediate failing control: {ctrl.get('controlId', 'unknown')}",
+                "scope": f"{ctrl.get('failingAssets', 'N/A')} assets",
+                "tool_hint": "plan_remediation(scope='patches')",
+            })
+            priority += 1
 
-    posture = data.get("posture", {})
-    top_failing = posture.get("topFailingControls", [])
-
-    for ctrl in top_failing[:5]:
-        ctrl_id = ctrl.get("controlId", "")
-        title = ctrl.get("title", "")
-        assets = ctrl.get("failingAssets", 0)
-        severity = ctrl.get("severity", "")
-        label = ctrl_id or title or "Unknown control"
-        detail_parts = []
-        if title and ctrl_id:
-            detail_parts.append(title)
-        if severity:
-            detail_parts.append(severity)
-        if assets:
-            detail_parts.append(f"{assets} assets affected")
-        action = f"Remediate failing control: {label}"
-        if detail_parts:
-            action += f" ({', '.join(detail_parts)})"
-        actions.append(action)
-
-    expiring_soon = correlations.get("expiring_soon", [])
-    for exc in expiring_soon[:3]:
-        exc_id = exc.get("id", "")
-        title = exc.get("title", "")
-        days = exc.get("daysUntilExpiry", "?")
-        label = exc_id or title or "exception"
-        actions.append(
-            f"Review expiring exception {label} — expires in {days} day(s); "
-            "compliance posture may degrade when it lapses."
-        )
-
-    if not actions:
-        summary = _summarize(data)
-        if summary["pass_rate"] == 0.0 and summary["total_controls"] == 0:
-            actions.append(
-                "No compliance data found. Verify that the Policy Compliance (PC) "
-                "module is licensed and policies are configured."
-            )
-        elif summary["failing_controls"] == 0:
-            actions.append("No failing controls detected. Maintain current configuration baselines.")
-
-    return actions
+    return actions[:10]
 
 
 # ---------------------------------------------------------------------------
@@ -254,18 +215,19 @@ def check_compliance(
         detail=detail,
     )
 
-    raw_results, elapsed_ms = _dispatch(plan)
-
-    summary = _summarize(raw_results)
-    correlations = _correlate(raw_results)
-    actions = _build_actions(raw_results, correlations)
+    results, elapsed_ms = _dispatch(plan)
 
     envelope = _build_envelope(
-        tool=_TOOL_NAME,
-        summary=summary,
-        actions=actions,
-        elapsed_ms=elapsed_ms,
-        data={**raw_results, "correlations": correlations},
+        workflow="check_compliance",
+        aggregators_called=list(plan.keys()),
+        results=results,
+        execution_time_ms=elapsed_ms,
+        summary_fn=_summarize,
+        correlate_fn=_correlate,
+        actions_fn=lambda data: _build_actions(data, _correlate(data)),
     )
+
+    if detail == "detailed":
+        envelope["_raw_results"] = results
 
     return _apply_detail(envelope, detail)

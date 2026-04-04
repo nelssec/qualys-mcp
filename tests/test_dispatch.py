@@ -466,49 +466,48 @@ class TestComplianceBuildPlan:
         return _build_plan(**defaults)
 
     def _keys(self, plan):
-        return [item["key"] for item in plan]
+        return list(plan.keys())
 
     def test_no_framework_includes_posture_and_frameworks(self):
         plan = self._call(framework="")
         keys = self._keys(plan)
-        assert "posture" in keys
-        assert "frameworks" in keys
+        assert "compliance_posture" in keys
+        assert "list_compliance_frameworks" in keys
 
     def test_list_framework_includes_frameworks(self):
         plan = self._call(framework="list")
         keys = self._keys(plan)
-        assert "frameworks" in keys
+        assert "list_compliance_frameworks" in keys
 
     def test_specific_framework_skips_frameworks(self):
         plan = self._call(framework="CIS")
         keys = self._keys(plan)
-        assert "posture" in keys
-        assert "frameworks" not in keys
+        assert "compliance_posture" in keys
+        assert "list_compliance_frameworks" not in keys
 
     def test_include_exceptions_adds_exceptions(self):
         plan = self._call(include_exceptions=True)
         keys = self._keys(plan)
-        assert "exceptions" in keys
+        assert "vuln_exceptions" in keys
 
     def test_no_exceptions_by_default(self):
         plan = self._call()
         keys = self._keys(plan)
-        assert "exceptions" not in keys
+        assert "vuln_exceptions" not in keys
 
     def test_all_keys_present_when_no_framework_and_exceptions(self):
         plan = self._call(framework="", include_exceptions=True)
         keys = self._keys(plan)
-        assert "posture" in keys
-        assert "frameworks" in keys
-        assert "exceptions" in keys
+        assert "compliance_posture" in keys
+        assert "list_compliance_frameworks" in keys
+        assert "vuln_exceptions" in keys
 
     def test_plan_is_list_of_dicts(self):
         plan = self._call()
-        assert isinstance(plan, list)
-        for item in plan:
-            assert isinstance(item, dict)
-            assert "key" in item
-            assert "fn" in item
+        assert isinstance(plan, dict)
+        for key, fn in plan.items():
+            assert isinstance(key, str)
+            assert callable(fn)
 
 
 # ===========================================================================
@@ -536,7 +535,7 @@ class TestRemediationBuildPlan:
         return _build_plan(**defaults)
 
     def _names(self, plan):
-        return [name for name, _ in plan]
+        return list(plan.keys())
 
     def test_scope_all_keys(self):
         names = self._names(self._call(scope="all"))
@@ -575,11 +574,10 @@ class TestRemediationBuildPlan:
 
     def test_plan_is_list_of_tuples(self):
         plan = self._call(scope="all")
-        assert isinstance(plan, list)
-        for item in plan:
-            assert isinstance(item, tuple)
-            assert len(item) == 2
-            assert callable(item[1])
+        assert isinstance(plan, dict)
+        for key, fn in plan.items():
+            assert isinstance(key, str)
+            assert callable(fn)
 
 
 # ===========================================================================
@@ -604,7 +602,7 @@ class TestOverviewBuildPlan:
         return _build_plan(**defaults)
 
     def _keys(self, plan):
-        return [item["key"] for item in plan]
+        return list(plan.keys())
 
     def test_always_includes_morning_report(self):
         keys = self._keys(self._call(scope="all"))
@@ -636,11 +634,10 @@ class TestOverviewBuildPlan:
 
     def test_plan_is_list_of_dicts_with_key_and_fn(self):
         plan = self._call(scope="all")
-        assert isinstance(plan, list)
-        for item in plan:
-            assert "key" in item
-            assert "fn" in item
-            assert callable(item["fn"])
+        assert isinstance(plan, dict)
+        for key, fn in plan.items():
+            assert isinstance(key, str)
+            assert callable(fn)
 
     def test_period_today(self):
         """Period 'today' should be accepted without error."""

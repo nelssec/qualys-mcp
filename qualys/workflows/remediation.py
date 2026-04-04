@@ -18,249 +18,147 @@ from qualys.workflows import _apply_detail, _build_envelope, _dispatch
 # Plan builder
 # ---------------------------------------------------------------------------
 
-def _build_plan(
-    scope: str,
-    tag: str,
-    asset_group: str,
-    platform: str,
-    severity: str,
-    status: str,
-    qids: list | None,
-    cves: list | None,
-    limit: int,
-    detail: str,
-) -> list:
-    """Return a list of (name, callable) pairs based on the requested scope."""
+def _build_plan(scope, tag, asset_group, platform, severity, status,
+                qids, cves, limit, detail):
+    """Return a dict of {name: callable} based on the requested scope."""
+    plan = {}
 
-    # Mitigations / coverage scope — or when specific QIDs/CVEs are provided
     if scope == "mitigations" or qids or cves:
-        return [
-            (
-                "eliminate_coverage",
-                lambda: eliminate_coverage(
-                    qids=qids or [],
-                    cves=cves or [],
-                    detail=detail,
-                ),
-            ),
-        ]
+        plan["eliminate_coverage"] = lambda: eliminate_coverage(qids=qids or [], cves=cves or [], detail=detail)
+        return plan
 
-    # Program gap analysis
     if scope == "program":
-        return [
-            ("recommendations", lambda: recommendations(detail=detail)),
-        ]
+        plan["recommendations"] = lambda: recommendations(detail=detail)
+        return plan
 
-    # Patches only
-    if scope == "patches":
-        return [
-            (
-                "patch_status",
-                lambda: patch_status(
-                    limit=limit,
-                    tag=tag,
-                    asset_group=asset_group,
-                    detail=detail,
-                ),
-            ),
-            (
-                "outstanding_patches",
-                lambda: outstanding_patches(
-                    platform=platform,
-                    severity=severity,
-                    top_n=limit,
-                    detail=detail,
-                ),
-            ),
-        ]
+    if scope in ("all", "patches"):
+        plan["patch_status"] = lambda: patch_status(limit=limit, tag=tag, asset_group=asset_group, detail=detail)
+        plan["outstanding_patches"] = lambda: outstanding_patches(platform=platform, severity=severity, top_n=limit, detail=detail)
 
-    # "all" scope — or empty/unknown scope: patch_status + eliminate_status
-    if scope in ("all",):
-        return [
-            (
-                "patch_status",
-                lambda: patch_status(
-                    limit=limit,
-                    tag=tag,
-                    asset_group=asset_group,
-                    detail=detail,
-                ),
-            ),
-            (
-                "eliminate_status",
-                lambda: eliminate_status(detail=detail, status=status),
-            ),
-            (
-                "outstanding_patches",
-                lambda: outstanding_patches(
-                    platform=platform,
-                    severity=severity,
-                    top_n=limit,
-                    detail=detail,
-                ),
-            ),
-        ]
+    if scope == "all":
+        plan["eliminate_status"] = lambda: eliminate_status(detail=detail, status=status)
 
-    # Fallback (empty / unrecognised scope)
-    return [
-        (
-            "patch_status",
-            lambda: patch_status(
-                limit=limit,
-                tag=tag,
-                asset_group=asset_group,
-                detail=detail,
-            ),
-        ),
-        (
-            "eliminate_status",
-            lambda: eliminate_status(detail=detail, status=status),
-        ),
-    ]
+    if not plan:
+        plan["patch_status"] = lambda: patch_status(limit=limit, tag=tag, asset_group=asset_group, detail=detail)
+        plan["eliminate_status"] = lambda: eliminate_status(detail=detail, status=status)
+
+    return plan
 
 
 # ---------------------------------------------------------------------------
 # Synthesis helpers
 # ---------------------------------------------------------------------------
 
-def _summarize(data: dict) -> dict:
-    """Extract high-level metrics from the collected workflow data."""
-    summary = {}
+def _summarize(data):
+    findings = []
+    stats = {}
 
-    # Patch coverage
     ps = data.get("patch_status") or {}
     if ps:
-        summary["patch_coverage_pct"] = ps.get("coverage", 0)
-        summary["assets_total"] = ps.get("assetsTotal", 0)
-        risk_dist = ps.get("riskDistribution") or {}
-        summary["critical_assets"] = risk_dist.get("critical_900plus", 0)
-        summary["high_risk_assets"] = risk_dist.get("high_700plus", 0)
+        coverage = ps.get("coverage")
+        if coverage is not None:
+            stats["patch_coverage"] = coverage
+            findings.append(f"Patch coverage: {coverage}%")
 
-    # Outstanding patches count
     op = data.get("outstanding_patches") or {}
     if op:
-        summary["outstanding_patches_total"] = op.get("totalOutstanding", 0)
-        summary["outstanding_missing_installs"] = op.get("totalMissingInstalls", 0)
-        summary["security_patches"] = op.get("securityPatches", 0)
+        total = op.get("totalOutstanding") or len(op.get("patches", []))
+        if total:
+            stats["outstanding_patches"] = total
+            findings.append(f"{total} outstanding patches")
 
-    # Deployed / missing counts from eliminate_status
     es = data.get("eliminate_status") or {}
     if es:
         patch_counts = es.get("patchCounts") or {}
-        missing = patch_counts.get("missing") or {}
-        deployed = patch_counts.get("deployed") or {}
-        summary["deployed_count"] = deployed.get("total", 0)
-        summary["missing_count"] = missing.get("total", 0)
+        deployed = (patch_counts.get("deployed") or {}).get("total", es.get("deployed", 0))
+        missing = (patch_counts.get("missing") or {}).get("total", es.get("missing", 0))
+        if deployed:
+            stats["patches_deployed"] = deployed
+        if missing:
+            stats["patches_missing"] = missing
+            findings.append(f"{missing} patches missing across managed assets")
 
-    # Eliminate coverage summary
-    ec = data.get("eliminate_coverage") or {}
-    if ec:
-        ec_summary = ec.get("summary") or {}
-        summary["coverage_requested"] = ec_summary.get("requested", 0)
-        summary["coverage_covered"] = ec_summary.get("covered", 0)
-        summary["coverage_rate"] = ec_summary.get("coverageRate", "N/A")
+    headline = "Remediation plan assessed"
+    if stats.get("patch_coverage") is not None:
+        headline = f"Patch coverage: {stats['patch_coverage']}%"
+        if stats.get("outstanding_patches"):
+            headline += f", {stats['outstanding_patches']} patches outstanding"
 
-    # Recommendations count
-    recs = data.get("recommendations") or {}
-    if recs:
-        rec_list = recs.get("recommendations") or []
-        summary["recommendations_count"] = len(rec_list)
-
-    return summary
+    return {
+        "headline": headline,
+        "risk_level": "high" if stats.get("outstanding_patches", 0) > 20 else "medium" if stats.get("outstanding_patches", 0) > 0 else "low",
+        "key_findings": findings[:5],
+        "stats": stats,
+    }
 
 
 def _correlate(data: dict) -> dict:
     """Cross-reference outstanding patches with eliminate coverage to find
     unmitigated QIDs."""
-    correlations = {}
+    correlations = []
 
     op = data.get("outstanding_patches") or {}
     ec = data.get("eliminate_coverage") or {}
 
-    top_patches = op.get("topPatches") or []
-    coverage_list = ec.get("coverage") or []
+    top_patches = op.get("topPatches") or op.get("patches") or []
+    coverage_list = ec.get("coverage") or ec.get("mitigations") or []
 
     if not top_patches or not coverage_list:
-        correlations["unmitigated_qids"] = []
-        correlations["unmitigated_count"] = 0
         return correlations
 
-    # Build set of QIDs that have a mitigation available
-    mitigated_qids: set = set()
+    mitigated_qids = set()
     for entry in coverage_list:
-        if entry.get("hasMitigation"):
+        if isinstance(entry, dict) and entry.get("hasMitigation"):
             qid = entry.get("qid")
             if qid is not None:
                 mitigated_qids.add(qid)
 
-    # Collect QIDs from outstanding patches that are NOT mitigated
-    unmitigated = []
+    unmitigated_count = 0
     for patch in top_patches:
-        # Outstanding patches may carry associated QIDs
         patch_qids = patch.get("qids") or patch.get("qidList") or []
         if isinstance(patch_qids, int):
             patch_qids = [patch_qids]
         for q in patch_qids:
             if q not in mitigated_qids:
-                unmitigated.append({
-                    "qid": q,
-                    "patch_title": patch.get("title", ""),
-                    "missing_count": patch.get("missingCount", 0),
-                    "platform": patch.get("platform", ""),
-                })
+                unmitigated_count += 1
 
-    correlations["unmitigated_qids"] = unmitigated
-    correlations["unmitigated_count"] = len(unmitigated)
+    if unmitigated_count:
+        correlations.append({
+            "finding": f"{unmitigated_count} outstanding QIDs have no TruRisk Eliminate mitigation available",
+            "severity": "medium",
+            "sources": ["outstanding_patches", "eliminate_coverage"],
+        })
+
     return correlations
 
 
-def _build_actions(data: dict, correlations: dict) -> list:
-    """Produce a prioritised action list from workflow results and correlations."""
+def _build_actions(data, correlations):
     actions = []
+    priority = 1
 
-    # Top outstanding patches
     op = data.get("outstanding_patches") or {}
-    top_patches = op.get("topPatches") or []
-    for patch in top_patches[:5]:
-        title = patch.get("title", "Unknown patch")
-        missing = patch.get("missingCount", 0)
-        platform = patch.get("platform", "")
-        severity = patch.get("vendorSeverity", "")
-        actions.append({
-            "type": "deploy_patch",
-            "priority": "HIGH" if severity.lower() in ("critical", "important") else "MEDIUM",
-            "title": title,
-            "description": f"Deploy to {missing} affected {'asset' if missing == 1 else 'assets'}"
-                           + (f" ({platform})" if platform else ""),
-            "missing_count": missing,
-        })
+    for patch in (op.get("topPatches") or op.get("patches") or [])[:5]:
+        if isinstance(patch, dict):
+            actions.append({
+                "priority": priority,
+                "action": f"Deploy patch: {patch.get('title', patch.get('patchId', 'unknown'))}",
+                "scope": f"{patch.get('missingCount', patch.get('affectedAssets', 'N/A'))} assets",
+                "tool_hint": "plan_remediation(scope='patches')",
+            })
+            priority += 1
 
-    # Unmitigated QIDs from correlation
-    unmitigated = correlations.get("unmitigated_qids") or []
-    for item in unmitigated[:5]:
-        actions.append({
-            "type": "apply_mitigation",
-            "priority": "MEDIUM",
-            "title": f"No mitigation for QID {item['qid']}",
-            "description": (
-                f"Patch '{item['patch_title']}' affects {item['missing_count']} assets "
-                f"with no compensating control available."
-            ),
-            "qid": item["qid"],
-        })
-
-    # Program recommendations
     recs = data.get("recommendations") or {}
-    rec_list = recs.get("recommendations") or []
-    for rec in rec_list[:3]:
-        actions.append({
-            "type": "program_action",
-            "priority": rec.get("priority", "MEDIUM"),
-            "title": rec.get("area", ""),
-            "description": rec.get("finding", ""),
-        })
+    for rec in (recs.get("recommendations") or [])[:3]:
+        if isinstance(rec, dict):
+            actions.append({
+                "priority": priority,
+                "action": rec.get("finding", "Address program gap"),
+                "scope": rec.get("area", ""),
+                "tool_hint": "plan_remediation(scope='program')",
+            })
+            priority += 1
 
-    return actions
+    return actions[:10]
 
 
 # ---------------------------------------------------------------------------
@@ -325,15 +223,17 @@ def plan_remediation(
 
     results, elapsed_ms = _dispatch(plan)
 
-    envelope = _build_envelope(scope=scope, results=results, elapsed_ms=elapsed_ms)
+    envelope = _build_envelope(
+        workflow="plan_remediation",
+        aggregators_called=list(plan.keys()),
+        results=results,
+        execution_time_ms=elapsed_ms,
+        summary_fn=_summarize,
+        correlate_fn=_correlate,
+        actions_fn=lambda data: _build_actions(data, _correlate(data)),
+    )
 
-    data = envelope.get("data") or {}
-    summary = _summarize(data)
-    correlations = _correlate(data)
-    actions = _build_actions(data, correlations)
-
-    envelope["summary"] = summary
-    envelope["correlations"] = correlations
-    envelope["actions"] = actions
+    if detail == "detailed":
+        envelope["_raw_results"] = results
 
     return _apply_detail(envelope, detail)
