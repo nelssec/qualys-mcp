@@ -44,14 +44,15 @@ def _dispatch(plan, timeout=AGGREGATOR_TIMEOUT):
 
     start = time.monotonic()
     results = {}
+    executor = ThreadPoolExecutor(max_workers=min(len(plan), 8))
 
-    with ThreadPoolExecutor(max_workers=min(len(plan), 8)) as executor:
+    try:
         futures = {
             executor.submit(_safe_call, name, fn): name
             for name, fn in plan.items()
         }
         try:
-            for future in as_completed(futures, timeout=timeout * 2):
+            for future in as_completed(futures, timeout=timeout):
                 name = futures[future]
                 try:
                     results[name] = future.result(timeout=5)
@@ -62,7 +63,9 @@ def _dispatch(plan, timeout=AGGREGATOR_TIMEOUT):
                     _log(f"Workflow aggregator '{name}' failed: {e}")
                     results[name] = None
         except (FuturesTimeout, TimeoutError):
-            _log(f"Workflow dispatch timed out after {timeout * 2}s — some aggregators incomplete")
+            _log(f"Workflow dispatch timed out after {timeout}s — some aggregators incomplete")
+    finally:
+        executor.shutdown(wait=False, cancel_futures=True)
 
     for name in plan:
         if name not in results:
