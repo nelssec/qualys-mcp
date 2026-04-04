@@ -2524,7 +2524,7 @@ def morning_report(quick: bool = False, detail: str = "standard") -> dict:
         new_vulns=lambda: search_vulns_agg(days=1),
         trurisk_now=lambda: csam_search(limit=100, fields="truRisk"),
         trurisk_7d=lambda: csam_search(
-            filters=[{"field": "asset.lastModifiedDate", "operator": "LESS",
+            filters=[{"field": "asset.lastUpdatedDate", "operator": "LESS",
                       "value": (datetime.now(timezone.utc) - timedelta(days=7)).strftime('%Y-%m-%dT00:00:00Z')}],
             limit=100, fields="truRisk", fetch_all=False),
     )
@@ -4423,9 +4423,9 @@ def asset_inventory(query: str = "", tag: str = "", os: str = "", days_since_see
 
     filters = []
     if os:
-        filters.append({"field": "operatingSystem.osName", "operator": "CONTAINS", "value": os})
+        filters.append({"field": "operatingSystem.name", "operator": "CONTAINS", "value": os})
     if tag:
-        filters.append({"field": "tags.name", "operator": "CONTAINS", "value": tag})
+        filters.append({"field": "asset.tag.name", "operator": "CONTAINS", "value": tag})
     if query:
         filters.append({"field": "asset.name", "operator": "CONTAINS", "value": query})
     if days_since_seen > 0:
@@ -5080,7 +5080,7 @@ def trurisk_score(days: int = 30, breakdown_by: str = "tag", detail: str = "stan
             limit=100, fields="truRisk,tags,operatingSystem,tagList,vulnerabilities"
         ),
         old_assets=lambda: csam_search(
-            filters=[{"field": "asset.lastModifiedDate", "operator": "LESS", "value": cutoff}],
+            filters=[{"field": "asset.lastUpdatedDate", "operator": "LESS", "value": cutoff}],
             limit=100, fields="truRisk", fetch_all=False
         ),
     )
