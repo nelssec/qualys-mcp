@@ -1,0 +1,4202 @@
+[
+  {
+    "id": 1,
+    "base_question": "Tell me everything about CVE-2024-3400 and our exposure",
+    "expected_workflow": "investigate",
+    "category": "CVE Triage",
+    "params_hint": {
+      "target": "CVE-2024-3400"
+    },
+    "variants": [
+      "hey whats the deal with CVE-2024-3400 \u2014 are we exposed?",
+      "Please provide a comprehensive assessment of CVE-2024-3400 including all affected assets in our environment.",
+      "cve-2024-3400 exposure check"
+    ]
+  },
+  {
+    "id": 2,
+    "base_question": "How many assets are affected by CVE-2024-21887?",
+    "expected_workflow": "investigate",
+    "category": "CVE Triage",
+    "params_hint": {
+      "target": "CVE-2024-21887"
+    },
+    "variants": [
+      "how many of our boxes are hit by CVE-2024-21887?",
+      "Please enumerate all assets within our environment that are affected by CVE-2024-21887.",
+      "CVE-2024-21887 \u2014 affected asset count?"
+    ]
+  },
+  {
+    "id": 3,
+    "base_question": "What's the deal with CVE-2024-47575 in our environment?",
+    "expected_workflow": "investigate",
+    "category": "CVE Triage",
+    "params_hint": {
+      "target": "CVE-2024-47575"
+    },
+    "variants": [
+      "whats going on with CVE-2024-47575 for us?",
+      "Provide a detailed analysis of our organizational exposure to CVE-2024-47575.",
+      "CVE-2024-47575 env impact"
+    ]
+  },
+  {
+    "id": 4,
+    "base_question": "Investigate CVE-2023-34362 \u2014 are we exposed to MOVEit?",
+    "expected_workflow": "investigate",
+    "category": "CVE Triage",
+    "params_hint": {
+      "target": "CVE-2023-34362"
+    },
+    "variants": [
+      "the CISO is asking about MOVEit \u2014 are we exposed to CVE-2023-34362?",
+      "Please investigate our exposure to CVE-2023-34362 related to the MOVEit vulnerability.",
+      "moveit CVE-2023-34362 \u2014 exposed?"
+    ]
+  },
+  {
+    "id": 5,
+    "base_question": "Do we have any systems vulnerable to the XZ Utils backdoor CVE-2024-3094?",
+    "expected_workflow": "investigate",
+    "category": "CVE Triage",
+    "params_hint": {
+      "target": "CVE-2024-3094"
+    },
+    "variants": [
+      "do we have any xz utils backdoor stuff lurking around? CVE-2024-3094",
+      "Please assess our environment for any remaining exposure to the XZ Utils backdoor, CVE-2024-3094.",
+      "CVE-2024-3094 xz backdoor presence?"
+    ]
+  },
+  {
+    "id": 6,
+    "base_question": "Check our exposure to CVE-2024-21762 on FortiOS devices",
+    "expected_workflow": "investigate",
+    "category": "CVE Triage",
+    "params_hint": {
+      "target": "CVE-2024-21762"
+    },
+    "variants": [
+      "hey can you check our fortios boxes for that CVE-2024-21762?",
+      "Please evaluate our FortiOS device exposure to CVE-2024-21762.",
+      "fortios CVE-2024-21762 exposure"
+    ]
+  },
+  {
+    "id": 7,
+    "base_question": "Are any of our Cisco IOS XE devices hit by CVE-2023-20198?",
+    "expected_workflow": "investigate",
+    "category": "CVE Triage",
+    "params_hint": {
+      "target": "CVE-2023-20198"
+    },
+    "variants": [
+      "any of our cisco ios xe gear affected by CVE-2023-20198?",
+      "Please determine whether any Cisco IOS XE devices in our environment are impacted by CVE-2023-20198.",
+      "cisco ios xe CVE-2023-20198 \u2014 hit?"
+    ]
+  },
+  {
+    "id": 8,
+    "base_question": "Is Log4Shell still a problem for us? Any remaining exposure?",
+    "expected_workflow": "investigate",
+    "category": "CVE Triage",
+    "params_hint": {
+      "target": "CVE-2021-44228"
+    },
+    "variants": [
+      "log4shell still haunting us? any exposure left?",
+      "Please confirm whether our organization retains any residual exposure to the Log4Shell vulnerability, CVE-2021-44228.",
+      "log4shell remaining exposure?"
+    ]
+  },
+  {
+    "id": 9,
+    "base_question": "Check if Spring4Shell is still present anywhere in our environment",
+    "expected_workflow": "investigate",
+    "category": "CVE Triage",
+    "params_hint": {
+      "target": "CVE-2022-22965"
+    },
+    "variants": [
+      "is spring4shell still around anywhere on our systems?",
+      "Please verify whether CVE-2022-22965 (Spring4Shell) remains present across any systems in our environment.",
+      "spring4shell CVE-2022-22965 still present?"
+    ]
+  },
+  {
+    "id": 10,
+    "base_question": "look up QID 38747",
+    "expected_workflow": "investigate",
+    "category": "Vulnerability Intelligence",
+    "params_hint": {
+      "target": "QID 38747"
+    },
+    "variants": [
+      "what's qid 38747 about?",
+      "Please retrieve detailed intelligence on QID 38747 including affected software and severity.",
+      "QID 38747 details"
+    ]
+  },
+  {
+    "id": 11,
+    "base_question": "what's QID 375925",
+    "expected_workflow": "investigate",
+    "category": "Vulnerability Intelligence",
+    "params_hint": {
+      "target": "QID 375925"
+    },
+    "variants": [
+      "hey look up qid 375925 for me",
+      "Please provide full details on QID 375925 including vulnerability description and remediation guidance.",
+      "QID 375925 info"
+    ]
+  },
+  {
+    "id": 12,
+    "base_question": "Which vulns have a QDS above 90?",
+    "expected_workflow": "investigate",
+    "category": "Vulnerability Intelligence",
+    "params_hint": {
+      "target": "QDS critical"
+    },
+    "variants": [
+      "show me all the vulns with a qds score over 90",
+      "Please list all vulnerabilities with a Qualys Detection Score above 90 in our environment.",
+      "QDS >90 vulns"
+    ]
+  },
+  {
+    "id": 13,
+    "base_question": "Show me all QVS critical vulnerabilities",
+    "expected_workflow": "investigate",
+    "category": "Vulnerability Intelligence",
+    "params_hint": {
+      "target": "QVS critical"
+    },
+    "variants": [
+      "what does our qvs critical stuff look like?",
+      "Please display all vulnerabilities classified as QVS critical across our infrastructure.",
+      "QVS critical list"
+    ]
+  },
+  {
+    "id": 14,
+    "base_question": "What CVEs are actively being exploited in the wild right now?",
+    "expected_workflow": "investigate",
+    "category": "Vulnerability Intelligence",
+    "params_hint": {
+      "target": "actively exploited"
+    },
+    "variants": [
+      "what cves are being actively exploited rn?",
+      "Please identify all CVEs that have confirmed active exploitation in the wild at this time.",
+      "actively exploited CVEs now"
+    ]
+  },
+  {
+    "id": 15,
+    "base_question": "Any new critical vulns in Apache this quarter?",
+    "expected_workflow": "investigate",
+    "category": "Vulnerability Intelligence",
+    "params_hint": {
+      "target": "Apache vulnerabilities"
+    },
+    "variants": [
+      "any bad apache vulns drop this quarter?",
+      "Please list any new critical Apache vulnerabilities identified within the current quarter.",
+      "apache critical vulns Q this quarter"
+    ]
+  },
+  {
+    "id": 16,
+    "base_question": "Show me OpenSSL vulnerabilities across our fleet",
+    "expected_workflow": "investigate",
+    "category": "Vulnerability Intelligence",
+    "params_hint": {
+      "target": "OpenSSL"
+    },
+    "variants": [
+      "pull up openssl vulns across our fleet",
+      "Please provide a comprehensive enumeration of OpenSSL vulnerabilities detected across our asset inventory.",
+      "openssl vulns fleet-wide"
+    ]
+  },
+  {
+    "id": 17,
+    "base_question": "What VMware vulns do we have outstanding?",
+    "expected_workflow": "investigate",
+    "category": "Vulnerability Intelligence",
+    "params_hint": {
+      "target": "VMware"
+    },
+    "variants": [
+      "what vmware issues do we still have open?",
+      "Please list all outstanding VMware vulnerabilities currently affecting our environment.",
+      "vmware outstanding vulns"
+    ]
+  },
+  {
+    "id": 18,
+    "base_question": "Are there any Exchange Server zero-days affecting us?",
+    "expected_workflow": "investigate",
+    "category": "Vulnerability Intelligence",
+    "params_hint": {
+      "target": "Exchange Server"
+    },
+    "variants": [
+      "any exchange server zero days hitting us?",
+      "Please determine whether our Exchange Server infrastructure is exposed to any known zero-day vulnerabilities.",
+      "exchange zero-days \u2014 affected?"
+    ]
+  },
+  {
+    "id": 19,
+    "base_question": "Check for Chrome vulnerabilities on our endpoints",
+    "expected_workflow": "investigate",
+    "category": "Vulnerability Intelligence",
+    "params_hint": {
+      "target": "Chrome"
+    },
+    "variants": [
+      "check the endpoints for chrome vulns",
+      "Please identify all Chrome browser vulnerabilities detected across our endpoint fleet.",
+      "chrome vulns endpoints"
+    ]
+  },
+  {
+    "id": 20,
+    "base_question": "How exposed are we to Java deserialization vulns?",
+    "expected_workflow": "investigate",
+    "category": "Vulnerability Intelligence",
+    "params_hint": {
+      "target": "Java deserialization"
+    },
+    "variants": [
+      "how bad is our java deserialization exposure?",
+      "Please assess our organizational exposure to Java deserialization vulnerabilities.",
+      "java deserialization exposure level"
+    ]
+  },
+  {
+    "id": 21,
+    "base_question": "What threat actors are targeting our industry?",
+    "expected_workflow": "investigate",
+    "category": "Threat Actor Attribution",
+    "params_hint": {
+      "target": "industry threat actors"
+    },
+    "variants": [
+      "who's targeting companies in our industry?",
+      "Please identify and summarize threat actors known to target organizations within our industry sector.",
+      "industry threat actors"
+    ]
+  },
+  {
+    "id": 22,
+    "base_question": "Are we exposed to APT28 TTPs?",
+    "expected_workflow": "investigate",
+    "category": "Threat Actor Attribution",
+    "params_hint": {
+      "target": "APT28"
+    },
+    "variants": [
+      "are we at risk from apt28 attacks?",
+      "Please evaluate our exposure to known APT28 tactics, techniques, and procedures.",
+      "APT28 TTP exposure"
+    ]
+  },
+  {
+    "id": 23,
+    "base_question": "What's our exposure to Volt Typhoon campaigns?",
+    "expected_workflow": "investigate",
+    "category": "Threat Actor Attribution",
+    "params_hint": {
+      "target": "Volt Typhoon"
+    },
+    "variants": [
+      "volt typhoon \u2014 are we exposed to their campaigns?",
+      "Please assess our organization's vulnerability to Volt Typhoon threat actor campaigns.",
+      "volt typhoon exposure"
+    ]
+  },
+  {
+    "id": 24,
+    "base_question": "Check if we're vulnerable to Lazarus Group attack vectors",
+    "expected_workflow": "investigate",
+    "category": "Threat Actor Attribution",
+    "params_hint": {
+      "target": "Lazarus Group"
+    },
+    "variants": [
+      "do lazarus group attack paths apply to us?",
+      "Please determine our exposure to vulnerabilities and attack vectors commonly leveraged by the Lazarus Group.",
+      "lazarus group attack vectors \u2014 exposed?"
+    ]
+  },
+  {
+    "id": 25,
+    "base_question": "Do we have any vulns associated with LockBit ransomware?",
+    "expected_workflow": "investigate",
+    "category": "Threat Actor Attribution",
+    "params_hint": {
+      "target": "LockBit"
+    },
+    "variants": [
+      "any lockbit ransomware related vulns in our env?",
+      "Please identify vulnerabilities in our environment that are associated with LockBit ransomware operations.",
+      "lockbit related vulns"
+    ]
+  },
+  {
+    "id": 26,
+    "base_question": "Show me our exposure to APT29 / Cozy Bear",
+    "expected_workflow": "investigate",
+    "category": "Threat Actor Attribution",
+    "params_hint": {
+      "target": "APT29"
+    },
+    "variants": [
+      "what's our exposure to apt29 cozy bear stuff?",
+      "Please provide an assessment of our organization's exposure to APT29/Cozy Bear attack techniques.",
+      "APT29 cozy bear exposure"
+    ]
+  },
+  {
+    "id": 27,
+    "base_question": "what vulns are linked to Salt Typhoon?",
+    "expected_workflow": "investigate",
+    "category": "Threat Actor Attribution",
+    "params_hint": {
+      "target": "Salt Typhoon"
+    },
+    "variants": [
+      "any salt typhoon linked vulns we should worry about?",
+      "Please enumerate the vulnerabilities in our environment that are linked to the Salt Typhoon threat actor.",
+      "salt typhoon vulns"
+    ]
+  },
+  {
+    "id": 28,
+    "base_question": "Are we at risk from Sandworm attacks?",
+    "expected_workflow": "investigate",
+    "category": "Threat Actor Attribution",
+    "params_hint": {
+      "target": "Sandworm"
+    },
+    "variants": [
+      "could sandworm target us? are we exposed?",
+      "Please evaluate the risk posed to our organization by Sandworm threat actor techniques.",
+      "sandworm risk exposure"
+    ]
+  },
+  {
+    "id": 29,
+    "base_question": "Check our posture against APT41 known exploits",
+    "expected_workflow": "investigate",
+    "category": "Threat Actor Attribution",
+    "params_hint": {
+      "target": "APT41"
+    },
+    "variants": [
+      "check our posture vs apt41 known exploits",
+      "Please assess our environment against known exploits associated with APT41 threat actor activity.",
+      "APT41 exploit exposure"
+    ]
+  },
+  {
+    "id": 30,
+    "base_question": "What's the CrackArmor campaign and are we affected?",
+    "expected_workflow": "investigate",
+    "category": "Threat Actor Attribution",
+    "params_hint": {
+      "target": "CrackArmor"
+    },
+    "variants": [
+      "what's crackarmor and should we be worried?",
+      "Please explain the CrackArmor campaign and determine whether our environment is at risk.",
+      "crackarmor campaign \u2014 affected?"
+    ]
+  },
+  {
+    "id": 31,
+    "base_question": "Show me vulns associated with Charming Kitten / APT35",
+    "expected_workflow": "investigate",
+    "category": "Threat Actor Attribution",
+    "params_hint": {
+      "target": "Charming Kitten"
+    },
+    "variants": [
+      "any charming kitten / apt35 linked vulns in our env?",
+      "Please identify vulnerabilities within our environment associated with the Charming Kitten/APT35 threat actor.",
+      "charming kitten APT35 vulns"
+    ]
+  },
+  {
+    "id": 32,
+    "base_question": "Are we exposed to RansomHub exploitation techniques?",
+    "expected_workflow": "investigate",
+    "category": "Threat Actor Attribution",
+    "params_hint": {
+      "target": "RansomHub"
+    },
+    "variants": [
+      "are ransomhub techniques applicable to our environment?",
+      "Please assess whether our organization is exposed to exploitation techniques used by RansomHub.",
+      "ransomhub exposure"
+    ]
+  },
+  {
+    "id": 33,
+    "base_question": "What CVEs does Cl0p typically exploit and do we have them?",
+    "expected_workflow": "investigate",
+    "category": "Threat Actor Attribution",
+    "params_hint": {
+      "target": "Cl0p"
+    },
+    "variants": [
+      "what does cl0p usually exploit \u2014 do we have any of those?",
+      "Please identify which CVEs associated with Cl0p ransomware operations are present in our environment.",
+      "cl0p CVE exposure"
+    ]
+  },
+  {
+    "id": 34,
+    "base_question": "Check our exposure to Akira ransomware attack paths",
+    "expected_workflow": "investigate",
+    "category": "Threat Actor Attribution",
+    "params_hint": {
+      "target": "Akira"
+    },
+    "variants": [
+      "any akira ransomware attack paths relevant to us?",
+      "Please evaluate our exposure to Akira ransomware attack paths and entry vectors.",
+      "akira attack path exposure"
+    ]
+  },
+  {
+    "id": 35,
+    "base_question": "Any exposure to APT33 / Elfin TTPs?",
+    "expected_workflow": "investigate",
+    "category": "Threat Actor Attribution",
+    "params_hint": {
+      "target": "APT33"
+    },
+    "variants": [
+      "apt33 / elfin \u2014 any exposure on our side?",
+      "Please assess our organization's exposure to tactics and procedures associated with APT33/Elfin.",
+      "APT33 elfin TTP exposure"
+    ]
+  },
+  {
+    "id": 36,
+    "base_question": "Are we vulnerable to Kimsuky spear-phishing related CVEs?",
+    "expected_workflow": "investigate",
+    "category": "Threat Actor Attribution",
+    "params_hint": {
+      "target": "Kimsuky"
+    },
+    "variants": [
+      "are we vulnerable to anything kimsuky typically uses?",
+      "Please determine our exposure to CVEs and attack vectors commonly associated with the Kimsuky threat group.",
+      "kimsuky related CVEs"
+    ]
+  },
+  {
+    "id": 37,
+    "base_question": "What threats are targeting healthcare organizations like us?",
+    "expected_workflow": "investigate",
+    "category": "Threat Actor Attribution",
+    "params_hint": {
+      "target": "healthcare threats"
+    },
+    "variants": [
+      "what threats are healthcare orgs facing rn?",
+      "Please provide an overview of current threat actors and campaigns targeting healthcare organizations.",
+      "healthcare threat landscape"
+    ]
+  },
+  {
+    "id": 38,
+    "base_question": "Show me threats targeting the financial sector",
+    "expected_workflow": "investigate",
+    "category": "Threat Actor Attribution",
+    "params_hint": {
+      "target": "finance threats"
+    },
+    "variants": [
+      "what are the main threats hitting the financial sector?",
+      "Please summarize current threat actor activity and campaigns targeting financial sector organizations.",
+      "finance sector threats"
+    ]
+  },
+  {
+    "id": 39,
+    "base_question": "What nation-state threats are relevant to energy companies?",
+    "expected_workflow": "investigate",
+    "category": "Threat Actor Attribution",
+    "params_hint": {
+      "target": "energy sector threats"
+    },
+    "variants": [
+      "any nation-state actors going after energy companies?",
+      "Please identify nation-state threat actors with known campaigns targeting energy sector organizations.",
+      "energy sector nation-state threats"
+    ]
+  },
+  {
+    "id": 40,
+    "base_question": "Which government-targeted APTs might affect us?",
+    "expected_workflow": "investigate",
+    "category": "Threat Actor Attribution",
+    "params_hint": {
+      "target": "government APTs"
+    },
+    "variants": [
+      "which apts target government and could affect us?",
+      "Please identify APT groups with a history of targeting government entities that may be relevant to our risk posture.",
+      "government-targeting APTs"
+    ]
+  },
+  {
+    "id": 41,
+    "base_question": "Do a full investigation of server-prod-db-01",
+    "expected_workflow": "investigate",
+    "category": "Asset Investigation",
+    "params_hint": {
+      "target": "server-prod-db-01"
+    },
+    "variants": [
+      "can you dig into server-prod-db-01 for me?",
+      "Please conduct a full security investigation of the asset server-prod-db-01, including all vulnerabilities and risk indicators.",
+      "server-prod-db-01 full investigation"
+    ]
+  },
+  {
+    "id": 42,
+    "base_question": "What's the security posture of host 10.0.1.55?",
+    "expected_workflow": "investigate",
+    "category": "Asset Investigation",
+    "params_hint": {
+      "target": "10.0.1.55"
+    },
+    "variants": [
+      "whats the security situation on 10.0.1.55?",
+      "Please provide a complete security posture assessment for the host at IP address 10.0.1.55.",
+      "10.0.1.55 security posture"
+    ]
+  },
+  {
+    "id": 43,
+    "base_question": "Investigate the asset web-frontend-03 for me",
+    "expected_workflow": "investigate",
+    "category": "Asset Investigation",
+    "params_hint": {
+      "target": "web-frontend-03"
+    },
+    "variants": [
+      "take a look at web-frontend-03 for me",
+      "Please perform a thorough security investigation of asset web-frontend-03.",
+      "web-frontend-03 \u2014 investigate"
+    ]
+  },
+  {
+    "id": 44,
+    "base_question": "Pull up everything on the Exchange server mail-01",
+    "expected_workflow": "investigate",
+    "category": "Asset Investigation",
+    "params_hint": {
+      "target": "mail-01"
+    },
+    "variants": [
+      "what's the deal with our exchange server mail-01?",
+      "Please pull a full security profile for the Exchange server mail-01.",
+      "mail-01 exchange server status"
+    ]
+  },
+  {
+    "id": 45,
+    "base_question": "What vulnerabilities exist on our domain controllers?",
+    "expected_workflow": "investigate",
+    "category": "Asset Investigation",
+    "params_hint": {
+      "target": "domain controllers"
+    },
+    "variants": [
+      "how are our domain controllers looking security-wise?",
+      "Please enumerate all vulnerabilities identified on our domain controller assets.",
+      "DC vulns"
+    ]
+  },
+  {
+    "id": 46,
+    "base_question": "Investigate asset with IP 192.168.1.100",
+    "expected_workflow": "investigate",
+    "category": "Asset Investigation",
+    "params_hint": {
+      "target": "192.168.1.100"
+    },
+    "variants": [
+      "look up 192.168.1.100 for me",
+      "Please retrieve the full vulnerability and risk profile for the asset at IP address 192.168.1.100.",
+      "192.168.1.100 asset lookup"
+    ]
+  },
+  {
+    "id": 47,
+    "base_question": "What's going on with the jump box bastion-01?",
+    "expected_workflow": "investigate",
+    "category": "Asset Investigation",
+    "params_hint": {
+      "target": "bastion-01"
+    },
+    "variants": [
+      "what's the security story on bastion-01?",
+      "Please investigate the security status and open vulnerabilities for the bastion host bastion-01.",
+      "bastion-01 investigation"
+    ]
+  },
+  {
+    "id": 48,
+    "base_question": "Any EDR detections for malware in the last 24 hours?",
+    "expected_workflow": "investigate",
+    "category": "Endpoint Detection",
+    "params_hint": {
+      "target": "malware detections"
+    },
+    "variants": [
+      "any malware hits from edr in the last day?",
+      "Please show me all EDR malware detections recorded within the last 24 hours.",
+      "edr malware detections 24h"
+    ]
+  },
+  {
+    "id": 49,
+    "base_question": "Show me recent C2 beaconing activity from EDR",
+    "expected_workflow": "investigate",
+    "category": "Endpoint Detection",
+    "params_hint": {
+      "target": "C2 beaconing"
+    },
+    "variants": [
+      "show me any c2 beaconing from edr",
+      "Please provide EDR telemetry indicating command-and-control beaconing activity.",
+      "c2 beaconing edr"
+    ]
+  },
+  {
+    "id": 50,
+    "base_question": "Have we detected any lateral movement in our network?",
+    "expected_workflow": "investigate",
+    "category": "Endpoint Detection",
+    "params_hint": {
+      "target": "lateral movement"
+    },
+    "variants": [
+      "has edr caught any lateral movement?",
+      "Please review EDR events for evidence of lateral movement activity within our network.",
+      "lateral movement edr events"
+    ]
+  },
+  {
+    "id": 51,
+    "base_question": "Any process injection events flagged by EDR?",
+    "expected_workflow": "investigate",
+    "category": "Endpoint Detection",
+    "params_hint": {
+      "target": "process injection"
+    },
+    "variants": [
+      "any process injection alerts from edr?",
+      "Please retrieve EDR detections flagged for process injection techniques.",
+      "edr process injection alerts"
+    ]
+  },
+  {
+    "id": 52,
+    "base_question": "Show me FIM alerts for unauthorized file changes",
+    "expected_workflow": "investigate",
+    "category": "Endpoint Detection",
+    "params_hint": {
+      "target": "FIM unauthorized changes"
+    },
+    "variants": [
+      "show me fim alerts where files were changed without auth",
+      "Please display all File Integrity Monitoring alerts indicating unauthorized file modifications.",
+      "FIM unauthorized changes"
+    ]
+  },
+  {
+    "id": 53,
+    "base_question": "Any FIM events on critical system paths like /etc/passwd?",
+    "expected_workflow": "investigate",
+    "category": "Endpoint Detection",
+    "params_hint": {
+      "target": "FIM critical paths"
+    },
+    "variants": [
+      "any fim events on /etc/passwd or other critical paths?",
+      "Please retrieve File Integrity Monitoring events affecting critical system file paths such as /etc/passwd.",
+      "FIM critical path events"
+    ]
+  },
+  {
+    "id": 54,
+    "base_question": "Check EDR for any suspicious PowerShell execution",
+    "expected_workflow": "investigate",
+    "category": "Endpoint Detection",
+    "params_hint": {
+      "target": "PowerShell suspicious"
+    },
+    "variants": [
+      "look for any sus powershell activity in edr",
+      "Please identify any EDR events flagging suspicious or anomalous PowerShell execution.",
+      "suspicious powershell edr"
+    ]
+  },
+  {
+    "id": 55,
+    "base_question": "What EDR events happened on server-prod-01 this week?",
+    "expected_workflow": "investigate",
+    "category": "Endpoint Detection",
+    "params_hint": {
+      "target": "server-prod-01 EDR events"
+    },
+    "variants": [
+      "what happened on server-prod-01 in edr this week?",
+      "Please retrieve all EDR events associated with server-prod-01 for the current week.",
+      "server-prod-01 edr this week"
+    ]
+  },
+  {
+    "id": 56,
+    "base_question": "Show me any ransomware indicators from EDR",
+    "expected_workflow": "investigate",
+    "category": "Endpoint Detection",
+    "params_hint": {
+      "target": "ransomware indicators"
+    },
+    "variants": [
+      "any ransomware indicators showing in edr?",
+      "Please identify EDR detections consistent with ransomware behavioral indicators.",
+      "ransomware indicators edr"
+    ]
+  },
+  {
+    "id": 57,
+    "base_question": "whats the story on CVE-2024-3400 \u2014 is it being exploited against us?",
+    "expected_workflow": "investigate",
+    "category": "CVE Triage",
+    "params_hint": {
+      "target": "CVE-2024-3400"
+    },
+    "variants": [
+      "is CVE-2024-3400 being actively exploited against any of our assets?",
+      "Please determine whether CVE-2024-3400 is being actively exploited against assets in our environment.",
+      "CVE-2024-3400 active exploitation?"
+    ]
+  },
+  {
+    "id": 58,
+    "base_question": "Give me the full picture on our Palo Alto firewall vulnerabilities",
+    "expected_workflow": "investigate",
+    "category": "Vulnerability Intelligence",
+    "params_hint": {
+      "target": "Palo Alto"
+    },
+    "variants": [
+      "what palo alto firewall vulns do we have?",
+      "Please enumerate all outstanding vulnerabilities identified on our Palo Alto firewall infrastructure.",
+      "palo alto firewall vuln list"
+    ]
+  },
+  {
+    "id": 59,
+    "base_question": "Which of our vulns have known exploits in the wild?",
+    "expected_workflow": "investigate",
+    "category": "Vulnerability Intelligence",
+    "params_hint": {
+      "target": "exploits in the wild"
+    },
+    "variants": [
+      "which of our vulns have working exploits out there?",
+      "Please identify all vulnerabilities in our environment for which public exploits are known to exist.",
+      "vulns with known exploits"
+    ]
+  },
+  {
+    "id": 60,
+    "base_question": "Investigate whether BlackCat/ALPHV ransomware TTPs apply to our environment",
+    "expected_workflow": "investigate",
+    "category": "Threat Actor Attribution",
+    "params_hint": {
+      "target": "BlackCat ALPHV"
+    },
+    "variants": [
+      "do blackcat/alphv ransomware techniques apply to us?",
+      "Please assess whether our environment is exposed to attack techniques employed by BlackCat/ALPHV ransomware.",
+      "blackcat alphv exposure"
+    ]
+  },
+  {
+    "id": 61,
+    "base_question": "What's our overall TruRisk score?",
+    "expected_workflow": "assess_risk",
+    "category": "TruRisk Scoring",
+    "params_hint": {
+      "target": "overall TruRisk"
+    },
+    "variants": [
+      "what's our trurisk score looking like?",
+      "Please provide our organization's current aggregate TruRisk score.",
+      "trurisk score?"
+    ]
+  },
+  {
+    "id": 62,
+    "base_question": "How has our TruRisk score trended over the past 30 days?",
+    "expected_workflow": "assess_risk",
+    "category": "TruRisk Scoring",
+    "params_hint": {
+      "target": "TruRisk trend"
+    },
+    "variants": [
+      "how has our trurisk trended this month?",
+      "Please show the TruRisk score trend for our organization over the past 30 days.",
+      "trurisk 30-day trend"
+    ]
+  },
+  {
+    "id": 63,
+    "base_question": "Break down TruRisk by business unit",
+    "expected_workflow": "assess_risk",
+    "category": "TruRisk Scoring",
+    "params_hint": {
+      "target": "TruRisk by business unit"
+    },
+    "variants": [
+      "break trurisk down by biz unit for me",
+      "Please provide a breakdown of TruRisk scores segmented by business unit.",
+      "trurisk by BU"
+    ]
+  },
+  {
+    "id": 64,
+    "base_question": "Why did our TruRisk score go up this week?",
+    "expected_workflow": "assess_risk",
+    "category": "TruRisk Scoring",
+    "params_hint": {
+      "target": "TruRisk increase"
+    },
+    "variants": [
+      "why did our trurisk jump this week?",
+      "Please explain the factors contributing to the increase in our TruRisk score this week.",
+      "trurisk spike cause"
+    ]
+  },
+  {
+    "id": 65,
+    "base_question": "Show me TruRisk scores by asset tag",
+    "expected_workflow": "assess_risk",
+    "category": "TruRisk Scoring",
+    "params_hint": {
+      "target": "TruRisk by tag"
+    },
+    "variants": [
+      "show me trurisk by asset tag",
+      "Please display TruRisk scores grouped by asset tag.",
+      "trurisk per tag"
+    ]
+  },
+  {
+    "id": 66,
+    "base_question": "What's the TruRisk for our Production environment vs Dev?",
+    "expected_workflow": "assess_risk",
+    "category": "TruRisk Scoring",
+    "params_hint": {
+      "target": "TruRisk Production vs Dev"
+    },
+    "variants": [
+      "how does our prod trurisk compare to dev?",
+      "Please compare TruRisk scores between our Production and Development environments.",
+      "trurisk prod vs dev"
+    ]
+  },
+  {
+    "id": 67,
+    "base_question": "Show me the top 10 assets by TruRisk score",
+    "expected_workflow": "assess_risk",
+    "category": "TruRisk Scoring",
+    "params_hint": {
+      "target": "top assets by TruRisk"
+    },
+    "variants": [
+      "which 10 assets have the worst trurisk?",
+      "Please identify the ten assets with the highest TruRisk scores in our environment.",
+      "top 10 trurisk assets"
+    ]
+  },
+  {
+    "id": 68,
+    "base_question": "Show me all assets with TruRisk above 900",
+    "expected_workflow": "assess_risk",
+    "category": "TruRisk Scoring",
+    "params_hint": {
+      "target": "TruRisk above 900"
+    },
+    "variants": [
+      "show me everything with trurisk over 900",
+      "Please list all assets where the TruRisk score exceeds 900.",
+      "trurisk >900 assets"
+    ]
+  },
+  {
+    "id": 69,
+    "base_question": "What's the TruRisk breakdown for the finance department?",
+    "expected_workflow": "assess_risk",
+    "category": "TruRisk Scoring",
+    "params_hint": {
+      "target": "TruRisk finance"
+    },
+    "variants": [
+      "what does trurisk look like for our finance team?",
+      "Please provide TruRisk scoring details specific to assets owned by the finance department.",
+      "trurisk finance dept"
+    ]
+  },
+  {
+    "id": 70,
+    "base_question": "hey what's going on with our cloud security",
+    "expected_workflow": "assess_risk",
+    "category": "Cloud Security",
+    "params_hint": {
+      "target": "cloud security overview"
+    },
+    "variants": [
+      "how's our cloud security doing overall?",
+      "Please provide a high-level assessment of our organization's current cloud security posture.",
+      "cloud sec overview"
+    ]
+  },
+  {
+    "id": 71,
+    "base_question": "How's our AWS security posture looking?",
+    "expected_workflow": "assess_risk",
+    "category": "Cloud Security",
+    "params_hint": {
+      "target": "AWS posture"
+    },
+    "variants": [
+      "give me a read on our aws security posture",
+      "Please assess our current AWS cloud security posture across all accounts.",
+      "aws posture check"
+    ]
+  },
+  {
+    "id": 72,
+    "base_question": "Show me Azure CIS benchmark results",
+    "expected_workflow": "assess_risk",
+    "category": "Cloud Security",
+    "params_hint": {
+      "target": "Azure CIS"
+    },
+    "variants": [
+      "show me the azure cis benchmark scores",
+      "Please provide CIS benchmark compliance results for our Azure environment.",
+      "azure CIS results"
+    ]
+  },
+  {
+    "id": 73,
+    "base_question": "Are there any exposed S3 buckets?",
+    "expected_workflow": "assess_risk",
+    "category": "Cloud Security",
+    "params_hint": {
+      "target": "S3 bucket exposure"
+    },
+    "variants": [
+      "any s3 buckets exposed publicly?",
+      "Please identify any S3 buckets in our environment that are publicly accessible.",
+      "s3 public exposure"
+    ]
+  },
+  {
+    "id": 74,
+    "base_question": "Check for IAM misconfigurations across our cloud accounts",
+    "expected_workflow": "assess_risk",
+    "category": "Cloud Security",
+    "params_hint": {
+      "target": "IAM misconfiguration"
+    },
+    "variants": [
+      "any iam misconfig issues across cloud accounts?",
+      "Please identify IAM misconfigurations present across all cloud accounts in our environment.",
+      "IAM misconfig scan"
+    ]
+  },
+  {
+    "id": 75,
+    "base_question": "Any Lambda function security risks?",
+    "expected_workflow": "assess_risk",
+    "category": "Cloud Security",
+    "params_hint": {
+      "target": "Lambda risks"
+    },
+    "variants": [
+      "any security risks with our lambda functions?",
+      "Please assess security risks associated with our AWS Lambda function configurations.",
+      "lambda security risks"
+    ]
+  },
+  {
+    "id": 76,
+    "base_question": "Show me CDR findings from our cloud environments",
+    "expected_workflow": "assess_risk",
+    "category": "Cloud Security",
+    "params_hint": {
+      "target": "CDR findings"
+    },
+    "variants": [
+      "show me cdr findings from cloud",
+      "Please retrieve all Cloud Detection and Response findings from our cloud environments.",
+      "CDR findings"
+    ]
+  },
+  {
+    "id": 77,
+    "base_question": "Give me a per-account breakdown of cloud risk",
+    "expected_workflow": "assess_risk",
+    "category": "Cloud Security",
+    "params_hint": {
+      "target": "cloud risk per account"
+    },
+    "variants": [
+      "how's the cloud risk split per account?",
+      "Please provide a cloud security risk breakdown segmented by individual cloud account.",
+      "cloud risk per account"
+    ]
+  },
+  {
+    "id": 78,
+    "base_question": "What's our GCP security controls status?",
+    "expected_workflow": "assess_risk",
+    "category": "Cloud Security",
+    "params_hint": {
+      "target": "GCP controls"
+    },
+    "variants": [
+      "what's the gcp security controls status?",
+      "Please provide a status report on security controls for our Google Cloud Platform environment.",
+      "GCP controls status"
+    ]
+  },
+  {
+    "id": 79,
+    "base_question": "Give me a cross-domain risk assessment across all cloud providers with per-account breakdown",
+    "expected_workflow": "assess_risk",
+    "category": "Cloud Security",
+    "params_hint": {
+      "target": "cross-cloud risk assessment"
+    },
+    "variants": [
+      "give me a cross-cloud risk breakdown with per-account detail",
+      "Please provide a cross-provider cloud risk assessment with per-account breakdowns across AWS, Azure, and GCP.",
+      "cross-cloud risk by account"
+    ]
+  },
+  {
+    "id": 80,
+    "base_question": "Which container images have critical vulnerabilities?",
+    "expected_workflow": "assess_risk",
+    "category": "Container Security",
+    "params_hint": {
+      "target": "container critical vulns"
+    },
+    "variants": [
+      "which container images have critical vulns?",
+      "Please identify all container images carrying critical severity vulnerabilities.",
+      "container images w/ critical vulns"
+    ]
+  },
+  {
+    "id": 81,
+    "base_question": "Are there running containers with unpatched base images?",
+    "expected_workflow": "assess_risk",
+    "category": "Container Security",
+    "params_hint": {
+      "target": "unpatched containers"
+    },
+    "variants": [
+      "any running containers using unpatched base images?",
+      "Please identify containers currently running that are based on unpatched or outdated base images.",
+      "running containers unpatched base"
+    ]
+  },
+  {
+    "id": 82,
+    "base_question": "Check for container escape risks in our Kubernetes clusters",
+    "expected_workflow": "assess_risk",
+    "category": "Container Security",
+    "params_hint": {
+      "target": "container escape risks"
+    },
+    "variants": [
+      "any container escape risks in k8s?",
+      "Please assess container escape vulnerabilities and risks within our Kubernetes cluster configurations.",
+      "k8s container escape risks"
+    ]
+  },
+  {
+    "id": 83,
+    "base_question": "What's the vulnerability status of the nginx:latest image?",
+    "expected_workflow": "assess_risk",
+    "category": "Container Security",
+    "params_hint": {
+      "target": "nginx:latest image"
+    },
+    "variants": [
+      "whats the vuln situation with nginx:latest?",
+      "Please provide a vulnerability assessment for the nginx:latest container image.",
+      "nginx:latest image vulns"
+    ]
+  },
+  {
+    "id": 84,
+    "base_question": "Show me container vulnerabilities by severity",
+    "expected_workflow": "assess_risk",
+    "category": "Container Security",
+    "params_hint": {
+      "target": "container vulns by severity"
+    },
+    "variants": [
+      "show me container vulns by severity level",
+      "Please display all container vulnerabilities grouped by severity classification.",
+      "container vulns by severity"
+    ]
+  },
+  {
+    "id": 85,
+    "base_question": "What are the OWASP Top 10 findings for our web applications?",
+    "expected_workflow": "assess_risk",
+    "category": "Web App Security",
+    "params_hint": {
+      "target": "OWASP Top 10"
+    },
+    "variants": [
+      "what owasp top 10 issues do we have?",
+      "Please enumerate all OWASP Top 10 findings identified across our web application portfolio.",
+      "OWASP top 10 findings"
+    ]
+  },
+  {
+    "id": 86,
+    "base_question": "Do we have any XSS vulnerabilities in our web apps?",
+    "expected_workflow": "assess_risk",
+    "category": "Web App Security",
+    "params_hint": {
+      "target": "XSS findings"
+    },
+    "variants": [
+      "any xss vulnerabilities in our web apps?",
+      "Please identify all cross-site scripting (XSS) vulnerabilities detected in our web applications.",
+      "XSS web app findings"
+    ]
+  },
+  {
+    "id": 87,
+    "base_question": "Show me SQL injection findings from WAS",
+    "expected_workflow": "assess_risk",
+    "category": "Web App Security",
+    "params_hint": {
+      "target": "SQL injection"
+    },
+    "variants": [
+      "any sqli findings from was?",
+      "Please retrieve all SQL injection findings identified by our web application scanner.",
+      "SQL injection WAS findings"
+    ]
+  },
+  {
+    "id": 88,
+    "base_question": "Any SSRF vulnerabilities in our web applications?",
+    "expected_workflow": "assess_risk",
+    "category": "Web App Security",
+    "params_hint": {
+      "target": "SSRF"
+    },
+    "variants": [
+      "any ssrf bugs in our web apps?",
+      "Please identify all Server-Side Request Forgery vulnerabilities detected in our web applications.",
+      "SSRF web app findings"
+    ]
+  },
+  {
+    "id": 89,
+    "base_question": "What's the security status of our customer portal web app?",
+    "expected_workflow": "assess_risk",
+    "category": "Web App Security",
+    "params_hint": {
+      "target": "customer portal"
+    },
+    "variants": [
+      "how's the customer portal looking security-wise?",
+      "Please provide a security status summary for our customer portal web application.",
+      "customer portal sec status"
+    ]
+  },
+  {
+    "id": 90,
+    "base_question": "How many SSL certificates are expiring in the next 30 days?",
+    "expected_workflow": "assess_risk",
+    "category": "Certificate Security",
+    "params_hint": {
+      "target": "expiring certs"
+    },
+    "variants": [
+      "how many certs are about to expire in the next month?",
+      "Please identify all SSL/TLS certificates within our environment that expire within the next 30 days.",
+      "certs expiring 30 days"
+    ]
+  },
+  {
+    "id": 91,
+    "base_question": "Do we still have any TLS 1.0 or 1.1 endpoints?",
+    "expected_workflow": "assess_risk",
+    "category": "Certificate Security",
+    "params_hint": {
+      "target": "TLS 1.0 1.1"
+    },
+    "variants": [
+      "still running tls 1.0 or 1.1 anywhere?",
+      "Please identify all endpoints still negotiating TLS 1.0 or TLS 1.1 connections.",
+      "TLS 1.0/1.1 endpoints"
+    ]
+  },
+  {
+    "id": 92,
+    "base_question": "Check for weak cipher suites across our infrastructure",
+    "expected_workflow": "assess_risk",
+    "category": "Certificate Security",
+    "params_hint": {
+      "target": "weak ciphers"
+    },
+    "variants": [
+      "any weak cipher suites across our infra?",
+      "Please identify all infrastructure components configured with weak or deprecated cipher suites.",
+      "weak ciphers infra"
+    ]
+  },
+  {
+    "id": 93,
+    "base_question": "Any systems vulnerable to POODLE or BEAST attacks?",
+    "expected_workflow": "assess_risk",
+    "category": "Certificate Security",
+    "params_hint": {
+      "target": "POODLE BEAST"
+    },
+    "variants": [
+      "any poodle or beast vuln exposure?",
+      "Please determine whether any systems in our environment are vulnerable to POODLE or BEAST SSL attacks.",
+      "poodle/beast exposure"
+    ]
+  },
+  {
+    "id": 94,
+    "base_question": "Show me insecure SSL renegotiation findings",
+    "expected_workflow": "assess_risk",
+    "category": "Certificate Security",
+    "params_hint": {
+      "target": "insecure renegotiation"
+    },
+    "variants": [
+      "show insecure ssl renegotiation findings",
+      "Please retrieve findings related to insecure SSL renegotiation across our infrastructure.",
+      "insecure ssl renegotiation"
+    ]
+  },
+  {
+    "id": 95,
+    "base_question": "How many end-of-life systems do we have?",
+    "expected_workflow": "assess_risk",
+    "category": "Asset Lifecycle",
+    "params_hint": {
+      "target": "EOL systems"
+    },
+    "variants": [
+      "how many eol systems are we running?",
+      "Please provide a count and listing of all end-of-life systems currently in our environment.",
+      "EOL system count"
+    ]
+  },
+  {
+    "id": 96,
+    "base_question": "Show me stale assets not seen in the last 30 days",
+    "expected_workflow": "assess_risk",
+    "category": "Asset Lifecycle",
+    "params_hint": {
+      "target": "stale assets 30 days"
+    },
+    "variants": [
+      "show me assets that haven't been seen in 30 days",
+      "Please identify assets that have not been observed or scanned within the last 30 days.",
+      "stale assets 30d"
+    ]
+  },
+  {
+    "id": 97,
+    "base_question": "How many unscanned assets do we have?",
+    "expected_workflow": "assess_risk",
+    "category": "Asset Lifecycle",
+    "params_hint": {
+      "target": "unscanned assets"
+    },
+    "variants": [
+      "how many assets have never been scanned?",
+      "Please quantify the assets in our inventory that have not been subjected to a vulnerability scan.",
+      "unscanned asset count"
+    ]
+  },
+  {
+    "id": 98,
+    "base_question": "Find assets running Windows Server 2012",
+    "expected_workflow": "assess_risk",
+    "category": "Asset Lifecycle",
+    "params_hint": {
+      "target": "Windows Server 2012"
+    },
+    "variants": [
+      "find all our windows server 2012 boxes",
+      "Please enumerate all assets in our environment running Windows Server 2012.",
+      "windows server 2012 assets"
+    ]
+  },
+  {
+    "id": 99,
+    "base_question": "What's our total asset count by operating system?",
+    "expected_workflow": "assess_risk",
+    "category": "Asset Inventory",
+    "params_hint": {
+      "target": "asset count by OS"
+    },
+    "variants": [
+      "how many assets do we have per os?",
+      "Please provide a count of our managed assets grouped by operating system.",
+      "asset count by OS"
+    ]
+  },
+  {
+    "id": 100,
+    "base_question": "Search for assets with hostname matching prod-web",
+    "expected_workflow": "assess_risk",
+    "category": "Asset Inventory",
+    "params_hint": {
+      "target": "prod-web assets"
+    },
+    "variants": [
+      "find all assets with prod-web in the hostname",
+      "Please search our asset inventory for all hosts with 'prod-web' in their hostname.",
+      "prod-web hostname search"
+    ]
+  },
+  {
+    "id": 101,
+    "base_question": "Compare risk scores between Production and Development environments",
+    "expected_workflow": "assess_risk",
+    "category": "TruRisk Scoring",
+    "params_hint": {
+      "target": "risk comparison prod dev"
+    },
+    "variants": [
+      "compare risk scores between prod and dev",
+      "Please compare risk scores between our Production and Development environment asset groups.",
+      "prod vs dev risk comparison"
+    ]
+  },
+  {
+    "id": 102,
+    "base_question": "What's the risk profile by department?",
+    "expected_workflow": "assess_risk",
+    "category": "TruRisk Scoring",
+    "params_hint": {
+      "target": "risk by department"
+    },
+    "variants": [
+      "what's the risk profile by dept?",
+      "Please provide a risk profile breakdown segmented by organizational department.",
+      "risk by department"
+    ]
+  },
+  {
+    "id": 103,
+    "base_question": "Which Linux assets have the most risk?",
+    "expected_workflow": "assess_risk",
+    "category": "Asset Inventory",
+    "params_hint": {
+      "target": "Linux assets risk"
+    },
+    "variants": [
+      "which linux assets have the highest risk?",
+      "Please identify Linux-based assets carrying the highest risk scores in our environment.",
+      "highest risk linux assets"
+    ]
+  },
+  {
+    "id": 104,
+    "base_question": "show me assets running CentOS 7",
+    "expected_workflow": "assess_risk",
+    "category": "Asset Lifecycle",
+    "params_hint": {
+      "target": "CentOS 7"
+    },
+    "variants": [
+      "what centos 7 systems are we still running?",
+      "Please enumerate all assets in our environment currently running CentOS 7.",
+      "centos 7 assets"
+    ]
+  },
+  {
+    "id": 105,
+    "base_question": "How many Windows 10 machines are past end-of-support?",
+    "expected_workflow": "assess_risk",
+    "category": "Asset Lifecycle",
+    "params_hint": {
+      "target": "Windows 10 EOL"
+    },
+    "variants": [
+      "how many win10 machines are past end of support?",
+      "Please identify all Windows 10 assets that have passed their end-of-support date.",
+      "windows 10 eol count"
+    ]
+  },
+  {
+    "id": 106,
+    "base_question": "What web apps have the highest vulnerability counts?",
+    "expected_workflow": "assess_risk",
+    "category": "Web App Security",
+    "params_hint": {
+      "target": "web apps highest vulns"
+    },
+    "variants": [
+      "which web apps have the most vulns?",
+      "Please identify the web applications with the highest total vulnerability counts.",
+      "web apps highest vuln count"
+    ]
+  },
+  {
+    "id": 107,
+    "base_question": "Are any of our public-facing certs using SHA-1?",
+    "expected_workflow": "assess_risk",
+    "category": "Certificate Security",
+    "params_hint": {
+      "target": "SHA-1 certs"
+    },
+    "variants": [
+      "any of our certs still using sha-1?",
+      "Please identify all public-facing certificates that are using the deprecated SHA-1 signature algorithm.",
+      "SHA-1 certs present?"
+    ]
+  },
+  {
+    "id": 108,
+    "base_question": "Give me the overall risk posture for our cloud environment",
+    "expected_workflow": "assess_risk",
+    "category": "Cloud Security",
+    "params_hint": {
+      "target": "cloud risk posture"
+    },
+    "variants": [
+      "give me an overall cloud risk posture",
+      "Please provide a comprehensive risk posture assessment covering all of our cloud environments.",
+      "cloud risk posture summary"
+    ]
+  },
+  {
+    "id": 109,
+    "base_question": "which containers are running privileged mode?",
+    "expected_workflow": "assess_risk",
+    "category": "Container Security",
+    "params_hint": {
+      "target": "privileged containers"
+    },
+    "variants": [
+      "which containers are running in privileged mode?",
+      "Please identify all containers that are currently running with elevated/privileged permissions.",
+      "privileged containers"
+    ]
+  },
+  {
+    "id": 110,
+    "base_question": "What's our mean TruRisk per asset across all tags?",
+    "expected_workflow": "assess_risk",
+    "category": "TruRisk Scoring",
+    "params_hint": {
+      "target": "mean TruRisk per asset"
+    },
+    "variants": [
+      "what's the mean trurisk per asset across all tags?",
+      "Please calculate and display the mean TruRisk score per asset across all asset tags.",
+      "mean trurisk per asset"
+    ]
+  },
+  {
+    "id": 111,
+    "base_question": "Show me assets in the DMZ and their risk scores",
+    "expected_workflow": "assess_risk",
+    "category": "Asset Inventory",
+    "params_hint": {
+      "target": "DMZ assets risk"
+    },
+    "variants": [
+      "show me dmz assets and their risk scores",
+      "Please list all assets located in the DMZ network segment along with their associated risk scores.",
+      "DMZ asset risk scores"
+    ]
+  },
+  {
+    "id": 112,
+    "base_question": "What's the vulnerability density in our Kubernetes namespaces?",
+    "expected_workflow": "assess_risk",
+    "category": "Container Security",
+    "params_hint": {
+      "target": "Kubernetes vulnerability density"
+    },
+    "variants": [
+      "how dense are vulns across our k8s namespaces?",
+      "Please provide a vulnerability density analysis across our Kubernetes namespace configurations.",
+      "k8s vuln density"
+    ]
+  },
+  {
+    "id": 113,
+    "base_question": "Are there any wildcard certificates we should be concerned about?",
+    "expected_workflow": "assess_risk",
+    "category": "Certificate Security",
+    "params_hint": {
+      "target": "wildcard certificates"
+    },
+    "variants": [
+      "should we be worried about any wildcard certs?",
+      "Please identify any wildcard certificates in use that may present security concerns.",
+      "wildcard cert risks"
+    ]
+  },
+  {
+    "id": 114,
+    "base_question": "what does our web app attack surface look like overall?",
+    "expected_workflow": "assess_risk",
+    "category": "Web App Security",
+    "params_hint": {
+      "target": "web app attack surface"
+    },
+    "variants": [
+      "what's our web app attack surface like?",
+      "Please provide an overview of our web application attack surface including all exposed endpoints and risk indicators.",
+      "web app attack surface"
+    ]
+  },
+  {
+    "id": 115,
+    "base_question": "Show me the AWS accounts with the worst security posture",
+    "expected_workflow": "assess_risk",
+    "category": "Cloud Security",
+    "params_hint": {
+      "target": "worst AWS accounts"
+    },
+    "variants": [
+      "which aws accounts are in the worst shape?",
+      "Please identify the AWS accounts exhibiting the worst overall security posture.",
+      "worst AWS account posture"
+    ]
+  },
+  {
+    "id": 116,
+    "base_question": "How many assets haven't been scanned in 7 days?",
+    "expected_workflow": "assess_risk",
+    "category": "Asset Lifecycle",
+    "params_hint": {
+      "target": "unscanned 7 days"
+    },
+    "variants": [
+      "how many assets haven't been scanned in the last week?",
+      "Please identify all assets that have not been scanned within the past 7 days.",
+      "unscanned 7d"
+    ]
+  },
+  {
+    "id": 117,
+    "base_question": "Give me a TruRisk summary for the infrastructure team's assets",
+    "expected_workflow": "assess_risk",
+    "category": "TruRisk Scoring",
+    "params_hint": {
+      "target": "TruRisk infrastructure team"
+    },
+    "variants": [
+      "what's trurisk for infra team assets?",
+      "Please provide a TruRisk summary for all assets assigned to the infrastructure team.",
+      "infra team trurisk"
+    ]
+  },
+  {
+    "id": 118,
+    "base_question": "What's our exposure to critical web app vulns in production?",
+    "expected_workflow": "assess_risk",
+    "category": "Web App Security",
+    "params_hint": {
+      "target": "critical web vulns production"
+    },
+    "variants": [
+      "any critical web app vulns in production?",
+      "Please enumerate critical web application vulnerabilities affecting production-tier systems.",
+      "prod web app critical vulns"
+    ]
+  },
+  {
+    "id": 119,
+    "base_question": "List all Ubuntu 18.04 systems that are end of life",
+    "expected_workflow": "assess_risk",
+    "category": "Asset Lifecycle",
+    "params_hint": {
+      "target": "Ubuntu 18.04 EOL"
+    },
+    "variants": [
+      "find all ubuntu 18.04 eol systems",
+      "Please list all assets running Ubuntu 18.04 that are past end-of-life support.",
+      "ubuntu 18.04 EOL assets"
+    ]
+  },
+  {
+    "id": 120,
+    "base_question": "What's our patch coverage percentage?",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "patch coverage"
+    },
+    "variants": [
+      "what's our patching coverage at right now?",
+      "Please provide the current patch coverage percentage across all managed assets.",
+      "patch coverage %"
+    ]
+  },
+  {
+    "id": 121,
+    "base_question": "How many assets are unpatched for critical vulnerabilities?",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "unpatched critical"
+    },
+    "variants": [
+      "how many assets still need critical patches?",
+      "Please quantify the assets that remain unpatched for critical severity vulnerabilities.",
+      "unpatched critical asset count"
+    ]
+  },
+  {
+    "id": 122,
+    "base_question": "Show me patching trends over the last quarter",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "patching trends"
+    },
+    "variants": [
+      "show me the patching trends from last quarter",
+      "Please display patching trend data covering the previous quarter.",
+      "patching trends Q last quarter"
+    ]
+  },
+  {
+    "id": 123,
+    "base_question": "What outstanding patches do we have for Windows systems?",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "Windows outstanding patches"
+    },
+    "variants": [
+      "what windows patches are still outstanding?",
+      "Please enumerate all outstanding patches for Windows systems across our environment.",
+      "outstanding windows patches"
+    ]
+  },
+  {
+    "id": 124,
+    "base_question": "Show me missing Linux patches by severity",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "Linux patches by severity"
+    },
+    "variants": [
+      "what linux patches are we missing, by severity?",
+      "Please list all missing Linux patches grouped by severity classification.",
+      "linux missing patches by severity"
+    ]
+  },
+  {
+    "id": 125,
+    "base_question": "What critical patches are missing across the environment?",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "missing critical patches"
+    },
+    "variants": [
+      "what critical patches are missing across the board?",
+      "Please identify all missing critical patches across the entire environment.",
+      "missing critical patches"
+    ]
+  },
+  {
+    "id": 126,
+    "base_question": "How many high severity patches are outstanding?",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "outstanding high patches"
+    },
+    "variants": [
+      "how many high severity patches haven't been deployed?",
+      "Please count all outstanding high-severity patches that have not yet been deployed.",
+      "outstanding high patches"
+    ]
+  },
+  {
+    "id": 127,
+    "base_question": "What's the status of our PM patch deployment jobs?",
+    "expected_workflow": "plan_remediation",
+    "category": "Deployment Status",
+    "params_hint": {
+      "target": "PM job status"
+    },
+    "variants": [
+      "what's the status of our patch deployment jobs?",
+      "Please provide a status update on all active patch management deployment jobs.",
+      "PM job status"
+    ]
+  },
+  {
+    "id": 128,
+    "base_question": "Show me failed patch deployments from this week",
+    "expected_workflow": "plan_remediation",
+    "category": "Deployment Status",
+    "params_hint": {
+      "target": "failed deployments"
+    },
+    "variants": [
+      "show me failed patch deployments from this week",
+      "Please list all patch deployments that failed during the current week.",
+      "failed patch deployments this week"
+    ]
+  },
+  {
+    "id": 129,
+    "base_question": "What's our deployment success rate for patches?",
+    "expected_workflow": "plan_remediation",
+    "category": "Deployment Status",
+    "params_hint": {
+      "target": "deployment success rate"
+    },
+    "variants": [
+      "what's our patch deployment success rate?",
+      "Please provide the current patch deployment success rate across all managed systems.",
+      "deployment success rate"
+    ]
+  },
+  {
+    "id": 130,
+    "base_question": "Are we meeting our patching SLA for critical vulns?",
+    "expected_workflow": "plan_remediation",
+    "category": "Deployment Status",
+    "params_hint": {
+      "target": "patching SLA"
+    },
+    "variants": [
+      "are we hitting our patching SLAs on critical vulns?",
+      "Please assess whether our organization is meeting its defined SLA requirements for critical vulnerability patching.",
+      "patching SLA compliance"
+    ]
+  },
+  {
+    "id": 131,
+    "base_question": "What mitigations are available for CVE-2024-3400?",
+    "expected_workflow": "plan_remediation",
+    "category": "Mitigation Coverage",
+    "params_hint": {
+      "target": "CVE-2024-3400 mitigations"
+    },
+    "variants": [
+      "any mitigations available for cve-2024-3400?",
+      "Please identify all available mitigation options for CVE-2024-3400.",
+      "CVE-2024-3400 mitigations available"
+    ]
+  },
+  {
+    "id": 132,
+    "base_question": "Show me TruRisk Eliminate coverage for QID 38747",
+    "expected_workflow": "plan_remediation",
+    "category": "Mitigation Coverage",
+    "params_hint": {
+      "target": "TruRisk Eliminate QID 38747"
+    },
+    "variants": [
+      "what trurisk eliminate coverage do we have for qid 38747?",
+      "Please show TruRisk Eliminate mitigation coverage for QID 38747.",
+      "trurisk eliminate QID 38747"
+    ]
+  },
+  {
+    "id": 133,
+    "base_question": "What mitigations do we have in place across the board?",
+    "expected_workflow": "plan_remediation",
+    "category": "Mitigation Coverage",
+    "params_hint": {
+      "target": "mitigation coverage"
+    },
+    "variants": [
+      "what mitigations do we actually have deployed?",
+      "Please provide a comprehensive overview of all mitigations currently in place across our environment.",
+      "deployed mitigations overview"
+    ]
+  },
+  {
+    "id": 134,
+    "base_question": "Which vulns have no available patch or mitigation?",
+    "expected_workflow": "plan_remediation",
+    "category": "Mitigation Coverage",
+    "params_hint": {
+      "target": "no patch no mitigation"
+    },
+    "variants": [
+      "any vulns with no patch or mitigation at all?",
+      "Please identify vulnerabilities in our environment for which neither a patch nor a mitigation exists.",
+      "vulns no patch no mitigation"
+    ]
+  },
+  {
+    "id": 135,
+    "base_question": "Do a gap analysis on our security program",
+    "expected_workflow": "plan_remediation",
+    "category": "Program Gaps",
+    "params_hint": {
+      "target": "gap analysis"
+    },
+    "variants": [
+      "can you do a gap analysis on our security program?",
+      "Please conduct a comprehensive gap analysis of our organization's security program.",
+      "security program gap analysis"
+    ]
+  },
+  {
+    "id": 136,
+    "base_question": "What Qualys modules should we add to reduce risk?",
+    "expected_workflow": "plan_remediation",
+    "category": "Program Gaps",
+    "params_hint": {
+      "target": "module recommendations"
+    },
+    "variants": [
+      "what qualys modules should we be using that we aren't?",
+      "Please recommend Qualys modules we should adopt to reduce our overall risk exposure.",
+      "qualys module recommendations"
+    ]
+  },
+  {
+    "id": 137,
+    "base_question": "How can we reduce our TruRisk score the fastest?",
+    "expected_workflow": "plan_remediation",
+    "category": "Program Gaps",
+    "params_hint": {
+      "target": "reduce TruRisk"
+    },
+    "variants": [
+      "what's the fastest way to bring our trurisk score down?",
+      "Please identify the most impactful actions we can take to reduce our TruRisk score rapidly.",
+      "fastest trurisk reduction"
+    ]
+  },
+  {
+    "id": 138,
+    "base_question": "Give me recommendations to improve our security posture",
+    "expected_workflow": "plan_remediation",
+    "category": "Program Gaps",
+    "params_hint": {
+      "target": "security recommendations"
+    },
+    "variants": [
+      "what should we do to improve security posture overall?",
+      "Please provide strategic recommendations for improving our overall organizational security posture.",
+      "security posture improvement recs"
+    ]
+  },
+  {
+    "id": 139,
+    "base_question": "What should we patch this sprint for maximum risk reduction?",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "sprint patch priorities"
+    },
+    "variants": [
+      "what should we patch this sprint to drop risk the most?",
+      "Please identify the highest-priority patches to apply this sprint for maximum risk reduction.",
+      "sprint patching priorities"
+    ]
+  },
+  {
+    "id": 140,
+    "base_question": "What are the quick wins for patching this week?",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "quick wins patching"
+    },
+    "variants": [
+      "what are the easy patching wins for this week?",
+      "Please identify quick-win patching opportunities for the current week.",
+      "patching quick wins"
+    ]
+  },
+  {
+    "id": 141,
+    "base_question": "What should we prioritize for the next maintenance window?",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "maintenance window priorities"
+    },
+    "variants": [
+      "what should we hit in the next maintenance window?",
+      "Please provide a prioritized list of patches and remediations for our next scheduled maintenance window.",
+      "maintenance window patch list"
+    ]
+  },
+  {
+    "id": 142,
+    "base_question": "Show me the remediation plan for our top 20 critical vulns",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "top 20 critical remediation"
+    },
+    "variants": [
+      "give me a remediation plan for our top 20 crits",
+      "Please generate a remediation plan targeting our top 20 critical vulnerabilities.",
+      "top 20 critical remediation plan"
+    ]
+  },
+  {
+    "id": 143,
+    "base_question": "What's left to patch on our Windows Server fleet?",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "Windows Server outstanding"
+    },
+    "variants": [
+      "what's left to patch on windows servers?",
+      "Please enumerate all outstanding patches for our Windows Server fleet.",
+      "windows server outstanding patches"
+    ]
+  },
+  {
+    "id": 144,
+    "base_question": "How many patches failed to deploy last week and why?",
+    "expected_workflow": "plan_remediation",
+    "category": "Deployment Status",
+    "params_hint": {
+      "target": "failed patches last week"
+    },
+    "variants": [
+      "how many patches failed last week and what went wrong?",
+      "Please provide details on patch deployment failures from the previous week including root cause information.",
+      "last week patch failures + cause"
+    ]
+  },
+  {
+    "id": 145,
+    "base_question": "Show me deployment status for the January patch Tuesday rollout",
+    "expected_workflow": "plan_remediation",
+    "category": "Deployment Status",
+    "params_hint": {
+      "target": "patch Tuesday deployment"
+    },
+    "variants": [
+      "how did the january patch tuesday rollout go?",
+      "Please show the deployment status for the January Patch Tuesday rollout.",
+      "jan patch tuesday status"
+    ]
+  },
+  {
+    "id": 146,
+    "base_question": "what patches are we behind on",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "behind on patches"
+    },
+    "variants": [
+      "which patches are we overdue on?",
+      "Please identify all patches for which our organization is behind schedule.",
+      "overdue patches"
+    ]
+  },
+  {
+    "id": 147,
+    "base_question": "Is there a workaround for CVE-2024-21887 until we can patch?",
+    "expected_workflow": "plan_remediation",
+    "category": "Mitigation Coverage",
+    "params_hint": {
+      "target": "CVE-2024-21887 workaround"
+    },
+    "variants": [
+      "any workaround for cve-2024-21887 before we can patch?",
+      "Please identify any available workarounds for CVE-2024-21887 that can be applied prior to patching.",
+      "CVE-2024-21887 workaround"
+    ]
+  },
+  {
+    "id": 148,
+    "base_question": "What's our SLA compliance for patching high-severity vulns?",
+    "expected_workflow": "plan_remediation",
+    "category": "Deployment Status",
+    "params_hint": {
+      "target": "SLA high severity"
+    },
+    "variants": [
+      "are we meeting slas on high severity patches?",
+      "Please assess our SLA compliance specifically for high-severity vulnerability patching.",
+      "high severity patching SLA"
+    ]
+  },
+  {
+    "id": 149,
+    "base_question": "Plan the remediation for our FortiOS devices",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "FortiOS remediation plan"
+    },
+    "variants": [
+      "plan out the remediation for our fortios devices",
+      "Please create a remediation plan addressing vulnerabilities across our FortiOS device fleet.",
+      "fortios remediation plan"
+    ]
+  },
+  {
+    "id": 150,
+    "base_question": "What percentage of our estate is fully patched?",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "fully patched percentage"
+    },
+    "variants": [
+      "what percent of our estate is fully patched?",
+      "Please provide the percentage of our total asset estate that is fully patched.",
+      "fully patched % estate"
+    ]
+  },
+  {
+    "id": 151,
+    "base_question": "Which systems have had patches pending for more than 30 days?",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "patches pending 30 days"
+    },
+    "variants": [
+      "any patches pending for more than 30 days?",
+      "Please identify all assets with patches that have been in a pending state for more than 30 days.",
+      "patches pending 30d+"
+    ]
+  },
+  {
+    "id": 152,
+    "base_question": "Can we mitigate Log4Shell with WAF rules where patching isn't possible?",
+    "expected_workflow": "plan_remediation",
+    "category": "Mitigation Coverage",
+    "params_hint": {
+      "target": "Log4Shell WAF mitigation"
+    },
+    "variants": [
+      "can we block log4shell with waf rules while we patch?",
+      "Please assess the feasibility of using WAF rules to mitigate Log4Shell exposure where patching is not immediately possible.",
+      "log4shell WAF workaround"
+    ]
+  },
+  {
+    "id": 153,
+    "base_question": "What's the biggest bang-for-buck patch we can deploy right now?",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "highest impact patch"
+    },
+    "variants": [
+      "what single patch would make the biggest impact right now?",
+      "Please identify the single highest-impact patch available for immediate deployment.",
+      "highest impact patch"
+    ]
+  },
+  {
+    "id": 154,
+    "base_question": "Show me PM jobs that are currently running",
+    "expected_workflow": "plan_remediation",
+    "category": "Deployment Status",
+    "params_hint": {
+      "target": "running PM jobs"
+    },
+    "variants": [
+      "show me pm jobs that are running right now",
+      "Please display all patch management jobs that are currently in an active/running state.",
+      "active PM jobs"
+    ]
+  },
+  {
+    "id": 155,
+    "base_question": "What's blocking our patch completion rate from reaching 95%?",
+    "expected_workflow": "plan_remediation",
+    "category": "Program Gaps",
+    "params_hint": {
+      "target": "patch completion blockers"
+    },
+    "variants": [
+      "what's stopping us from hitting 95% patch completion?",
+      "Please identify the primary obstacles preventing our organization from achieving a 95% patch completion rate.",
+      "95% patch rate blockers"
+    ]
+  },
+  {
+    "id": 156,
+    "base_question": "How do we improve our mean time to remediate?",
+    "expected_workflow": "plan_remediation",
+    "category": "Program Gaps",
+    "params_hint": {
+      "target": "improve MTTR"
+    },
+    "variants": [
+      "how do we speed up our mean time to remediate?",
+      "Please provide recommendations for reducing our organization's mean time to remediate vulnerabilities.",
+      "MTTR improvement"
+    ]
+  },
+  {
+    "id": 157,
+    "base_question": "Give me remediation priorities sorted by TruRisk reduction",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "remediation by TruRisk reduction"
+    },
+    "variants": [
+      "order remediation priorities by how much trurisk each fix drops",
+      "Please sort remediation priorities by the magnitude of TruRisk reduction each action delivers.",
+      "remediations by trurisk impact"
+    ]
+  },
+  {
+    "id": 158,
+    "base_question": "Which patches would reduce our TruRisk the most if applied?",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "patches max TruRisk reduction"
+    },
+    "variants": [
+      "which patches would slash our trurisk the most?",
+      "Please identify the patches that, if applied, would result in the greatest reduction to our TruRisk score.",
+      "max trurisk reduction patches"
+    ]
+  },
+  {
+    "id": 159,
+    "base_question": "What's the remediation timeline for our Ivanti vulnerabilities?",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "Ivanti remediation timeline"
+    },
+    "variants": [
+      "whats the plan and timeline for fixing our ivanti vulns?",
+      "Please provide a remediation timeline for addressing all identified Ivanti vulnerabilities in our environment.",
+      "ivanti vuln remediation timeline"
+    ]
+  },
+  {
+    "id": 160,
+    "base_question": "Show me patch availability for all critical QIDs",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "patch availability critical QIDs"
+    },
+    "variants": [
+      "do we have patches available for all critical qids?",
+      "Please confirm patch availability for all critical-severity QIDs in our environment.",
+      "patch availability critical QIDs"
+    ]
+  },
+  {
+    "id": 161,
+    "base_question": "Which assets are the hardest to patch and why?",
+    "expected_workflow": "plan_remediation",
+    "category": "Program Gaps",
+    "params_hint": {
+      "target": "hardest to patch assets"
+    },
+    "variants": [
+      "which assets are a pain to patch and why?",
+      "Please identify the assets that are most difficult to patch and explain the contributing factors.",
+      "hard-to-patch assets"
+    ]
+  },
+  {
+    "id": 162,
+    "base_question": "Create a patching roadmap for Q2",
+    "expected_workflow": "plan_remediation",
+    "category": "Program Gaps",
+    "params_hint": {
+      "target": "Q2 patching roadmap"
+    },
+    "variants": [
+      "build me a patching roadmap for q2",
+      "Please develop a patching roadmap covering all major remediation activities planned for Q2.",
+      "Q2 patching roadmap"
+    ]
+  },
+  {
+    "id": 163,
+    "base_question": "What compensating controls do we have for unpatched Exchange servers?",
+    "expected_workflow": "plan_remediation",
+    "category": "Mitigation Coverage",
+    "params_hint": {
+      "target": "Exchange compensating controls"
+    },
+    "variants": [
+      "what compensating controls do we have for unpatched exchange boxes?",
+      "Please document all compensating controls in place for Exchange servers that have not yet been patched.",
+      "exchange compensating controls"
+    ]
+  },
+  {
+    "id": 164,
+    "base_question": "Show me the patch deployment schedule for next week",
+    "expected_workflow": "plan_remediation",
+    "category": "Deployment Status",
+    "params_hint": {
+      "target": "next week patch schedule"
+    },
+    "variants": [
+      "what's on the patch schedule for next week?",
+      "Please display the scheduled patch deployments for the upcoming week.",
+      "next week patch schedule"
+    ]
+  },
+  {
+    "id": 165,
+    "base_question": "How are we doing with our remediation efforts overall?",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "remediation overall status"
+    },
+    "variants": [
+      "how are we doing with remediation overall?",
+      "Please provide a comprehensive overview of the current state of our remediation efforts.",
+      "remediation status overall"
+    ]
+  },
+  {
+    "id": 166,
+    "base_question": "What should the team focus on fixing first this month?",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "monthly fix priorities"
+    },
+    "variants": [
+      "what should the team focus on fixing this month?",
+      "Please provide monthly remediation priorities for the security team.",
+      "monthly fix priorities"
+    ]
+  },
+  {
+    "id": 167,
+    "base_question": "Which vulnerabilities have had mitigations expire?",
+    "expected_workflow": "plan_remediation",
+    "category": "Mitigation Coverage",
+    "params_hint": {
+      "target": "expired mitigations"
+    },
+    "variants": [
+      "any mitigations that have already expired?",
+      "Please identify vulnerabilities for which previously applied mitigations have since expired.",
+      "expired mitigations"
+    ]
+  },
+  {
+    "id": 168,
+    "base_question": "What's blocking remediation on our database servers?",
+    "expected_workflow": "plan_remediation",
+    "category": "Program Gaps",
+    "params_hint": {
+      "target": "database remediation blockers"
+    },
+    "variants": [
+      "what's holding up remediation on our db servers?",
+      "Please identify the factors blocking timely remediation on our database server fleet.",
+      "db server remediation blockers"
+    ]
+  },
+  {
+    "id": 169,
+    "base_question": "Show me the oldest unpatched critical vulnerabilities",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "oldest unpatched critical"
+    },
+    "variants": [
+      "show me the oldest unpatched critical vulns",
+      "Please list critical vulnerabilities sorted by how long they have remained unpatched.",
+      "oldest unpatched criticals"
+    ]
+  },
+  {
+    "id": 170,
+    "base_question": "Are we meeting our 15-day SLA for critical patch deployment?",
+    "expected_workflow": "plan_remediation",
+    "category": "Deployment Status",
+    "params_hint": {
+      "target": "15-day SLA critical"
+    },
+    "variants": [
+      "are we within the 15-day sla for critical patches?",
+      "Please assess whether our critical patch deployments are meeting our 15-day SLA requirement.",
+      "15-day critical patch SLA"
+    ]
+  },
+  {
+    "id": 171,
+    "base_question": "What recommendations do you have for our vulnerability management program?",
+    "expected_workflow": "plan_remediation",
+    "category": "Program Gaps",
+    "params_hint": {
+      "target": "VM program recommendations"
+    },
+    "variants": [
+      "any recs for improving the vuln management program?",
+      "Please provide recommendations for enhancing our vulnerability management program.",
+      "VM program improvement recs"
+    ]
+  },
+  {
+    "id": 172,
+    "base_question": "Give me a list of patches needed for PCI compliance",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "PCI required patches"
+    },
+    "variants": [
+      "what patches do we need for pci compliance?",
+      "Please identify all patches required to meet PCI DSS compliance obligations.",
+      "PCI required patches"
+    ]
+  },
+  {
+    "id": 173,
+    "base_question": "What's our automated vs manual patching ratio?",
+    "expected_workflow": "plan_remediation",
+    "category": "Deployment Status",
+    "params_hint": {
+      "target": "auto vs manual patching"
+    },
+    "variants": [
+      "what's the split between automated and manual patching?",
+      "Please provide the breakdown between automated and manual patch deployments in our environment.",
+      "auto vs manual patch ratio"
+    ]
+  },
+  {
+    "id": 174,
+    "base_question": "How many zero-day vulns do we have without patches?",
+    "expected_workflow": "plan_remediation",
+    "category": "Mitigation Coverage",
+    "params_hint": {
+      "target": "zero-day no patch"
+    },
+    "variants": [
+      "how many zero-days do we have that can't be patched yet?",
+      "Please enumerate zero-day vulnerabilities in our environment for which no patch is yet available.",
+      "unpatched zero-days"
+    ]
+  },
+  {
+    "id": 175,
+    "base_question": "Plan remediation for our internet-facing assets first",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "internet-facing remediation"
+    },
+    "variants": [
+      "start with internet-facing assets when planning remediation",
+      "Please develop a remediation plan that prioritizes our internet-facing assets first.",
+      "internet-facing first remediation"
+    ]
+  },
+  {
+    "id": 176,
+    "base_question": "What's the average time to patch for our org?",
+    "expected_workflow": "plan_remediation",
+    "category": "Deployment Status",
+    "params_hint": {
+      "target": "average time to patch"
+    },
+    "variants": [
+      "what's our average time to patch?",
+      "Please calculate the average time-to-patch metric for our organization.",
+      "avg time to patch"
+    ]
+  },
+  {
+    "id": 177,
+    "base_question": "Which teams are falling behind on patching?",
+    "expected_workflow": "plan_remediation",
+    "category": "Program Gaps",
+    "params_hint": {
+      "target": "teams behind on patching"
+    },
+    "variants": [
+      "which teams are slacking on patching?",
+      "Please identify which organizational teams are falling behind on their patching obligations.",
+      "teams behind on patches"
+    ]
+  },
+  {
+    "id": 178,
+    "base_question": "Can we use virtual patching for the FortiManager vuln?",
+    "expected_workflow": "plan_remediation",
+    "category": "Mitigation Coverage",
+    "params_hint": {
+      "target": "FortiManager virtual patching"
+    },
+    "variants": [
+      "can we virtually patch the fortimanager vuln?",
+      "Please assess the viability of applying virtual patching to address the FortiManager vulnerability.",
+      "fortimanager virtual patch"
+    ]
+  },
+  {
+    "id": 179,
+    "base_question": "What's the patch rollback rate \u2014 are patches causing issues?",
+    "expected_workflow": "plan_remediation",
+    "category": "Deployment Status",
+    "params_hint": {
+      "target": "patch rollback rate"
+    },
+    "variants": [
+      "how often are patches getting rolled back?",
+      "Please provide the current patch rollback rate and identify any patches causing stability issues.",
+      "patch rollback rate"
+    ]
+  },
+  {
+    "id": 180,
+    "base_question": "What's our PCI DSS compliance status?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "PCI DSS"
+    },
+    "variants": [
+      "where do we stand on pci dss?",
+      "Please provide a comprehensive assessment of our current PCI DSS compliance status.",
+      "PCI DSS status"
+    ]
+  },
+  {
+    "id": 181,
+    "base_question": "How are we doing on HIPAA compliance?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "HIPAA"
+    },
+    "variants": [
+      "how are we doing on hipaa?",
+      "Please provide a detailed overview of our organization's HIPAA compliance posture.",
+      "hipaa compliance status"
+    ]
+  },
+  {
+    "id": 182,
+    "base_question": "Show me our CIS benchmark results",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "CIS benchmarks"
+    },
+    "variants": [
+      "give me the cis benchmark results",
+      "Please display CIS benchmark assessment results across our environment.",
+      "CIS benchmark results"
+    ]
+  },
+  {
+    "id": 183,
+    "base_question": "What's our NIST 800-53 compliance posture?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "NIST 800-53"
+    },
+    "variants": [
+      "what's our nist 800-53 posture like?",
+      "Please assess our compliance posture against the NIST 800-53 control framework.",
+      "NIST 800-53 posture"
+    ]
+  },
+  {
+    "id": 184,
+    "base_question": "Are we ready for our SOC 2 audit?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "SOC 2"
+    },
+    "variants": [
+      "are we ready for our soc 2 audit?",
+      "Please evaluate our readiness for an upcoming SOC 2 audit.",
+      "SOC 2 audit readiness"
+    ]
+  },
+  {
+    "id": 185,
+    "base_question": "Show me our ISO 27001 compliance gaps",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "ISO 27001"
+    },
+    "variants": [
+      "show me our iso 27001 gaps",
+      "Please identify all compliance gaps relative to the ISO 27001 standard.",
+      "ISO 27001 gaps"
+    ]
+  },
+  {
+    "id": 186,
+    "base_question": "whats our compliance look like",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "compliance overview"
+    },
+    "variants": [
+      "whats our complaince posture overall?",
+      "Please provide a high-level overview of our compliance posture across all applicable frameworks.",
+      "compliance posture overview"
+    ]
+  },
+  {
+    "id": 187,
+    "base_question": "What's our pass/fail rate for PCI controls?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "PCI pass fail rate"
+    },
+    "variants": [
+      "what's the pass/fail rate for pci controls?",
+      "Please provide the current pass/fail rate for all PCI DSS controls in our assessment.",
+      "PCI control pass/fail rate"
+    ]
+  },
+  {
+    "id": 188,
+    "base_question": "How has our compliance posture trended over the last 6 months?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "compliance trend"
+    },
+    "variants": [
+      "how has our compliance trended over the last 6 months?",
+      "Please display compliance posture trend data for the past six months.",
+      "6-month compliance trend"
+    ]
+  },
+  {
+    "id": 189,
+    "base_question": "Show me CIS compliance by platform \u2014 Windows vs Linux",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "CIS by platform"
+    },
+    "variants": [
+      "break down cis compliance by windows vs linux",
+      "Please show CIS benchmark compliance results segmented by Windows and Linux platforms.",
+      "CIS compliance windows vs linux"
+    ]
+  },
+  {
+    "id": 190,
+    "base_question": "What are the top failing controls across all frameworks?",
+    "expected_workflow": "check_compliance",
+    "category": "Control Failures",
+    "params_hint": {
+      "target": "top failing controls"
+    },
+    "variants": [
+      "what controls are failing the most across frameworks?",
+      "Please identify the controls with the highest failure rates across all compliance frameworks.",
+      "top failing controls"
+    ]
+  },
+  {
+    "id": 191,
+    "base_question": "Show me details on our most-failed CIS control",
+    "expected_workflow": "check_compliance",
+    "category": "Control Failures",
+    "params_hint": {
+      "target": "most failed CIS control"
+    },
+    "variants": [
+      "show me details on our worst performing cis control",
+      "Please provide detailed information on our most frequently failed CIS control.",
+      "most failed CIS control detail"
+    ]
+  },
+  {
+    "id": 192,
+    "base_question": "Which NIST controls are we failing and how do we fix them?",
+    "expected_workflow": "check_compliance",
+    "category": "Control Failures",
+    "params_hint": {
+      "target": "NIST failing controls remediation"
+    },
+    "variants": [
+      "which nist controls are we failing and how do we fix it?",
+      "Please identify all failing NIST controls and provide remediation guidance for each.",
+      "failing NIST controls + fix"
+    ]
+  },
+  {
+    "id": 193,
+    "base_question": "What PCI controls have been failing for more than 30 days?",
+    "expected_workflow": "check_compliance",
+    "category": "Control Failures",
+    "params_hint": {
+      "target": "PCI long-failing controls"
+    },
+    "variants": [
+      "which pci controls have been failing for over a month?",
+      "Please identify PCI DSS controls that have been in a failing state for more than 30 days.",
+      "PCI controls failing 30d+"
+    ]
+  },
+  {
+    "id": 194,
+    "base_question": "Show me controls that are failing across multiple compliance frameworks",
+    "expected_workflow": "check_compliance",
+    "category": "Control Failures",
+    "params_hint": {
+      "target": "cross-framework failures"
+    },
+    "variants": [
+      "any controls failing across multiple frameworks at once?",
+      "Please identify controls that are simultaneously failing across more than one compliance framework.",
+      "cross-framework control failures"
+    ]
+  },
+  {
+    "id": 195,
+    "base_question": "How many active risk acceptances do we have?",
+    "expected_workflow": "check_compliance",
+    "category": "Risk Acceptances",
+    "params_hint": {
+      "target": "active risk acceptances"
+    },
+    "variants": [
+      "how many active risk acceptances do we have right now?",
+      "Please provide the count and details of all currently active risk acceptances.",
+      "active risk acceptance count"
+    ]
+  },
+  {
+    "id": 196,
+    "base_question": "Are any risk exceptions expiring soon?",
+    "expected_workflow": "check_compliance",
+    "category": "Risk Acceptances",
+    "params_hint": {
+      "target": "expiring exceptions"
+    },
+    "variants": [
+      "any risk exceptions about to expire?",
+      "Please identify all risk exception records that are approaching their expiration date.",
+      "expiring risk exceptions"
+    ]
+  },
+  {
+    "id": 197,
+    "base_question": "Show me all false positive designations we've made",
+    "expected_workflow": "check_compliance",
+    "category": "Risk Acceptances",
+    "params_hint": {
+      "target": "false positives"
+    },
+    "variants": [
+      "show me all the false positives we've flagged",
+      "Please list all vulnerabilities that have been designated as false positives in our tracking system.",
+      "false positive designations"
+    ]
+  },
+  {
+    "id": 198,
+    "base_question": "What compensating controls have we documented?",
+    "expected_workflow": "check_compliance",
+    "category": "Risk Acceptances",
+    "params_hint": {
+      "target": "compensating controls"
+    },
+    "variants": [
+      "what compensating controls have we documented?",
+      "Please provide a listing of all compensating controls that have been formally documented.",
+      "documented compensating controls"
+    ]
+  },
+  {
+    "id": 199,
+    "base_question": "Are we audit-ready for PCI DSS right now?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "PCI audit readiness"
+    },
+    "variants": [
+      "can we pass a pci dss audit right now?",
+      "Please assess whether our organization is currently ready to pass a PCI DSS audit.",
+      "PCI audit-ready?"
+    ]
+  },
+  {
+    "id": 200,
+    "base_question": "What compliance gaps do we need to close before our upcoming audit?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "audit compliance gaps"
+    },
+    "variants": [
+      "what compliance stuff do we need to fix before the audit?",
+      "Please identify all compliance gaps that must be addressed prior to our upcoming audit.",
+      "pre-audit compliance gaps"
+    ]
+  },
+  {
+    "id": 201,
+    "base_question": "Show me HIPAA compliance for our systems that handle PHI",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "HIPAA PHI systems"
+    },
+    "variants": [
+      "show me hipaa compliance for our phi systems",
+      "Please provide HIPAA compliance details for all systems that handle Protected Health Information.",
+      "HIPAA PHI systems compliance"
+    ]
+  },
+  {
+    "id": 202,
+    "base_question": "What's our CIS Level 1 vs Level 2 compliance rate?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "CIS Level 1 vs 2"
+    },
+    "variants": [
+      "whats our cis level 1 vs level 2 compliance rate?",
+      "Please compare our compliance rates for CIS Level 1 versus Level 2 controls.",
+      "CIS L1 vs L2 rates"
+    ]
+  },
+  {
+    "id": 203,
+    "base_question": "How many systems are non-compliant with our password policy control?",
+    "expected_workflow": "check_compliance",
+    "category": "Control Failures",
+    "params_hint": {
+      "target": "password policy non-compliant"
+    },
+    "variants": [
+      "how many systems are failing our password policy control?",
+      "Please count all systems that are non-compliant with our password policy control requirements.",
+      "password policy non-compliant count"
+    ]
+  },
+  {
+    "id": 204,
+    "base_question": "Show me NIST 800-53 control family AC (Access Control) status",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "NIST AC controls"
+    },
+    "variants": [
+      "what's the nist 800-53 ac access control status?",
+      "Please provide the compliance status for the NIST 800-53 AC (Access Control) control family.",
+      "NIST AC control family status"
+    ]
+  },
+  {
+    "id": 205,
+    "base_question": "Which risk acceptances were approved by the CISO?",
+    "expected_workflow": "check_compliance",
+    "category": "Risk Acceptances",
+    "params_hint": {
+      "target": "CISO approved acceptances"
+    },
+    "variants": [
+      "which risk acceptances were approved by the ciso?",
+      "Please list all risk acceptance records that received CISO-level approval.",
+      "CISO-approved risk acceptances"
+    ]
+  },
+  {
+    "id": 206,
+    "base_question": "Do we have any compliance exceptions that have been in place for over a year?",
+    "expected_workflow": "check_compliance",
+    "category": "Risk Acceptances",
+    "params_hint": {
+      "target": "old exceptions"
+    },
+    "variants": [
+      "any exceptions that have been open more than a year?",
+      "Please identify compliance exceptions that have been in place for longer than 12 months.",
+      "exceptions >1 year old"
+    ]
+  },
+  {
+    "id": 207,
+    "base_question": "What's our SOC 2 Type II readiness looking like?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "SOC 2 Type II"
+    },
+    "variants": [
+      "how's our soc 2 type ii readiness looking?",
+      "Please provide an assessment of our readiness for a SOC 2 Type II certification audit.",
+      "SOC 2 Type II readiness"
+    ]
+  },
+  {
+    "id": 208,
+    "base_question": "Show me the compliance posture for our Windows Server 2019 fleet",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "Windows Server 2019 compliance"
+    },
+    "variants": [
+      "show me compliance for our win server 2019 fleet",
+      "Please display compliance posture data for all Windows Server 2019 assets in our environment.",
+      "WS2019 compliance posture"
+    ]
+  },
+  {
+    "id": 209,
+    "base_question": "Are any of our PCI systems out of compliance right now?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "PCI out of compliance"
+    },
+    "variants": [
+      "are any of our pci systems out of compliance right now?",
+      "Please identify PCI-scoped systems that are currently out of compliance.",
+      "PCI systems out of compliance"
+    ]
+  },
+  {
+    "id": 210,
+    "base_question": "What controls are failing on our Linux hardening benchmarks?",
+    "expected_workflow": "check_compliance",
+    "category": "Control Failures",
+    "params_hint": {
+      "target": "Linux hardening failures"
+    },
+    "variants": [
+      "what's failing on our linux hardening benchmarks?",
+      "Please identify which controls are failing in our Linux hardening benchmark assessments.",
+      "linux hardening benchmark failures"
+    ]
+  },
+  {
+    "id": 211,
+    "base_question": "Give me a compliance summary across all frameworks",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "all frameworks summary"
+    },
+    "variants": [
+      "give me a compliance summary across all frameworks",
+      "Please provide an aggregate compliance summary covering all applicable regulatory frameworks.",
+      "all-framework compliance summary"
+    ]
+  },
+  {
+    "id": 212,
+    "base_question": "Which departments have the worst compliance scores?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "worst compliance by department"
+    },
+    "variants": [
+      "which depts have the worst compliance scores?",
+      "Please identify the organizational departments with the lowest compliance scores.",
+      "worst compliance by dept"
+    ]
+  },
+  {
+    "id": 213,
+    "base_question": "Show me risk acceptance requests that are pending approval",
+    "expected_workflow": "check_compliance",
+    "category": "Risk Acceptances",
+    "params_hint": {
+      "target": "pending risk acceptances"
+    },
+    "variants": [
+      "any risk acceptance requests waiting for approval?",
+      "Please list all risk acceptance requests that are currently pending approval.",
+      "pending risk acceptance requests"
+    ]
+  },
+  {
+    "id": 214,
+    "base_question": "What's the trend on our failing controls \u2014 getting better or worse?",
+    "expected_workflow": "check_compliance",
+    "category": "Control Failures",
+    "params_hint": {
+      "target": "failing controls trend"
+    },
+    "variants": [
+      "are our failing controls trending better or worse?",
+      "Please show the trend for our compliance control failures \u2014 are they improving or deteriorating?",
+      "failing controls trend direction"
+    ]
+  },
+  {
+    "id": 215,
+    "base_question": "How do our CIS benchmark scores compare month over month?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "CIS month over month"
+    },
+    "variants": [
+      "how do our cis scores look month to month?",
+      "Please provide a month-over-month comparison of our CIS benchmark scores.",
+      "CIS scores MoM"
+    ]
+  },
+  {
+    "id": 216,
+    "base_question": "Are there any HIPAA controls we've never been compliant with?",
+    "expected_workflow": "check_compliance",
+    "category": "Control Failures",
+    "params_hint": {
+      "target": "HIPAA never compliant"
+    },
+    "variants": [
+      "any hipaa controls we've never actually passed?",
+      "Please identify any HIPAA controls for which our organization has never achieved a passing result.",
+      "never-passed HIPAA controls"
+    ]
+  },
+  {
+    "id": 217,
+    "base_question": "What's the remediation path for our top 5 failing compliance controls?",
+    "expected_workflow": "check_compliance",
+    "category": "Control Failures",
+    "params_hint": {
+      "target": "top 5 failing controls remediation"
+    },
+    "variants": [
+      "what's the fix path for our top 5 failing compliance controls?",
+      "Please provide remediation steps for the top five most frequently failing compliance controls.",
+      "top 5 failing controls fix"
+    ]
+  },
+  {
+    "id": 218,
+    "base_question": "Show me all exceptions with justification for PCI scope",
+    "expected_workflow": "check_compliance",
+    "category": "Risk Acceptances",
+    "params_hint": {
+      "target": "PCI exceptions justification"
+    },
+    "variants": [
+      "show me pci exceptions with their justifications",
+      "Please display all exceptions within PCI scope along with their documented justifications.",
+      "PCI exceptions + justifications"
+    ]
+  },
+  {
+    "id": 219,
+    "base_question": "How many new compliance failures were introduced this month?",
+    "expected_workflow": "check_compliance",
+    "category": "Control Failures",
+    "params_hint": {
+      "target": "new failures this month"
+    },
+    "variants": [
+      "how many new compliance failures showed up this month?",
+      "Please count all newly introduced compliance failures recorded during the current month.",
+      "new compliance failures this month"
+    ]
+  },
+  {
+    "id": 220,
+    "base_question": "What frameworks overlap in requirements and where are we failing both?",
+    "expected_workflow": "check_compliance",
+    "category": "Control Failures",
+    "params_hint": {
+      "target": "overlapping framework failures"
+    },
+    "variants": [
+      "where do our compliance frameworks overlap and are we failing both?",
+      "Please identify requirements that overlap across compliance frameworks and highlight where we are failing in multiple.",
+      "overlapping framework failures"
+    ]
+  },
+  {
+    "id": 221,
+    "base_question": "Are we compliant with encryption-at-rest requirements across all frameworks?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "encryption at rest compliance"
+    },
+    "variants": [
+      "are we passing encryption-at-rest requirements across all frameworks?",
+      "Please assess our compliance with encryption-at-rest requirements across all applicable frameworks.",
+      "encryption at rest compliance"
+    ]
+  },
+  {
+    "id": 222,
+    "base_question": "Show me compliance findings for our database tier",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "database tier compliance"
+    },
+    "variants": [
+      "show me compliance findings for our db tier",
+      "Please retrieve compliance findings specific to our database tier assets.",
+      "database tier compliance findings"
+    ]
+  },
+  {
+    "id": 223,
+    "base_question": "What's the age distribution of our risk acceptances?",
+    "expected_workflow": "check_compliance",
+    "category": "Risk Acceptances",
+    "params_hint": {
+      "target": "risk acceptance age distribution"
+    },
+    "variants": [
+      "how old are our risk acceptances on average?",
+      "Please provide an age distribution analysis for our current risk acceptance records.",
+      "risk acceptance age distribution"
+    ]
+  },
+  {
+    "id": 224,
+    "base_question": "Can you show me which NIST control families we're weakest in?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "NIST weakest control families"
+    },
+    "variants": [
+      "which nist control families are our weak spots?",
+      "Please identify the NIST 800-53 control families where our compliance is weakest.",
+      "weakest NIST control families"
+    ]
+  },
+  {
+    "id": 225,
+    "base_question": "How does our PCI compliance compare between card-processing and non-card systems?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "PCI card vs non-card"
+    },
+    "variants": [
+      "how does pci compliance differ between card and non-card systems?",
+      "Please compare PCI DSS compliance between card-processing and non-card-processing systems.",
+      "PCI card vs non-card compliance"
+    ]
+  },
+  {
+    "id": 226,
+    "base_question": "List all compensating controls we've defined for HIPAA",
+    "expected_workflow": "check_compliance",
+    "category": "Risk Acceptances",
+    "params_hint": {
+      "target": "HIPAA compensating controls"
+    },
+    "variants": [
+      "list all our hipaa compensating controls",
+      "Please list all compensating controls that have been defined for HIPAA compliance purposes.",
+      "HIPAA compensating controls list"
+    ]
+  },
+  {
+    "id": 227,
+    "base_question": "Which CIS controls just started failing this week?",
+    "expected_workflow": "check_compliance",
+    "category": "Control Failures",
+    "params_hint": {
+      "target": "newly failing CIS controls"
+    },
+    "variants": [
+      "which cis controls just started failing this week?",
+      "Please identify CIS controls that entered a failing state during the current week.",
+      "newly failing CIS controls"
+    ]
+  },
+  {
+    "id": 228,
+    "base_question": "What compliance items do we need to address before the auditor arrives next month?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "pre-audit compliance items"
+    },
+    "variants": [
+      "before the auditor shows up next month, what do we need to fix?",
+      "Please identify all compliance items that must be resolved prior to the auditor's arrival next month.",
+      "pre-auditor compliance fixes"
+    ]
+  },
+  {
+    "id": 229,
+    "base_question": "Show me a breakdown of compliant vs non-compliant hosts by OS",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "compliance by OS"
+    },
+    "variants": [
+      "show me compliant vs non-compliant hosts by os",
+      "Please provide a breakdown of compliant versus non-compliant hosts segmented by operating system.",
+      "compliance by OS"
+    ]
+  },
+  {
+    "id": 230,
+    "base_question": "What false positive rate do we have in our compliance scans?",
+    "expected_workflow": "check_compliance",
+    "category": "Risk Acceptances",
+    "params_hint": {
+      "target": "compliance false positive rate"
+    },
+    "variants": [
+      "what's our false positive rate in compliance scans?",
+      "Please calculate the false positive rate in our compliance scan results.",
+      "compliance scan FP rate"
+    ]
+  },
+  {
+    "id": 231,
+    "base_question": "Show me our compliance control coverage map",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "control coverage map"
+    },
+    "variants": [
+      "show me the compliance control coverage map",
+      "Please display a coverage map showing which compliance controls are monitored across our environment.",
+      "compliance control coverage map"
+    ]
+  },
+  {
+    "id": 232,
+    "base_question": "Are we meeting the 90% compliance threshold for CIS?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "CIS 90% threshold"
+    },
+    "variants": [
+      "are we hitting the 90% cis compliance threshold?",
+      "Please determine whether our CIS benchmark compliance rate has reached the 90% threshold.",
+      "CIS 90% threshold met?"
+    ]
+  },
+  {
+    "id": 233,
+    "base_question": "What risk acceptances expire in the next 30 days?",
+    "expected_workflow": "check_compliance",
+    "category": "Risk Acceptances",
+    "params_hint": {
+      "target": "acceptances expiring 30 days"
+    },
+    "variants": [
+      "which risk acceptances expire in the next 30 days?",
+      "Please identify all risk acceptances scheduled to expire within the next 30 days.",
+      "risk acceptances expiring 30d"
+    ]
+  },
+  {
+    "id": 234,
+    "base_question": "Show me compliance status for all internet-facing systems",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "internet-facing compliance"
+    },
+    "variants": [
+      "show me compliance for internet-facing systems",
+      "Please display compliance status for all internet-facing assets in our environment.",
+      "internet-facing compliance"
+    ]
+  },
+  {
+    "id": 235,
+    "base_question": "Have any previously passing controls regressed to failing?",
+    "expected_workflow": "check_compliance",
+    "category": "Control Failures",
+    "params_hint": {
+      "target": "regressed controls"
+    },
+    "variants": [
+      "any controls that used to pass now failing?",
+      "Please identify compliance controls that have regressed from a passing to a failing state.",
+      "regressed controls"
+    ]
+  },
+  {
+    "id": 236,
+    "base_question": "What's our compliance score for the SOC 2 availability criteria?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "SOC 2 availability"
+    },
+    "variants": [
+      "what's our soc 2 availability criteria score?",
+      "Please provide our compliance score for the SOC 2 availability trust service criteria.",
+      "SOC 2 availability score"
+    ]
+  },
+  {
+    "id": 237,
+    "base_question": "Do we have any unapproved exceptions in our compliance data?",
+    "expected_workflow": "check_compliance",
+    "category": "Risk Acceptances",
+    "params_hint": {
+      "target": "unapproved exceptions"
+    },
+    "variants": [
+      "are there any exceptions in our compliance data that weren't approved?",
+      "Please identify any compliance exceptions that lack proper approval documentation.",
+      "unapproved compliance exceptions"
+    ]
+  },
+  {
+    "id": 238,
+    "base_question": "What controls do we need to remediate for ISO 27001 certification?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "ISO 27001 certification gaps"
+    },
+    "variants": [
+      "what do we need to fix for iso 27001 cert?",
+      "Please identify all control gaps that must be remediated to achieve ISO 27001 certification.",
+      "ISO 27001 cert gaps"
+    ]
+  },
+  {
+    "id": 239,
+    "base_question": "Show me the highest-impact compliance failures",
+    "expected_workflow": "check_compliance",
+    "category": "Control Failures",
+    "params_hint": {
+      "target": "highest impact compliance failures"
+    },
+    "variants": [
+      "show me the compliance failures with the most impact",
+      "Please identify the compliance control failures that carry the highest potential risk or impact.",
+      "highest impact compliance failures"
+    ]
+  },
+  {
+    "id": 240,
+    "base_question": "Give me my morning security briefing",
+    "expected_workflow": "security_overview",
+    "category": "Daily Briefing",
+    "params_hint": {
+      "target": "morning briefing"
+    },
+    "variants": [
+      "hey give me my morning security rundown",
+      "Please provide this morning's security briefing covering all key risk indicators and events.",
+      "morning security briefing"
+    ]
+  },
+  {
+    "id": 241,
+    "base_question": "What happened overnight?",
+    "expected_workflow": "security_overview",
+    "category": "Daily Briefing",
+    "params_hint": {
+      "target": "overnight events"
+    },
+    "variants": [
+      "what went on overnight?",
+      "Please summarize all security events and changes that occurred during overnight hours.",
+      "overnight security events"
+    ]
+  },
+  {
+    "id": 242,
+    "base_question": "What should I focus on today?",
+    "expected_workflow": "security_overview",
+    "category": "Daily Briefing",
+    "params_hint": {
+      "target": "today priorities"
+    },
+    "variants": [
+      "what's on my plate today security-wise?",
+      "Please identify the highest-priority security items requiring attention today.",
+      "today's security priorities"
+    ]
+  },
+  {
+    "id": 243,
+    "base_question": "Quick security snapshot please",
+    "expected_workflow": "security_overview",
+    "category": "Daily Briefing",
+    "params_hint": {
+      "target": "quick snapshot"
+    },
+    "variants": [
+      "quick sec snapshot",
+      "Please provide a concise snapshot of the current security posture.",
+      "sec snapshot"
+    ]
+  },
+  {
+    "id": 244,
+    "base_question": "Good morning, what do I need to know?",
+    "expected_workflow": "security_overview",
+    "category": "Daily Briefing",
+    "params_hint": {
+      "target": "morning update"
+    },
+    "variants": [
+      "morning \u2014 what's important today?",
+      "Please provide a morning security update highlighting the most critical items for today.",
+      "morning security update"
+    ]
+  },
+  {
+    "id": 245,
+    "base_question": "Give me the daily security digest",
+    "expected_workflow": "security_overview",
+    "category": "Daily Briefing",
+    "params_hint": {
+      "target": "daily digest"
+    },
+    "variants": [
+      "can you give me the daily security digest?",
+      "Please generate the daily security digest covering key metrics, new findings, and priorities.",
+      "daily sec digest"
+    ]
+  },
+  {
+    "id": 246,
+    "base_question": "What's changed since yesterday?",
+    "expected_workflow": "security_overview",
+    "category": "Daily Briefing",
+    "params_hint": {
+      "target": "changes since yesterday"
+    },
+    "variants": [
+      "what's new since yesterday?",
+      "Please summarize all security-relevant changes and new findings since the previous day.",
+      "changes since yesterday"
+    ]
+  },
+  {
+    "id": 247,
+    "base_question": "Any critical issues I should know about this morning?",
+    "expected_workflow": "security_overview",
+    "category": "Daily Briefing",
+    "params_hint": {
+      "target": "critical morning issues"
+    },
+    "variants": [
+      "any crits I need to deal with this morning?",
+      "Please highlight any critical security issues requiring immediate attention this morning.",
+      "critical morning items"
+    ]
+  },
+  {
+    "id": 248,
+    "base_question": "Give me a weekly security summary",
+    "expected_workflow": "security_overview",
+    "category": "Weekly Summary",
+    "params_hint": {
+      "target": "weekly summary"
+    },
+    "variants": [
+      "give me the weekly security wrap-up",
+      "Please generate a comprehensive weekly security summary covering all major findings and trends.",
+      "weekly security wrap"
+    ]
+  },
+  {
+    "id": 249,
+    "base_question": "What's the week-over-week change in our security posture?",
+    "expected_workflow": "security_overview",
+    "category": "Weekly Summary",
+    "params_hint": {
+      "target": "week-over-week changes"
+    },
+    "variants": [
+      "how did our security posture change this week?",
+      "Please detail the week-over-week changes in our security posture.",
+      "week-over-week posture delta"
+    ]
+  },
+  {
+    "id": 250,
+    "base_question": "Show me weekly risk trends",
+    "expected_workflow": "security_overview",
+    "category": "Weekly Summary",
+    "params_hint": {
+      "target": "weekly risk trends"
+    },
+    "variants": [
+      "show me weekly risk trends",
+      "Please display risk trend data for the current week.",
+      "weekly risk trends"
+    ]
+  },
+  {
+    "id": 251,
+    "base_question": "Summarize this week's security events",
+    "expected_workflow": "security_overview",
+    "category": "Weekly Summary",
+    "params_hint": {
+      "target": "weekly events summary"
+    },
+    "variants": [
+      "give me a rundown of this week's security activity",
+      "Please summarize all security events and findings recorded during the current week.",
+      "this week's security events"
+    ]
+  },
+  {
+    "id": 252,
+    "base_question": "What's the weekly security report?",
+    "expected_workflow": "security_overview",
+    "category": "Weekly Summary",
+    "params_hint": {
+      "target": "weekly report"
+    },
+    "variants": [
+      "what's in the weekly report?",
+      "Please generate the weekly security report covering all key metrics and findings.",
+      "weekly report"
+    ]
+  },
+  {
+    "id": 253,
+    "base_question": "Generate a monthly security posture report",
+    "expected_workflow": "security_overview",
+    "category": "Monthly Summary",
+    "params_hint": {
+      "target": "monthly posture report"
+    },
+    "variants": [
+      "generate our monthly security posture report",
+      "Please produce a monthly security posture report suitable for management review.",
+      "monthly posture report"
+    ]
+  },
+  {
+    "id": 254,
+    "base_question": "How does this month compare to last month?",
+    "expected_workflow": "security_overview",
+    "category": "Monthly Summary",
+    "params_hint": {
+      "target": "month-over-month comparison"
+    },
+    "variants": [
+      "how does this month stack up vs last month?",
+      "Please compare current month security metrics against the previous month.",
+      "month vs last month comparison"
+    ]
+  },
+  {
+    "id": 255,
+    "base_question": "Give me the monthly security summary for leadership",
+    "expected_workflow": "security_overview",
+    "category": "Monthly Summary",
+    "params_hint": {
+      "target": "monthly leadership summary"
+    },
+    "variants": [
+      "the CISO needs a monthly security summary \u2014 can you put one together?",
+      "Please prepare a monthly security summary formatted for leadership review.",
+      "monthly leadership security summary"
+    ]
+  },
+  {
+    "id": 256,
+    "base_question": "What's the monthly trend in our vulnerability counts?",
+    "expected_workflow": "security_overview",
+    "category": "Monthly Summary",
+    "params_hint": {
+      "target": "monthly vulnerability trends"
+    },
+    "variants": [
+      "how are our vuln counts trending month over month?",
+      "Please display the monthly trend in vulnerability counts across our environment.",
+      "monthly vuln count trend"
+    ]
+  },
+  {
+    "id": 257,
+    "base_question": "What's the scanner health status?",
+    "expected_workflow": "security_overview",
+    "category": "Infrastructure Health",
+    "params_hint": {
+      "target": "scanner health"
+    },
+    "variants": [
+      "how are the scanners doing?",
+      "Please provide a health status report for all Qualys scanners in our environment.",
+      "scanner health check"
+    ]
+  },
+  {
+    "id": 258,
+    "base_question": "Are any scanners offline?",
+    "expected_workflow": "security_overview",
+    "category": "Infrastructure Health",
+    "params_hint": {
+      "target": "offline scanners"
+    },
+    "variants": [
+      "any scanners down right now?",
+      "Please identify any Qualys scanners that are currently offline or unreachable.",
+      "offline scanners?"
+    ]
+  },
+  {
+    "id": 259,
+    "base_question": "Check scanner capacity \u2014 are we overloaded?",
+    "expected_workflow": "security_overview",
+    "category": "Infrastructure Health",
+    "params_hint": {
+      "target": "scanner capacity"
+    },
+    "variants": [
+      "are any of our scanners overloaded?",
+      "Please assess current scanner load and identify any capacity concerns.",
+      "scanner capacity check"
+    ]
+  },
+  {
+    "id": 260,
+    "base_question": "scanner status",
+    "expected_workflow": "security_overview",
+    "category": "Infrastructure Health",
+    "params_hint": {
+      "target": "scanner status"
+    },
+    "variants": [
+      "scanner status",
+      "Please provide a status overview for all configured vulnerability scanners.",
+      "scanner status check"
+    ]
+  },
+  {
+    "id": 261,
+    "base_question": "How are our Qualys appliances doing?",
+    "expected_workflow": "security_overview",
+    "category": "Infrastructure Health",
+    "params_hint": {
+      "target": "appliance health"
+    },
+    "variants": [
+      "how are the qualys appliances holding up?",
+      "Please provide a health check summary for all Qualys virtual and physical appliances.",
+      "qualys appliance health"
+    ]
+  },
+  {
+    "id": 262,
+    "base_question": "Show me any scanners that haven't checked in recently",
+    "expected_workflow": "security_overview",
+    "category": "Infrastructure Health",
+    "params_hint": {
+      "target": "stale scanners"
+    },
+    "variants": [
+      "any scanners that haven't checked in recently?",
+      "Please identify Qualys scanners that have not reported status within an expected timeframe.",
+      "stale scanner check-ins"
+    ]
+  },
+  {
+    "id": 263,
+    "base_question": "What scans are currently running?",
+    "expected_workflow": "security_overview",
+    "category": "Scan Management",
+    "params_hint": {
+      "target": "running scans"
+    },
+    "variants": [
+      "what scans are running right now?",
+      "Please display all vulnerability scans that are currently in progress.",
+      "running scans"
+    ]
+  },
+  {
+    "id": 264,
+    "base_question": "Any scans that failed today?",
+    "expected_workflow": "security_overview",
+    "category": "Scan Management",
+    "params_hint": {
+      "target": "failed scans"
+    },
+    "variants": [
+      "any scan failures today?",
+      "Please identify any vulnerability scans that failed during today's run.",
+      "today's scan failures"
+    ]
+  },
+  {
+    "id": 265,
+    "base_question": "Show me the scan queue",
+    "expected_workflow": "security_overview",
+    "category": "Scan Management",
+    "params_hint": {
+      "target": "queued scans"
+    },
+    "variants": [
+      "show me what's in the scan queue",
+      "Please display the current vulnerability scan queue and pending jobs.",
+      "scan queue"
+    ]
+  },
+  {
+    "id": 266,
+    "base_question": "Are there any scan errors I should investigate?",
+    "expected_workflow": "security_overview",
+    "category": "Scan Management",
+    "params_hint": {
+      "target": "scan errors"
+    },
+    "variants": [
+      "any scan errors worth looking into?",
+      "Please identify vulnerability scan errors that warrant investigation.",
+      "scan errors to investigate"
+    ]
+  },
+  {
+    "id": 267,
+    "base_question": "When was the last full vulnerability scan completed?",
+    "expected_workflow": "security_overview",
+    "category": "Scan Management",
+    "params_hint": {
+      "target": "last full scan"
+    },
+    "variants": [
+      "when did we last run a full vuln scan?",
+      "Please identify the date and time of the most recently completed full vulnerability scan.",
+      "last full scan timestamp"
+    ]
+  },
+  {
+    "id": 268,
+    "base_question": "Show me scan completion rates for this week",
+    "expected_workflow": "security_overview",
+    "category": "Scan Management",
+    "params_hint": {
+      "target": "scan completion rates"
+    },
+    "variants": [
+      "what were scan completion rates like this week?",
+      "Please provide scan completion rate metrics for the current week.",
+      "scan completion rates this week"
+    ]
+  },
+  {
+    "id": 269,
+    "base_question": "Show me confirmed vulnerabilities from ETM",
+    "expected_workflow": "security_overview",
+    "category": "Findings",
+    "params_hint": {
+      "target": "confirmed vulnerabilities"
+    },
+    "variants": [
+      "show me confirmed vulns from etm",
+      "Please retrieve all confirmed vulnerability findings from the Enterprise TruRisk Management platform.",
+      "ETM confirmed vulns"
+    ]
+  },
+  {
+    "id": 270,
+    "base_question": "Run a QQL query for severity 5 vulnerabilities",
+    "expected_workflow": "security_overview",
+    "category": "Findings",
+    "params_hint": {
+      "target": "severity 5 vulns"
+    },
+    "variants": [
+      "run a qql query for severity 5 vulns",
+      "Please execute a QQL query to retrieve all severity 5 (critical) vulnerabilities.",
+      "QQL sev 5 query"
+    ]
+  },
+  {
+    "id": 271,
+    "base_question": "Filter ETM findings by critical severity",
+    "expected_workflow": "security_overview",
+    "category": "Findings",
+    "params_hint": {
+      "target": "critical ETM findings"
+    },
+    "variants": [
+      "filter etm for critical severity findings",
+      "Please filter ETM findings to display only those classified as critical severity.",
+      "ETM critical findings"
+    ]
+  },
+  {
+    "id": 272,
+    "base_question": "show me the cves from this week",
+    "expected_workflow": "security_overview",
+    "category": "Findings",
+    "params_hint": {
+      "target": "this week CVEs"
+    },
+    "variants": [
+      "whats the latest cve activity from this week?",
+      "Please show all CVEs that were detected or flagged within the current week.",
+      "this week's CVEs"
+    ]
+  },
+  {
+    "id": 273,
+    "base_question": "What new vulnerabilities were detected today?",
+    "expected_workflow": "security_overview",
+    "category": "Findings",
+    "params_hint": {
+      "target": "new vulns today"
+    },
+    "variants": [
+      "what new vulns got detected today?",
+      "Please show all newly detected vulnerabilities from today's scans.",
+      "new vulns today"
+    ]
+  },
+  {
+    "id": 274,
+    "base_question": "How many total confirmed vulns do we have?",
+    "expected_workflow": "security_overview",
+    "category": "Findings",
+    "params_hint": {
+      "target": "total confirmed vulns"
+    },
+    "variants": [
+      "how many confirmed vulns do we have total?",
+      "Please provide the total count of confirmed vulnerabilities across our environment.",
+      "total confirmed vulns"
+    ]
+  },
+  {
+    "id": 275,
+    "base_question": "Give me a full security briefing with all the details",
+    "expected_workflow": "security_overview",
+    "category": "Daily Briefing",
+    "params_hint": {
+      "target": "full briefing"
+    },
+    "variants": [
+      "give me the full security briefing",
+      "Please provide a comprehensive security briefing covering all active risk areas, findings, and trends.",
+      "full security briefing"
+    ]
+  },
+  {
+    "id": 276,
+    "base_question": "Give me an executive summary of our security posture",
+    "expected_workflow": "security_overview",
+    "category": "Daily Briefing",
+    "params_hint": {
+      "target": "executive summary"
+    },
+    "variants": [
+      "for the board meeting I need an executive security summary",
+      "Please prepare an executive-level summary of our current security posture suitable for board presentation.",
+      "exec security summary"
+    ]
+  },
+  {
+    "id": 277,
+    "base_question": "How's our overall infrastructure health?",
+    "expected_workflow": "security_overview",
+    "category": "Infrastructure Health",
+    "params_hint": {
+      "target": "infrastructure health"
+    },
+    "variants": [
+      "how's the infra health looking?",
+      "Please provide a status overview of our overall infrastructure security health.",
+      "infra health status"
+    ]
+  },
+  {
+    "id": 278,
+    "base_question": "What's the overall status of our security program?",
+    "expected_workflow": "security_overview",
+    "category": "Daily Briefing",
+    "params_hint": {
+      "target": "security program status"
+    },
+    "variants": [
+      "what's the status of our security program?",
+      "Please provide a comprehensive status update on our overall security program.",
+      "security program status"
+    ]
+  },
+  {
+    "id": 279,
+    "base_question": "Are there any scan scheduling conflicts?",
+    "expected_workflow": "security_overview",
+    "category": "Scan Management",
+    "params_hint": {
+      "target": "scan scheduling conflicts"
+    },
+    "variants": [
+      "any scan scheduling conflicts happening?",
+      "Please identify any conflicts in our current scan scheduling configuration.",
+      "scan schedule conflicts"
+    ]
+  },
+  {
+    "id": 280,
+    "base_question": "What vulnerability trends are we seeing this quarter?",
+    "expected_workflow": "security_overview",
+    "category": "Monthly Summary",
+    "params_hint": {
+      "target": "quarterly vulnerability trends"
+    },
+    "variants": [
+      "what vuln trends are we seeing this quarter?",
+      "Please summarize vulnerability trend data for the current quarter.",
+      "quarterly vuln trends"
+    ]
+  },
+  {
+    "id": 281,
+    "base_question": "Show me a breakdown of findings by severity level",
+    "expected_workflow": "security_overview",
+    "category": "Findings",
+    "params_hint": {
+      "target": "findings by severity"
+    },
+    "variants": [
+      "break down findings by severity",
+      "Please provide a severity-level breakdown of all current vulnerability findings.",
+      "findings by severity"
+    ]
+  },
+  {
+    "id": 282,
+    "base_question": "How many scans ran successfully this week vs failed?",
+    "expected_workflow": "security_overview",
+    "category": "Scan Management",
+    "params_hint": {
+      "target": "scan success vs failure"
+    },
+    "variants": [
+      "how many scans passed vs failed this week?",
+      "Please provide a count of scans that succeeded versus failed during the current week.",
+      "scan success/failure count"
+    ]
+  },
+  {
+    "id": 283,
+    "base_question": "What's the status of our external vs internal scans?",
+    "expected_workflow": "security_overview",
+    "category": "Scan Management",
+    "params_hint": {
+      "target": "external vs internal scans"
+    },
+    "variants": [
+      "how are external vs internal scans performing?",
+      "Please compare the status and results of external versus internal vulnerability scans.",
+      "external vs internal scan status"
+    ]
+  },
+  {
+    "id": 284,
+    "base_question": "Is our scan coverage adequate across all network segments?",
+    "expected_workflow": "security_overview",
+    "category": "Scan Management",
+    "params_hint": {
+      "target": "scan coverage"
+    },
+    "variants": [
+      "are we scanning all network segments?",
+      "Please assess whether our vulnerability scan coverage is adequate across all network segments.",
+      "scan coverage check"
+    ]
+  },
+  {
+    "id": 285,
+    "base_question": "Show me the security dashboard",
+    "expected_workflow": "security_overview",
+    "category": "Daily Briefing",
+    "params_hint": {
+      "target": "security dashboard"
+    },
+    "variants": [
+      "show me the security dashboard",
+      "Please display the security dashboard with current risk metrics and status indicators.",
+      "security dashboard"
+    ]
+  },
+  {
+    "id": 286,
+    "base_question": "How many new vs recurring vulnerabilities this week?",
+    "expected_workflow": "security_overview",
+    "category": "Findings",
+    "params_hint": {
+      "target": "new vs recurring vulns"
+    },
+    "variants": [
+      "which vulns are new this week vs recurring?",
+      "Please distinguish between newly discovered vulnerabilities and recurring ones from this week.",
+      "new vs recurring vulns"
+    ]
+  },
+  {
+    "id": 287,
+    "base_question": "What's the weekly scan schedule look like?",
+    "expected_workflow": "security_overview",
+    "category": "Scan Management",
+    "params_hint": {
+      "target": "weekly scan schedule"
+    },
+    "variants": [
+      "what does the weekly scan schedule look like?",
+      "Please display the complete scheduled scan plan for the current week.",
+      "weekly scan schedule"
+    ]
+  },
+  {
+    "id": 288,
+    "base_question": "Which scanner is handling the most load right now?",
+    "expected_workflow": "security_overview",
+    "category": "Infrastructure Health",
+    "params_hint": {
+      "target": "scanner load"
+    },
+    "variants": [
+      "which scanner has the heaviest load?",
+      "Please identify the Qualys scanner currently under the highest processing load.",
+      "highest load scanner"
+    ]
+  },
+  {
+    "id": 289,
+    "base_question": "Prep me for the Monday morning security standup",
+    "expected_workflow": "security_overview",
+    "category": "Weekly Summary",
+    "params_hint": {
+      "target": "Monday standup prep"
+    },
+    "variants": [
+      "get me prepped for the monday morning standup",
+      "Please prepare a security briefing to support the Monday morning security standup meeting.",
+      "Monday standup prep"
+    ]
+  },
+  {
+    "id": 290,
+    "base_question": "What ETM findings need immediate attention?",
+    "expected_workflow": "security_overview",
+    "category": "Findings",
+    "params_hint": {
+      "target": "urgent ETM findings"
+    },
+    "variants": [
+      "what etm findings need to be dealt with urgently?",
+      "Please identify ETM findings that require immediate remediation attention.",
+      "urgent ETM findings"
+    ]
+  },
+  {
+    "id": 291,
+    "base_question": "Show me vulnerability counts by asset group",
+    "expected_workflow": "security_overview",
+    "category": "Findings",
+    "params_hint": {
+      "target": "vulns by asset group"
+    },
+    "variants": [
+      "break out vuln counts by asset group",
+      "Please provide a vulnerability count breakdown segmented by asset group.",
+      "vulns by asset group"
+    ]
+  },
+  {
+    "id": 292,
+    "base_question": "What's the average scan duration for our vuln scans?",
+    "expected_workflow": "security_overview",
+    "category": "Scan Management",
+    "params_hint": {
+      "target": "average scan duration"
+    },
+    "variants": [
+      "how long are our vuln scans taking on average?",
+      "Please provide average duration statistics for our scheduled vulnerability scans.",
+      "avg vuln scan duration"
+    ]
+  },
+  {
+    "id": 293,
+    "base_question": "Were there any scanner connectivity issues today?",
+    "expected_workflow": "security_overview",
+    "category": "Infrastructure Health",
+    "params_hint": {
+      "target": "scanner connectivity issues"
+    },
+    "variants": [
+      "any scanner connectivity issues today?",
+      "Please identify any scanner connectivity problems that have occurred today.",
+      "scanner connectivity issues today"
+    ]
+  },
+  {
+    "id": 294,
+    "base_question": "Generate the Friday end-of-week security report",
+    "expected_workflow": "security_overview",
+    "category": "Weekly Summary",
+    "params_hint": {
+      "target": "Friday report"
+    },
+    "variants": [
+      "generate the friday end of week report",
+      "Please generate the end-of-week security summary report for Friday distribution.",
+      "friday EOW report"
+    ]
+  },
+  {
+    "id": 295,
+    "base_question": "How did our security metrics change this month?",
+    "expected_workflow": "security_overview",
+    "category": "Monthly Summary",
+    "params_hint": {
+      "target": "monthly metrics change"
+    },
+    "variants": [
+      "what security metrics changed this month?",
+      "Please summarize how our key security metrics have changed during the current month.",
+      "monthly security metrics delta"
+    ]
+  },
+  {
+    "id": 296,
+    "base_question": "Show me the top 10 most common vulnerabilities across our environment",
+    "expected_workflow": "security_overview",
+    "category": "Findings",
+    "params_hint": {
+      "target": "top 10 common vulns"
+    },
+    "variants": [
+      "what are the top 10 vulns we see all over the place?",
+      "Please identify the ten most common vulnerabilities detected across our environment.",
+      "top 10 common vulns"
+    ]
+  },
+  {
+    "id": 297,
+    "base_question": "Are all our cloud connectors healthy and syncing?",
+    "expected_workflow": "security_overview",
+    "category": "Infrastructure Health",
+    "params_hint": {
+      "target": "cloud connector health"
+    },
+    "variants": [
+      "are our cloud connectors all syncing properly?",
+      "Please verify that all cloud connectors are healthy and synchronizing data as expected.",
+      "cloud connector sync status"
+    ]
+  },
+  {
+    "id": 298,
+    "base_question": "What's the end-of-day security summary?",
+    "expected_workflow": "security_overview",
+    "category": "Daily Briefing",
+    "params_hint": {
+      "target": "end of day summary"
+    },
+    "variants": [
+      "give me the end of day security summary",
+      "Please generate a summary of security events, findings, and metrics for the end of the current business day.",
+      "EOD security summary"
+    ]
+  },
+  {
+    "id": 299,
+    "base_question": "Show me any scans that exceeded their time window",
+    "expected_workflow": "security_overview",
+    "category": "Scan Management",
+    "params_hint": {
+      "target": "scans exceeded time window"
+    },
+    "variants": [
+      "any scans that ran over their time window?",
+      "Please identify vulnerability scans that exceeded their allotted execution time window.",
+      "scans over time window"
+    ]
+  },
+  {
+    "id": 300,
+    "base_question": "Give me a high-level security overview for the board presentation",
+    "expected_workflow": "security_overview",
+    "category": "Monthly Summary",
+    "params_hint": {
+      "target": "board presentation overview"
+    },
+    "variants": [
+      "for the board presentation I need a high-level security overview",
+      "Please produce a high-level security overview document suitable for presentation to the board of directors.",
+      "board-level security overview"
+    ]
+  }
+]
