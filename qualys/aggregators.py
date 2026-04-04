@@ -3633,7 +3633,7 @@ def running_containers(limit: int = 50, detail: str = "standard") -> dict:
         '_k8sNote': 'Kubernetes namespace/pod data is not available on this tenant. '
                     'Showing container and image-level data instead.',
     }
-    out = _with_meta(result, 'containers', len(rows))
+    out = _with_meta(result, 'containers', total_containers)
     return _apply_detail_level(out, detail, list_keys=['containers'])
 
 
