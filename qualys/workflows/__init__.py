@@ -115,32 +115,76 @@ def _vuln_identity(item):
 # Risk level determination
 # ---------------------------------------------------------------------------
 
-_RISK_SCORE_KEYS = ("score", "truriskScore", "riskScore")
+_RISK_SCORE_KEYS = ("score", "truriskScore", "riskScore", "avgTruRiskCurrent", "trurisk")
 
 
 def _determine_risk_level(data):
-    """Search aggregator results for a risk score and return a risk label.
+    """Determine overall risk level from aggregator results.
 
-    Searches nested dicts for keys matching known score field names.
+    Searches for risk scores in multiple locations:
+    - Direct score fields (score, truriskScore, riskScore)
+    - TruRisk aggregate counts (criticalRisk_900plus, highRisk_700plus)
+    - Trend data (avgTruRiskCurrent)
+    - Coverage/pass rate inversion
 
     Returns:
-        "critical" (>=900), "high" (>=700), "medium" (>=300), "low" (<300),
-        or "unknown" if no score is found.
+        "critical", "high", "medium", "low", or "unknown".
     """
     score = None
 
     for _agg_name, value in data.items():
         if not isinstance(value, dict):
             continue
+
         for key in _RISK_SCORE_KEYS:
-            if key in value:
+            if key in value and value[key] is not None:
                 try:
                     score = float(value[key])
-                    break
+                    if score > 0:
+                        break
                 except (TypeError, ValueError):
                     pass
-        if score is not None:
+
+        if score and score > 0:
             break
+
+        agg = value.get("aggregate") or value.get("summary") or {}
+        if isinstance(agg, dict):
+            for key in _RISK_SCORE_KEYS:
+                if key in agg and agg[key] is not None:
+                    try:
+                        score = float(agg[key])
+                        if score > 0:
+                            break
+                    except (TypeError, ValueError):
+                        pass
+
+        if score and score > 0:
+            break
+
+        trend = value.get("trend")
+        if isinstance(trend, dict) and trend.get("avgTruRiskCurrent"):
+            try:
+                score = float(trend["avgTruRiskCurrent"])
+                if score > 0:
+                    break
+            except (TypeError, ValueError):
+                pass
+
+        crit = (agg if isinstance(agg, dict) else value).get("criticalRisk_900plus", 0)
+        high = (agg if isinstance(agg, dict) else value).get("highRisk_700plus", 0)
+        if crit or high:
+            total = (agg if isinstance(agg, dict) else value).get("totalAssets", 1)
+            if total > 0:
+                crit_pct = (crit / total) * 100
+                high_pct = (high / total) * 100
+                if crit_pct > 5:
+                    return "critical"
+                if high_pct > 10:
+                    return "high"
+                if high_pct > 2:
+                    return "medium"
+                return "low"
 
     if score is None:
         return "unknown"
