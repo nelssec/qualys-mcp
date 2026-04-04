@@ -172,7 +172,7 @@ class TestAssessRiskAllScopePlanSize:
     def test_scope_all_produces_7_or_more_keys(self):
         captured = {}
 
-        def fake_dispatch(plan):
+        def fake_dispatch(plan, **kwargs):
             captured["plan"] = plan
             return {}, 0
 
@@ -198,7 +198,7 @@ class TestAssessRiskAllScopePlanSize:
         """scope=all should cover assets, cloud, containers, web, certs."""
         captured = {}
 
-        def fake_dispatch(plan):
+        def fake_dispatch(plan, **kwargs):
             captured["plan"] = plan
             return {}, 0
 

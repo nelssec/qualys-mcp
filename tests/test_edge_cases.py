@@ -397,7 +397,7 @@ class TestAssessRiskScopeEdgeCases:
         """Unknown scope: cloud/cert/container/web plan keys should be absent."""
         captured = {}
 
-        def fake_dispatch(plan):
+        def fake_dispatch(plan, **kwargs):
             captured["plan"] = plan
             return {}, 0
 
@@ -418,7 +418,7 @@ class TestAssessRiskScopeEdgeCases:
         """Empty scope string: no plan keys should trigger."""
         captured = {}
 
-        def fake_dispatch(plan):
+        def fake_dispatch(plan, **kwargs):
             captured["plan"] = plan
             return {}, 0
 

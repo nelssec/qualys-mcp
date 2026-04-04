@@ -306,7 +306,7 @@ class TestAssessRiskDispatchPlan:
 
         captured = {}
 
-        def fake_dispatch(plan):
+        def fake_dispatch(plan, **kwargs):
             captured["plan"] = plan
             return {}, 0
 
@@ -427,7 +427,7 @@ class TestAssessRiskDispatchPlan:
         """Single-asset fast path: only asset_detail in plan."""
         captured = {}
 
-        def fake_dispatch(plan):
+        def fake_dispatch(plan, **kwargs):
             captured["plan"] = plan
             return {}, 0
 
