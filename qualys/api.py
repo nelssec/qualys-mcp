@@ -1099,7 +1099,7 @@ def get_evaluations(account_id, provider='aws', limit=500):
     url = f"{GATEWAY_URL}/cloudview-api/rest/v1/{provider}/evaluations/{account_id}"
     return _paginate_json(url, limit, data_key='content', count_key='totalElements',
                           page_param='pageNo', size_param='pageSize', page_start=0,
-                          not_found_ok=True)
+                          not_found_ok=True, fetch_all=False)
 
 
 def get_evaluation_count(account_id, provider='aws', filter_str=''):
@@ -1128,7 +1128,7 @@ def get_evaluations_filtered(account_id, provider='aws', limit=500, filter_str='
         url += f"{sep}filter={filter_str}"
     return _paginate_json(url, limit, data_key='content', count_key='totalElements',
                           page_param='pageNo', size_param='pageSize', page_start=0,
-                          not_found_ok=True)
+                          not_found_ok=True, fetch_all=False)
 
 
 def get_cdr(days=7, limit=100, severity=None, cloud_provider=None, category=None):
