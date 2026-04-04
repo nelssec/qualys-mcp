@@ -441,8 +441,9 @@ class TestComplianceBuildPlanRegression:
                 limit=20,
                 detail="standard",
             )
-            assert plan[0]["key"] == "posture", \
-                f"Expected posture first for framework='{framework}', got {plan[0]['key']}"
+            keys = list(plan.keys())
+            assert keys[0] == "compliance_posture", \
+                f"Expected compliance_posture first for framework='{framework}', got {keys[0]}"
 
 
 # ===========================================================================
@@ -471,7 +472,7 @@ class TestRemediationBuildPlanRegression:
             limit=20,
             detail="standard",
         )
-        names = [name for name, _ in plan]
+        names = list(plan.keys())
         assert "eliminate_coverage" in names
         assert "patch_status" not in names
 
@@ -495,6 +496,6 @@ class TestOverviewBuildPlanRegression:
             limit=50,
             detail="standard",
         )
-        keys = [item["key"] for item in plan]
+        keys = list(plan.keys())
         assert "morning_report" in keys, \
             f"Expected morning_report for scope='{scope}', got keys: {keys}"
