@@ -82,7 +82,7 @@ CDR_UNAVAILABLE_MSG = "CDR findings currently unavailable"
 CSAM_MAX_RETRIES = int(os.environ.get("CSAM_MAX_RETRIES", "3"))
 CSAM_RATE_LIMITED_MSG = "Asset search temporarily unavailable due to rate limiting. Please try again in a moment."
 # Cap concurrent CSAM requests to avoid 429 floods at high worker concurrency
-_CSAM_SEM = Semaphore(int(os.environ.get("CSAM_MAX_CONCURRENT", "2")))
+_CSAM_SEM = Semaphore(int(os.environ.get("CSAM_MAX_CONCURRENT", "4")))
 _CSAM_COUNT_CACHE = {}
 _CSAM_COUNT_CACHE_TTL = 300
 _CSAM_SEARCH_CACHE = {}
@@ -928,7 +928,7 @@ def csam_count(filters=None):
             return cached[0]
         url = f"{GATEWAY_URL}/rest/2.0/count/am/asset"
         body = json.dumps({"filters": filters or []})
-        data = _csam_request(url, body)
+        data = _csam_request(url, body, timeout=15)
         if data is not None and not data.get("_degraded"):
             count = data.get('count', 0)
             _CSAM_COUNT_CACHE[cache_key] = (count, time.time())
