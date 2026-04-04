@@ -306,76 +306,85 @@ def _summarize(data: dict) -> str:
         if vulns_summary and isinstance(vulns_summary, str):
             parts.append(f"Vuln search: {vulns_summary}")
 
-    return " | ".join(parts) if parts else "Investigation complete."
+    headline = parts[0] if parts else "Investigation complete."
+    return {
+        "headline": headline,
+        "risk_level": "unknown",
+        "key_findings": parts[:5],
+        "stats": {},
+    }
 
 
-def _correlate(data: dict) -> dict:
-    """Cross-reference results to surface correlated findings."""
-    correlations: dict = {}
+def _correlate(data):
+    correlations = []
 
     cve_deep = data.get("cve_deep") or {}
     cve_meta = data.get("cve_meta") or {}
 
-    # Merge CVE identity info
     if cve_deep or cve_meta:
         cve_id = cve_deep.get("cve") or cve_meta.get("cve", "")
         qids_deep = set(cve_deep.get("qids") or [])
         qids_meta = set(cve_meta.get("qids") or []) if isinstance(cve_meta, dict) else set()
         all_qids = list(qids_deep | qids_meta)
-        correlations["cve_qids"] = {"cve": cve_id, "qids": all_qids, "count": len(all_qids)}
+        if cve_id and all_qids:
+            correlations.append({
+                "finding": f"{cve_id} maps to {len(all_qids)} QID(s): {all_qids[:5]}",
+                "severity": "high",
+                "sources": ["cve_deep", "cve_meta"],
+            })
 
-    # Correlate host-level findings
     edr = data.get("edr") or {}
     fim = data.get("fim") or {}
-    investigate = data.get("investigate") or {}
-
     if edr or fim:
-        affected_hosts: set[str] = set()
-        edr_hosts = (edr.get("affectedHosts") or []) if isinstance(edr, dict) else []
-        fim_hosts = (fim.get("affectedHosts") or []) if isinstance(fim, dict) else []
-        affected_hosts.update(edr_hosts)
-        affected_hosts.update(fim_hosts)
+        affected_hosts = set()
+        for src in (edr, fim):
+            if isinstance(src, dict):
+                for h in (src.get("affectedHosts") or []):
+                    affected_hosts.add(h if isinstance(h, str) else str(h))
         if affected_hosts:
-            correlations["affected_hosts"] = sorted(affected_hosts)
-
-    # Risk level
-    risk = _determine_risk_level(data)
-    correlations["risk_level"] = risk
+            correlations.append({
+                "finding": f"{len(affected_hosts)} hosts with endpoint events",
+                "severity": "medium",
+                "sources": ["edr", "fim"],
+            })
 
     return correlations
 
 
-def _build_actions(data: dict, correlations: dict) -> list[dict]:
-    """Generate prioritized recommended actions from findings."""
-    actions: list[dict] = []
-
-    risk = correlations.get("risk_level", "UNKNOWN")
+def _build_actions(data, correlations):
+    actions = []
+    priority = 1
 
     cve_deep = data.get("cve_deep") or {}
     if cve_deep:
         cve_id = cve_deep.get("cve", "CVE")
         patch = cve_deep.get("patchAvailable", False)
         ransomware = cve_deep.get("ransomware", False)
-        qids = (correlations.get("cve_qids") or {}).get("qids") or []
 
         if ransomware:
             actions.append({
-                "priority": "CRITICAL",
+                "priority": priority,
                 "action": f"Immediately patch or mitigate {cve_id} — ransomware exploitation confirmed",
-                "qids": qids[:5],
+                "scope": cve_id,
+                "tool_hint": f"plan_remediation(cves=['{cve_id}'])",
             })
-        elif patch and risk in ("CRITICAL", "HIGH"):
+            priority += 1
+        elif patch:
             actions.append({
-                "priority": "HIGH",
+                "priority": priority,
                 "action": f"Apply available patch for {cve_id}",
-                "qids": qids[:5],
+                "scope": cve_id,
+                "tool_hint": f"plan_remediation(cves=['{cve_id}'])",
             })
+            priority += 1
         elif not patch:
             actions.append({
-                "priority": "MEDIUM",
+                "priority": priority,
                 "action": f"Implement compensating controls for {cve_id} — no patch available",
-                "qids": qids[:5],
+                "scope": cve_id,
+                "tool_hint": f"investigate(target='{cve_id}')",
             })
+            priority += 1
 
     threat_actor = data.get("threat_actor") or {}
     if threat_actor:
@@ -383,33 +392,37 @@ def _build_actions(data: dict, correlations: dict) -> list[dict]:
         actor = threat_actor.get("threatActor", "threat actor")
         if active > 0:
             actions.append({
-                "priority": "HIGH",
+                "priority": priority,
                 "action": f"Remediate {active} active vulnerabilities exploited by {actor}",
+                "scope": f"{active} vulns",
+                "tool_hint": f"plan_remediation(scope='patches')",
             })
+            priority += 1
 
     edr = data.get("edr") or {}
     if isinstance(edr, dict):
         critical_count = (edr.get("severityCounts") or {}).get("CRITICAL", 0)
         if critical_count > 0:
             actions.append({
-                "priority": "CRITICAL",
+                "priority": priority,
                 "action": f"Investigate {critical_count} critical EDR detections immediately",
+                "scope": "EDR",
+                "tool_hint": "investigate(target='edr', scope='edr')",
             })
 
     fim = data.get("fim") or {}
     if isinstance(fim, dict):
         critical_paths = fim.get("criticalPathEvents", 0)
         if critical_paths > 0:
+            priority += 1
             actions.append({
-                "priority": "HIGH",
+                "priority": priority,
                 "action": f"Review {critical_paths} FIM events on critical system paths",
+                "scope": "FIM",
+                "tool_hint": "investigate(target='fim', scope='fim')",
             })
 
-    # Sort by priority
-    priority_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
-    actions.sort(key=lambda a: priority_order.get(a.get("priority", "LOW"), 3))
-
-    return actions
+    return actions[:10]
 
 
 # ---------------------------------------------------------------------------
@@ -523,7 +536,7 @@ def investigate(
         execution_time_ms=elapsed_ms,
         summary_fn=_summarize,
         correlate_fn=_correlate,
-        actions_fn=_build_actions,
+        actions_fn=lambda data: _build_actions(data, _correlate(data)),
     )
 
     # --- Apply detail level ---
