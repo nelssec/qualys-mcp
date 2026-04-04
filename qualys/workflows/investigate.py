@@ -307,9 +307,28 @@ def _summarize(data: dict) -> str:
             parts.append(f"Vuln search: {vulns_summary}")
 
     headline = parts[0] if parts else "Investigation complete."
+
+    risk = "unknown"
+    cve_deep = data.get("cve_deep") or {}
+    if isinstance(cve_deep, dict):
+        sev = cve_deep.get("severity", 0)
+        ransomware = cve_deep.get("ransomware", False)
+        if ransomware or sev >= 5:
+            risk = "critical"
+        elif sev >= 4:
+            risk = "high"
+        elif sev >= 3:
+            risk = "medium"
+        elif sev >= 1:
+            risk = "low"
+
+    threat_actor = data.get("threat_actor") or {}
+    if isinstance(threat_actor, dict) and threat_actor.get("activeInEnvironment", 0) > 0:
+        risk = "high" if risk == "unknown" else risk
+
     return {
         "headline": headline,
-        "risk_level": "unknown",
+        "risk_level": risk,
         "key_findings": parts[:5],
         "stats": {},
     }
