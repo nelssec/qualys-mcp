@@ -3554,7 +3554,7 @@ def container_vuln_summary(limit: int = 20, detail: str = "standard") -> dict:
         'imageCount': len(ranked),
         'images': ranked,
     }
-    out = _with_meta(result, 'images', len(ranked), total_images)
+    out = _with_meta(result, 'images', total_images)
     return _apply_detail_level(out, detail, list_keys=['images'])
 
 
