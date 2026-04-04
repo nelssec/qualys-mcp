@@ -79,6 +79,7 @@ def _summarize(data):
     trs = data.get("trurisk_score")
     if isinstance(trs, dict):
         score = trs.get("score") or trs.get("truriskScore")
+        agg = trs.get("aggregate") or {}
         if score is not None:
             try:
                 s = float(score)
@@ -95,9 +96,32 @@ def _summarize(data):
                 headline_parts.append(f"Org TruRisk: {int(s)}")
             except (TypeError, ValueError):
                 pass
+        elif isinstance(agg, dict) and agg.get("totalAssets"):
+            total = agg.get("totalAssets", 1)
+            crit = agg.get("criticalRisk_900plus", 0)
+            high = agg.get("highRisk_700plus", 0)
+            stats["totalAssets"] = total
+            stats["criticalRiskAssets"] = crit
+            stats["highRiskAssets"] = high
+            if risk_level == "unknown":
+                crit_pct = (crit / total * 100) if total else 0
+                high_pct = (high / total * 100) if total else 0
+                if crit_pct > 5:
+                    risk_level = "critical"
+                elif high_pct > 10:
+                    risk_level = "high"
+                elif high_pct > 2:
+                    risk_level = "medium"
+                else:
+                    risk_level = "low"
+            findings.append(f"{crit} critical-risk assets ({crit/total*100:.1f}%), {high} high-risk ({high/total*100:.1f}%) out of {total} total")
+            headline_parts.append(f"{total} assets, {crit} critical-risk, {high} high-risk")
         trend = trs.get("trend") or trs.get("truriskTrend") or {}
-        if isinstance(trend, dict) and trend.get("direction") == "worsening":
-            findings.append("Org risk score is trending upward — investigate new vulnerabilities")
+        if isinstance(trend, dict):
+            direction = trend.get("direction", "stable")
+            if direction == "worsening":
+                findings.append("Org risk score is trending upward — investigate new vulnerabilities")
+            stats["trend"] = direction
 
     # Weekly priorities
     wp = data.get("weekly_priorities")
