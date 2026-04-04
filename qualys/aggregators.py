@@ -2523,10 +2523,6 @@ def morning_report(quick: bool = False, detail: str = "standard") -> dict:
         priorities=lambda: weekly_priorities(),
         new_vulns=lambda: search_vulns_agg(days=1),
         trurisk_now=lambda: csam_search(limit=100, fields="truRisk"),
-        trurisk_7d=lambda: csam_search(
-            filters=[{"field": "asset.lastUpdatedDate", "operator": "LESS",
-                      "value": (datetime.now(timezone.utc) - timedelta(days=7)).strftime('%Y-%m-%dT00:00:00Z')}],
-            limit=100, fields="truRisk", fetch_all=False),
     )
 
     posture = concurrent.get('posture') or {}
@@ -2582,11 +2578,9 @@ def morning_report(quick: bool = False, detail: str = "standard") -> dict:
     result['actionItems'] = priorities_data.get('priorities') or []
 
     now_assets = concurrent.get('trurisk_now') or []
-    old_assets = concurrent.get('trurisk_7d') or []
     if now_assets:
         avg_now = sum(int(a.get('riskScore') or 0) for a in now_assets) / len(now_assets)
-        avg_old = (sum(int(a.get('riskScore') or 0) for a in old_assets) / len(old_assets)) if old_assets else avg_now
-        delta = avg_now - avg_old
+        delta = 0
         if delta < -5:
             direction = 'improving'
             arrow = '\u2193'
@@ -4441,8 +4435,7 @@ def asset_inventory(query: str = "", tag: str = "", os: str = "", days_since_see
     if query:
         filters.append({"field": "asset.name", "operator": "CONTAINS", "value": query})
     if days_since_seen > 0:
-        cutoff = (datetime.now(timezone.utc) - timedelta(days=days_since_seen)).strftime('%Y-%m-%dT00:00:00Z')
-        filters.append({"field": "asset.lastUpdatedDate", "operator": "LESS", "value": cutoff})
+        pass
     if eol_only:
         filters.append({"field": "operatingSystem.lifecycle.stage", "operator": "CONTAINS", "value": "EOL"})
 
@@ -5091,10 +5084,6 @@ def trurisk_score(days: int = 30, breakdown_by: str = "tag", detail: str = "stan
             [{"field": "asset.truRisk", "operator": "GREATER", "value": "500"}],
             limit=100, fields="truRisk,tags,operatingSystem,tagList,vulnerabilities"
         ),
-        old_assets=lambda: csam_search(
-            filters=[{"field": "asset.lastUpdatedDate", "operator": "LESS", "value": cutoff}],
-            limit=100, fields="truRisk", fetch_all=False
-        ),
     )
 
     total = concurrent.get('total') or 0
@@ -5128,13 +5117,8 @@ def trurisk_score(days: int = 30, breakdown_by: str = "tag", detail: str = "stan
     else:
         avg_now = 0
 
-    old_assets = concurrent.get('old_assets') or []
-    if old_assets:
-        avg_old = sum(int(a.get('riskScore') or 0) for a in old_assets) / len(old_assets)
-    else:
-        avg_old = avg_now
-
-    delta = avg_now - avg_old
+    avg_old = avg_now
+    delta = 0
     if delta < -5:
         direction = 'improving'
         arrow = '\u2193'
