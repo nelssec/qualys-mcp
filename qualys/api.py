@@ -936,7 +936,7 @@ def csam_count(filters=None):
         return 0
 
 
-def csam_search(filters=None, limit=100, fields=None, fetch_all=True):
+def csam_search(filters=None, limit=100, fields=None, fetch_all=False):
     """Search assets with optional structured filters. Returns list of assets."""
     with _CSAM_SEM:
         cache_key = json.dumps({"filters": filters, "limit": limit, "fields": fields, "fetch_all": fetch_all}, sort_keys=True)
