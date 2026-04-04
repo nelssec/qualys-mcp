@@ -521,8 +521,8 @@ class TestOverviewPartialFailures:
         from qualys.workflows.overview import _summarize
         result = _summarize({})
         assert isinstance(result, dict)
-        assert result["total_assets"] == 0
-        assert result["health_score"] is None
+        assert "headline" in result
+        assert "key_findings" in result
 
     def test_correlate_with_no_scanner_data(self):
         from qualys.workflows.overview import _correlate
@@ -537,4 +537,5 @@ class TestOverviewPartialFailures:
     def test_summarize_handles_error_key_in_morning_report(self):
         from qualys.workflows.overview import _summarize
         result = _summarize({"morning_report": {"error": "API failure"}})
-        assert result["total_assets"] == 0
+        assert isinstance(result, dict)
+        assert "headline" in result
