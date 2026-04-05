@@ -277,10 +277,12 @@ def _summarize(data: dict) -> str:
         active = threat_actor.get("activeInEnvironment", 0)
         total_kb = threat_actor.get("totalInKB", 0)
         summary_inner = threat_actor.get("summary", "")
-        if summary_inner:
+        if total_kb > 0 and summary_inner and "no vulnerabilities found" not in summary_inner.lower():
             parts.append(summary_inner)
-        elif actor:
+        elif total_kb > 0 and actor:
             parts.append(f"{actor}: {total_kb} KB vulns, {active} active in environment")
+        elif total_kb == 0 and actor:
+            parts.append(f"No known CVEs attributed to {actor} in the Qualys KB (last year). They may use zero-days or unattributed techniques.")
 
     investigate = data.get("investigate") or {}
     if investigate and isinstance(investigate, dict):

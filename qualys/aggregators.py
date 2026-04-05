@@ -1499,7 +1499,7 @@ def threat_actor_exposure_agg(threat_actor: str, actor_tags: list[str], limit: i
 
     # Step 1: Search KB for vulns matching threat actor tags
     # Fetch recent KB entries with threat intel info
-    kb_after = (datetime.now(timezone.utc) - timedelta(days=730)).strftime('%Y-%m-%d')
+    kb_after = (datetime.now(timezone.utc) - timedelta(days=365)).strftime('%Y-%m-%d')
     data = api_get(
         f"{BASE_URL}/api/2.0/fo/knowledge_base/vuln/?action=list&details=All"
         f"&show_supported_modules_info=0&published_after={kb_after}",
