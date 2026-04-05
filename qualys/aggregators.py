@@ -5739,36 +5739,65 @@ def oci_resources_agg(resource_type: str = "INSTANCE", limit: int = 50, detail: 
 # TotalAI aggregator
 # ---------------------------------------------------------------------------
 
-def totalai_summary(detail: str = "standard") -> dict:
-    """AI security posture — AI/LLM vulnerability detections + AI asset inventory."""
-    result = {'aiVulnerabilities': 0, 'aiAssets': 0, 'modelDetections': None,
-              'detections': [], 'summary': ''}
+def totalai_summary(limit: int = 20, detail: str = "standard") -> dict:
+    """AI security posture — TotalAI model detections + AI asset inventory."""
+    result = {'totalDetections': 0, 'aiAssets': 0, 'detections': [],
+              'byCategory': {}, 'bySeverity': {}, 'summary': ''}
 
     concurrent = _run_concurrent(
+        detection_count=lambda: get_totalai_detection_count(),
+        detections=lambda: get_totalai_detections(limit=limit),
         ai_assets=lambda: csam_count([{"field": "software.name", "operator": "CONTAINS", "value": "GPT"}]),
-        llm_assets=lambda: csam_count([{"field": "software.name", "operator": "CONTAINS", "value": "LLM"}]),
     )
 
-    gpt_count = concurrent.get('ai_assets') or 0
-    llm_count = concurrent.get('llm_assets') or 0
-    total_ai_assets = gpt_count + llm_count
+    total_detections = concurrent.get('detection_count') or 0
+    search_result = concurrent.get('detections') or {}
+    ai_assets = concurrent.get('ai_assets') or 0
 
-    result['aiAssets'] = total_ai_assets
-    result['gptAssets'] = gpt_count
-    result['llmAssets'] = llm_count
+    detections = search_result.get('content', [])
+    result['totalDetections'] = total_detections
+    result['aiAssets'] = ai_assets
 
-    if total_ai_assets > 0:
-        result['summary'] = (
-            f"{total_ai_assets} AI/LLM-related assets detected ({gpt_count} GPT, {llm_count} LLM). "
-            "For TotalAI model detection results (jailbreaks, OWASP LLM Top 10, misalignment), "
-            "check the TotalAI module in the Qualys UI at TotalAI > Model Detections."
-        )
-    else:
-        result['summary'] = (
-            "No AI/LLM assets detected via CSAM software inventory. "
-            "TotalAI model detection data (jailbreaks, OWASP LLM Top 10) is available "
-            "in the Qualys UI but not yet exposed via public API."
-        )
+    by_category = {}
+    by_severity = {5: 0, 4: 0, 3: 0, 2: 0, 1: 0}
+    jailbreak_count = 0
 
-    result['_meta'] = {'returned': 1, 'total': 1, 'truncated': False}
-    return compact(result)
+    for d in detections:
+        sev = d.get('severity', 0)
+        if sev in by_severity:
+            by_severity[sev] += 1
+        if d.get('isJailBreak'):
+            jailbreak_count += 1
+        for cat in d.get('categories', []):
+            name = cat.get('name', 'Other')
+            by_category[name] = by_category.get(name, 0) + 1
+
+        result['detections'].append({
+            'id': d.get('id'),
+            'qid': d.get('qid'),
+            'name': d.get('name', ''),
+            'attack': d.get('attack', ''),
+            'severity': sev,
+            'result': d.get('result', ''),
+            'isJailBreak': d.get('isJailBreak', False),
+            'failTestPercentage': d.get('failTestPercentage', 0),
+            'model': (d.get('model') or {}).get('name', ''),
+            'categories': [c.get('name', '') for c in d.get('categories', [])],
+            'owaspTopTen': [o.get('name', '') for o in d.get('owaspTopTen', [])],
+        })
+
+    result['byCategory'] = dict(sorted(by_category.items(), key=lambda x: -x[1]))
+    result['bySeverity'] = by_severity
+    result['jailbreakCount'] = jailbreak_count
+
+    parts = [f"{total_detections} TotalAI model detections"]
+    if jailbreak_count:
+        parts.append(f"{jailbreak_count} jailbreak attacks")
+    if by_category:
+        top_cats = list(result['byCategory'].keys())[:3]
+        parts.append(f"top categories: {', '.join(top_cats)}")
+    if ai_assets:
+        parts.append(f"{ai_assets} AI/GPT assets in inventory")
+    result['summary'] = '. '.join(parts) + '.'
+
+    return _apply_detail_level(_with_meta(result, 'detections', total_detections), detail, list_keys=['detections'])

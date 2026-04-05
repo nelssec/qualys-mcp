@@ -1711,6 +1711,62 @@ def get_policy_detail(policy_id, detail_level="full"):
 
 
 # ---------------------------------------------------------------------------
+# TotalAI (Model Detections)
+# ---------------------------------------------------------------------------
+
+
+def _totalai_post(path, body_dict, timeout=15):
+    """POST to TotalAI API endpoint. Returns parsed JSON or None."""
+    url = f"{GATEWAY_URL}/tai/api/1.0/{path}"
+    token = get_bearer_token()
+    req = Request(url, data=json.dumps(body_dict).encode(), method='POST')
+    req.add_header('Authorization', f'Bearer {token}' if token else f'Basic {BASIC_AUTH}')
+    req.add_header('Content-Type', 'application/json')
+    req.add_header('Accept', 'application/json')
+    req.add_header('X-Requested-With', 'qualys-mcp')
+    try:
+        with _open(req, timeout=timeout) as resp:
+            return json.loads(resp.read())
+    except HTTPError as e:
+        _log(f"TotalAI API {e.code}: /{path}")
+        return None
+    except Exception as e:
+        _log(f"TotalAI API error: {e}")
+        return None
+
+
+def get_totalai_detection_count(model_qql="", detection_qql=""):
+    """Get total count of TotalAI model detections."""
+    body = {}
+    if model_qql or detection_qql:
+        body["filter"] = {}
+        if model_qql:
+            body["filter"]["modelQql"] = model_qql
+        if detection_qql:
+            body["filter"]["detectionQql"] = detection_qql
+    result = _totalai_post("detection/count", body)
+    return result.get('count', 0) if result else 0
+
+
+def get_totalai_detections(limit=50, model_qql="", detection_qql="", order_by="severity", sort_order="DESC"):
+    """Search TotalAI model detections (jailbreaks, OWASP LLM Top 10, etc.)."""
+    body = {
+        "size": limit,
+        "orderBy": order_by,
+        "sortOrder": sort_order,
+        "fields": "id,qid,name,attack,severity,firstDetected,lastDetected,result,isJailBreak,failTestPercentage,owaspTopTen,categories,model",
+    }
+    if model_qql or detection_qql:
+        body["filter"] = {}
+        if model_qql:
+            body["filter"]["modelQql"] = model_qql
+        if detection_qql:
+            body["filter"]["detectionQql"] = detection_qql
+    result = _totalai_post("detection/search", body)
+    return result if result else {'content': [], 'totalElements': 0}
+
+
+# ---------------------------------------------------------------------------
 # SaaS Detection and Response (SaaSDR)
 # ---------------------------------------------------------------------------
 
