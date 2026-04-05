@@ -99,6 +99,12 @@ def _summarize(data):
         count = ef.get("total", len(ef_findings))
         if count:
             stats["findings_count"] = count
+            sev5 = sum(1 for f in ef_findings if f.get("severity") == 5 or f.get("severity") == "5")
+            sev4 = sum(1 for f in ef_findings if f.get("severity") == 4 or f.get("severity") == "4")
+            if sev5 or sev4:
+                findings.append(f"{count} vulnerability findings detected — {sev5} critical (sev 5), {sev4} high (sev 4)")
+            else:
+                findings.append(f"{count} vulnerability findings detected")
 
     if not findings:
         findings.append("No notable security events found for this period. All scanners operational and no new critical findings.")
