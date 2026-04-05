@@ -169,8 +169,9 @@ def _summarize(data):
     if isinstance(cvs, dict):
         total_images = cvs.get("totalImages", 0)
         total_vuln_images = cvs.get("totalVulnerableImages", 0)
-        total_vulns = cvs.get("totalVulns") or cvs.get("total") or 0
-        critical_vulns = cvs.get("critical") or 0
+        cvs_summary = cvs.get("summary", {}) if isinstance(cvs.get("summary"), dict) else {}
+        total_vulns = cvs_summary.get("total", 0) or cvs.get("totalVulns", 0)
+        critical_vulns = cvs_summary.get("critical", 0) or cvs.get("critical", 0)
         if total_images:
             stats["totalContainerImages"] = total_images
         if critical_vulns:
