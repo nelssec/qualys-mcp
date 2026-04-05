@@ -228,7 +228,7 @@ def _build_plan(
     # For general/unknown targets, also search KB by software name — catches threat names in vuln titles
     if target_type == "general" and not software and "vulns" not in plan:
         plan["vulns"] = lambda: search_vulns_agg(
-            days=30, software=target, limit=limit, detail=detail,
+            days=7, software=target, limit=limit, detail=detail,
         )
 
     # General target or scope=="all" without investigate_agg yet
