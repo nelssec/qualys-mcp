@@ -35,137 +35,165 @@
         </div>
 
         <h1>Tools Overview</h1>
-        <p class="lead">35 tools covering vulnerability management, threat intelligence, asset risk, cloud security, containers, web application security, certificate monitoring, endpoint detection, file integrity monitoring, patch management, compliance, remediation workflow, and security program coaching.</p>
+        <p class="lead">7 workflow tools covering investigation, risk assessment, compliance, remediation, security overview, reporting, and cache management. Consolidated from 53 individual tools into intent-based workflows backed by 42 aggregator functions.</p>
 
-        <h2 id="tools-by-category">Tools by Category</h2>
+        <h2 id="workflow-tools">The 7 Workflow Tools</h2>
 
-        <h3 id="daily-operations-coaching"><a href="operations.html">Daily Operations &amp; Coaching</a> <small>(5 tools)</small></h3>
+        <!-- investigate -->
+        <h3 id="investigate"><code>investigate</code> &mdash; Investigation</h3>
+        <p>Deep-dive investigation on any security topic: CVEs, threat actors, assets, endpoint events, vulnerability intelligence.</p>
+        <p><strong>Use when:</strong> "tell me about CVE-2024-3400", "are we exposed to Lazarus Group?", "investigate this IP", "what ransomware vulns exist?", "what's happening on 10.0.0.1?"</p>
         <table>
-          <thead>
-            <tr><th>Tool</th><th>What it answers</th></tr>
-          </thead>
+          <thead><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
           <tbody>
-            <tr><td><code>get_morning_report</code></td><td>What happened overnight? New vulns, ransomware/exploit flags, top risks, action items</td></tr>
-            <tr><td><code>get_recommendations</code></td><td>What should we improve? Module gaps, risk reduction opportunities, prioritized next steps</td></tr>
-            <tr><td><code>get_eliminate_status</code></td><td>What's our patching and mitigation status? Patch jobs, mitigation jobs, catalog coverage</td></tr>
-            <tr><td><code>get_etm_findings</code></td><td>What confirmed vulnerabilities exist across all sources? ETM findings with QID, QDS, TruRisk, CVE, patch status</td></tr>
-            <tr><td><code>get_scanner_health</code></td><td>Are our scanners healthy? Appliance status, failed scans, capacity utilization, signature updates</td></tr>
+            <tr><td><code>target</code></td><td>str</td><td>(required)</td><td>CVE ID, threat actor/nation, hostname, IP address, or free-text topic</td></tr>
+            <tr><td><code>depth</code></td><td>str</td><td>"standard"</td><td>"quick" (~10s) | "standard" (~20s) | "deep" (~45s, all sources + summary)</td></tr>
+            <tr><td><code>scope</code></td><td>str</td><td>"all"</td><td>"all" | "vulns" | "threats" | "assets" | "edr" | "fim"</td></tr>
+            <tr><td><code>tag</code></td><td>str</td><td>""</td><td>Filter affected assets by tag</td></tr>
+            <tr><td><code>asset_group</code></td><td>str</td><td>""</td><td>Filter by asset group</td></tr>
+            <tr><td><code>threat_type</code></td><td>str</td><td>""</td><td>RTI filter: Ransomware, Active_Attacks, Cisa_Known_Exploited_Vulns, etc.</td></tr>
+            <tr><td><code>software</code></td><td>str</td><td>""</td><td>Software name filter for KB search (e.g. "Apache", "OpenSSL")</td></tr>
+            <tr><td><code>days</code></td><td>int</td><td>7</td><td>Lookback window for events/vulns</td></tr>
+            <tr><td><code>limit</code></td><td>int</td><td>20</td><td>Max results per data source</td></tr>
+            <tr><td><code>detail</code></td><td>str</td><td>"standard"</td><td>"summary" | "standard" | "detailed"</td></tr>
+            <tr><td><code>prior_context</code></td><td>str</td><td>""</td><td>Summary from a previous investigation for chaining</td></tr>
+            <tr><td><code>audience</code></td><td>str</td><td>"technical"</td><td>"technical" | "management" | "executive"</td></tr>
           </tbody>
         </table>
 
-        <h3 id="security-posture-priorities"><a href="operations.html">Security Posture &amp; Priorities</a> <small>(5 tools)</small></h3>
+        <!-- assess_risk -->
+        <h3 id="assess_risk"><code>assess_risk</code> &mdash; Risk Assessment</h3>
+        <p>Cross-domain risk assessment covering VMs, cloud (AWS/Azure/GCP/OCI), containers, web apps, certificates, and assets.</p>
+        <p><strong>Use when:</strong> "what's our risk?", "show me cloud risk in AWS", "top risky assets", "container vulnerabilities", "expiring certificates", "EOL systems", "risk by business unit"</p>
         <table>
-          <thead>
-            <tr><th>Tool</th><th>What it answers</th></tr>
-          </thead>
+          <thead><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
           <tbody>
-            <tr><td><code>get_security_posture</code></td><td>How secure are we overall? Health score, risk distribution, container and cloud stats</td></tr>
-            <tr><td><code>get_weekly_priorities</code></td><td>What should my team fix this week? Top risk assets ranked by TruRisk</td></tr>
-            <tr><td><code>get_patch_status</code></td><td>What's our patching coverage? Risk distribution and assets needing remediation</td></tr>
-            <tr><td><code>get_scan_status</code></td><td>What scans are running, queued, paused, or failed?</td></tr>
-            <tr><td><code>get_compliance_posture</code></td><td>What's our policy compliance rate? Pass/fail by framework</td></tr>
+            <tr><td><code>scope</code></td><td>str</td><td>"all"</td><td>"all" | "cloud" | "containers" | "web" | "certs" | "assets"</td></tr>
+            <tr><td><code>tag</code></td><td>str</td><td>""</td><td>Filter by tag/business group</td></tr>
+            <tr><td><code>asset_group</code></td><td>str</td><td>""</td><td>Filter by asset group</td></tr>
+            <tr><td><code>asset_id</code></td><td>str</td><td>""</td><td>Single asset deep-dive</td></tr>
+            <tr><td><code>os</code></td><td>str</td><td>""</td><td>OS filter</td></tr>
+            <tr><td><code>query</code></td><td>str</td><td>""</td><td>Hostname/asset name search</td></tr>
+            <tr><td><code>days_since_seen</code></td><td>int</td><td>0</td><td>Stale asset filter (days)</td></tr>
+            <tr><td><code>days_since_scan</code></td><td>int</td><td>0</td><td>Scan gap filter (days)</td></tr>
+            <tr><td><code>eol_only</code></td><td>bool</td><td>False</td><td>Only end-of-life assets</td></tr>
+            <tr><td><code>provider</code></td><td>str</td><td>""</td><td>"aws" | "azure" | "gcp" (cloud scope)</td></tr>
+            <tr><td><code>service</code></td><td>str</td><td>""</td><td>Cloud service filter (S3, IAM, EC2, etc.)</td></tr>
+            <tr><td><code>account_id</code></td><td>str</td><td>""</td><td>Specific cloud account</td></tr>
+            <tr><td><code>per_account</code></td><td>bool</td><td>False</td><td>Include per-account breakdown</td></tr>
+            <tr><td><code>image_id</code></td><td>str</td><td>""</td><td>Specific container image</td></tr>
+            <tr><td><code>app_name</code></td><td>str</td><td>""</td><td>Web application name filter</td></tr>
+            <tr><td><code>owasp_category</code></td><td>str</td><td>""</td><td>OWASP Top 10 category</td></tr>
+            <tr><td><code>protocol_filter</code></td><td>str</td><td>""</td><td>TLS version filter</td></tr>
+            <tr><td><code>weak_ciphers</code></td><td>bool</td><td>False</td><td>Filter for weak cipher suites</td></tr>
+            <tr><td><code>weak_only</code></td><td>bool</td><td>False</td><td>Only certificates with issues</td></tr>
+            <tr><td><code>insecure_renegotiation</code></td><td>bool</td><td>False</td><td>Filter for insecure TLS renegotiation</td></tr>
+            <tr><td><code>include_expired</code></td><td>bool</td><td>True</td><td>Include expired certificates</td></tr>
+            <tr><td><code>days</code></td><td>int</td><td>30</td><td>Time window</td></tr>
+            <tr><td><code>limit</code></td><td>int</td><td>20</td><td>Max results per data source</td></tr>
+            <tr><td><code>detail</code></td><td>str</td><td>"standard"</td><td>"summary" | "standard" | "detailed"</td></tr>
+            <tr><td><code>sort_by</code></td><td>str</td><td>"trurisk"</td><td>"trurisk" | "severity"</td></tr>
+            <tr><td><code>breakdown_by</code></td><td>str</td><td>"tag"</td><td>"tag" | "none"</td></tr>
           </tbody>
         </table>
 
-        <h3 id="vulnerability-intelligence"><a href="vulnerability-management.html">Vulnerability Intelligence</a> <small>(6 tools)</small></h3>
+        <!-- check_compliance -->
+        <h3 id="check_compliance"><code>check_compliance</code> &mdash; Compliance</h3>
+        <p>Compliance posture assessment: framework pass/fail rates, failing controls, risk acceptances.</p>
+        <p><strong>Use when:</strong> "are we PCI compliant?", "compliance gaps", "show failing controls", "risk acceptances expiring", "HIPAA posture", "CIS benchmark results"</p>
         <table>
-          <thead>
-            <tr><th>Tool</th><th>What it answers</th></tr>
-          </thead>
+          <thead><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
           <tbody>
-            <tr><td><code>investigate_cve</code></td><td>Are we affected by CVE-XXXX? QIDs, severity, patches, threat intel</td></tr>
-            <tr><td><code>get_cve_details</code></td><td>Bulk CVE lookup with concurrent fetching</td></tr>
-            <tr><td><code>get_new_vulns</code></td><td>What new vulns dropped this week? Severity breakdown, RTI tags</td></tr>
-            <tr><td><code>get_vulns_by_software</code></td><td>What vulns affect Apache? Search by software/vendor/product</td></tr>
-            <tr><td><code>get_threat_intel</code></td><td>What vulns have ransomware/active exploits? RTI breakdown across 12+ threat categories</td></tr>
-            <tr><td><code>get_vuln_exceptions</code></td><td>What vulnerabilities have approved exceptions?</td></tr>
+            <tr><td><code>framework</code></td><td>str</td><td>""</td><td>"PCI" | "HIPAA" | "SOC2" | "CIS" | "NIST" | "" (all)</td></tr>
+            <tr><td><code>platform</code></td><td>str</td><td>""</td><td>"windows" | "linux"</td></tr>
+            <tr><td><code>tag</code></td><td>str</td><td>""</td><td>Filter by tag</td></tr>
+            <tr><td><code>asset_group</code></td><td>str</td><td>""</td><td>Filter by asset group</td></tr>
+            <tr><td><code>include_exceptions</code></td><td>bool</td><td>False</td><td>Include vulnerability exceptions/risk acceptances</td></tr>
+            <tr><td><code>exception_status</code></td><td>str</td><td>"Active"</td><td>"Active" | "Expired" | "Pending"</td></tr>
+            <tr><td><code>vuln_type</code></td><td>str</td><td>""</td><td>"False Positive" | "Compensating Control"</td></tr>
+            <tr><td><code>days_to_expiry</code></td><td>int</td><td>30</td><td>Show exceptions expiring within N days</td></tr>
+            <tr><td><code>limit</code></td><td>int</td><td>20</td><td>Max results</td></tr>
+            <tr><td><code>detail</code></td><td>str</td><td>"standard"</td><td>"summary" | "standard" | "detailed"</td></tr>
           </tbody>
         </table>
 
-        <h3 id="asset-infrastructure-risk"><a href="asset-management.html">Asset &amp; Infrastructure Risk</a> <small>(8 tools)</small></h3>
+        <!-- plan_remediation -->
+        <h3 id="plan_remediation"><code>plan_remediation</code> &mdash; Remediation</h3>
+        <p>Remediation planning: patch priorities, deployment status, mitigation coverage, program gaps.</p>
+        <p><strong>Use when:</strong> "what should we patch?", "outstanding patches", "patch deployment status", "mitigation coverage", "is there a mitigation for CVE-X?"</p>
         <table>
-          <thead>
-            <tr><th>Tool</th><th>What it answers</th></tr>
-          </thead>
+          <thead><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
           <tbody>
-            <tr><td><code>get_asset_risk</code></td><td>Why is this asset risky? TruRisk score, software inventory, EOL status</td></tr>
-            <tr><td><code>get_asset_full_profile</code></td><td>Full single-asset profile combining CSAM + ETM + VMDR detections in parallel</td></tr>
-            <tr><td><code>get_risk_by_tag</code></td><td>Risk distribution for a tagged asset group</td></tr>
-            <tr><td><code>get_environment_summary</code></td><td>Fast all-CSAM environment snapshot</td></tr>
-            <tr><td><code>get_asset_inventory</code></td><td>What assets do we have? Search by OS, tag, or query</td></tr>
-            <tr><td><code>get_tech_debt</code></td><td>How many EOL/EOS systems do we have?</td></tr>
-            <tr><td><code>get_cloud_risk</code></td><td>What's our cloud security posture?</td></tr>
-            <tr><td><code>get_image_vulns</code></td><td>What vulns are in this container image?</td></tr>
+            <tr><td><code>scope</code></td><td>str</td><td>"all"</td><td>"all" | "patches" | "mitigations" | "program"</td></tr>
+            <tr><td><code>tag</code></td><td>str</td><td>""</td><td>Filter by tag</td></tr>
+            <tr><td><code>asset_group</code></td><td>str</td><td>""</td><td>Filter by asset group</td></tr>
+            <tr><td><code>platform</code></td><td>str</td><td>""</td><td>"windows" | "linux"</td></tr>
+            <tr><td><code>severity</code></td><td>str</td><td>""</td><td>"critical" | "high" | "moderate"</td></tr>
+            <tr><td><code>status</code></td><td>str</td><td>""</td><td>Patch job status filter</td></tr>
+            <tr><td><code>qids</code></td><td>list</td><td>None</td><td>Check mitigation coverage for specific QIDs</td></tr>
+            <tr><td><code>cves</code></td><td>list</td><td>None</td><td>Check mitigation coverage for specific CVEs</td></tr>
+            <tr><td><code>limit</code></td><td>int</td><td>20</td><td>Max results</td></tr>
+            <tr><td><code>detail</code></td><td>str</td><td>"standard"</td><td>"summary" | "standard" | "detailed"</td></tr>
           </tbody>
         </table>
 
-        <h3 id="web-application-security"><a href="vulnerability-management.html">Web &amp; Application Security</a> <small>(2 tools)</small></h3>
+        <!-- security_overview -->
+        <h3 id="security_overview"><code>security_overview</code> &mdash; Overview</h3>
+        <p>Security briefing: daily/weekly/monthly summary with scanner health, scan status, findings, and risk trends.</p>
+        <p><strong>Use when:</strong> "morning briefing", "what happened this week?", "security overview", "any new critical vulns?", "scanner status", "what needs attention today?"</p>
         <table>
-          <thead>
-            <tr><th>Tool</th><th>What it answers</th></tr>
-          </thead>
+          <thead><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
           <tbody>
-            <tr><td><code>get_webapp_vulns</code></td><td>What web app vulnerabilities were found? OWASP Top 10 mapping</td></tr>
-            <tr><td><code>get_expiring_certs</code></td><td>SSL/TLS cert expiry + issue detection</td></tr>
+            <tr><td><code>period</code></td><td>str</td><td>"today"</td><td>"today" | "week" | "month"</td></tr>
+            <tr><td><code>scope</code></td><td>str</td><td>"all"</td><td>"all" | "infrastructure" | "findings" | "risk"</td></tr>
+            <tr><td><code>quick</code></td><td>bool</td><td>False</td><td>True for fast snapshot (~3s), False for full briefing (~10s)</td></tr>
+            <tr><td><code>tag</code></td><td>str</td><td>""</td><td>Filter by tag</td></tr>
+            <tr><td><code>asset_group</code></td><td>str</td><td>""</td><td>Filter by asset group</td></tr>
+            <tr><td><code>qql</code></td><td>str</td><td>""</td><td>QQL query for ETM findings</td></tr>
+            <tr><td><code>severity</code></td><td>str</td><td>""</td><td>Finding severity filter</td></tr>
+            <tr><td><code>scan_state</code></td><td>str</td><td>"Running,Paused,Queued,Error"</td><td>Comma-separated scan states</td></tr>
+            <tr><td><code>limit</code></td><td>int</td><td>50</td><td>Max results</td></tr>
+            <tr><td><code>detail</code></td><td>str</td><td>"standard"</td><td>"summary" | "standard" | "detailed"</td></tr>
           </tbody>
         </table>
 
-        <h3 id="threat-detection"><a href="threat-intelligence.html">Threat Detection</a> <small>(3 tools)</small></h3>
+        <!-- reports -->
+        <h3 id="reports"><code>reports</code> &mdash; Reporting</h3>
+        <p>Unified report operations: list, templates, generate, status, download, delete.</p>
         <table>
-          <thead>
-            <tr><th>Tool</th><th>What it answers</th></tr>
-          </thead>
+          <thead><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
           <tbody>
-            <tr><td><code>get_edr_events</code></td><td>What endpoint threats were detected?</td></tr>
-            <tr><td><code>get_fim_events</code></td><td>What file changes happened?</td></tr>
-            <tr><td><code>get_cdr_findings</code></td><td>What cloud threats were detected?</td></tr>
+            <tr><td><code>action</code></td><td>str</td><td>(required)</td><td>"list" | "templates" | "generate" | "status" | "download" | "delete"</td></tr>
+            <tr><td><code>report_id</code></td><td>str</td><td>""</td><td>Report ID (for status/download/delete)</td></tr>
+            <tr><td><code>template_id</code></td><td>str</td><td>""</td><td>Template ID (for generate)</td></tr>
+            <tr><td><code>asset_group_ids</code></td><td>str</td><td>""</td><td>Comma-separated asset group IDs (for generate)</td></tr>
+            <tr><td><code>template_name</code></td><td>str</td><td>""</td><td>Filter templates by name substring</td></tr>
+            <tr><td><code>report_title</code></td><td>str</td><td>""</td><td>Custom title for generated report</td></tr>
+            <tr><td><code>output_format</code></td><td>str</td><td>"pdf"</td><td>"pdf" | "html" | "mht" | "xml" | "csv" | "docx"</td></tr>
           </tbody>
         </table>
 
-        <h3 id="patch-management"><a href="operations.html">Patch Management</a> <small>(1 tool)</small></h3>
+        <!-- cache_status -->
+        <h3 id="cache_status"><code>cache_status</code> &mdash; Admin</h3>
+        <p>Show cache stats or clear all caches.</p>
         <table>
-          <thead>
-            <tr><th>Tool</th><th>What it answers</th></tr>
-          </thead>
+          <thead><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
           <tbody>
-            <tr><td><code>get_pm_status</code></td><td>What's our patch deployment status?</td></tr>
+            <tr><td><code>clear</code></td><td>bool</td><td>False</td><td>True to clear all caches, False to show stats only</td></tr>
           </tbody>
         </table>
 
-        <h3 id="remediation-workflow"><a href="compliance.html">Remediation Workflow</a> <small>(3 tools)</small></h3>
-        <table>
-          <thead>
-            <tr><th>Tool</th><th>What it answers</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>get_remediation_tickets</code></td><td>What remediation tickets are open?</td></tr>
-            <tr><td><code>create_remediation_ticket</code></td><td>Create a remediation ticket</td></tr>
-            <tr><td><code>get_sla_status</code></td><td>What's our SLA compliance?</td></tr>
-          </tbody>
-        </table>
-
-        <h3 id="qid-lookups"><a href="vulnerability-management.html">QID Lookups</a> <small>(1 tool)</small></h3>
-        <table>
-          <thead>
-            <tr><th>Tool</th><th>What it answers</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>get_qid_details</code></td><td>What is this QID? Severity, CVEs, threat intel</td></tr>
-          </tbody>
-        </table>
-
-        <h3 id="admin"><a href="operations.html">Admin</a> <small>(1 tool)</small></h3>
-        <table>
-          <thead>
-            <tr><th>Tool</th><th>What it answers</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>cache_status</code></td><td>What's cached? Use clear=True to reset</td></tr>
-          </tbody>
-        </table>
+        <h2 id="response-format">Response Format</h2>
+        <p>All workflow tools return a unified envelope with four sections:</p>
+        <ul>
+          <li><strong>summary</strong> &mdash; headline, risk_level, key_findings</li>
+          <li><strong>data</strong> &mdash; per-source results from aggregator functions</li>
+          <li><strong>correlations</strong> &mdash; cross-source insights discovered during the workflow</li>
+          <li><strong>actions</strong> &mdash; prioritized next steps with tool_hints for follow-up queries</li>
+        </ul>
 
         <h2 id="threat-intel-categories">Threat Intel Categories</h2>
-        <p>The following 12 Real-Time Threat Indicator (RTI) categories are available for filtering with <code>get_threat_intel</code>:</p>
+        <p>The following Real-Time Threat Indicator (RTI) categories are available for filtering with the <code>investigate</code> tool's <code>threat_type</code> parameter:</p>
         <ol>
           <li><strong>Ransomware</strong></li>
           <li><strong>Malware</strong></li>
@@ -186,9 +214,9 @@
             <span>&larr; Previous</span>
             <strong>Configuration</strong>
           </a>
-          <a href="vulnerability-management.html" style="text-align: right;">
+          <a href="../examples/index.html" style="text-align: right;">
             <span>Next &rarr;</span>
-            <strong>Vulnerability Management</strong>
+            <strong>Examples</strong>
           </a>
         </div>
 
@@ -205,17 +233,15 @@
       <aside class="toc">
         <div class="toc-title">On this page</div>
         <ul>
-          <li><a href="#tools-by-category">Tools by Category</a></li>
-          <li><a href="#daily-operations-coaching">Daily Operations &amp; Coaching</a></li>
-          <li><a href="#security-posture-priorities">Security Posture &amp; Priorities</a></li>
-          <li><a href="#vulnerability-intelligence">Vulnerability Intelligence</a></li>
-          <li><a href="#asset-infrastructure-risk">Asset &amp; Infrastructure Risk</a></li>
-          <li><a href="#web-application-security">Web &amp; Application Security</a></li>
-          <li><a href="#threat-detection">Threat Detection</a></li>
-          <li><a href="#patch-management">Patch Management</a></li>
-          <li><a href="#remediation-workflow">Remediation Workflow</a></li>
-          <li><a href="#qid-lookups">QID Lookups</a></li>
-          <li><a href="#admin">Admin</a></li>
+          <li><a href="#workflow-tools">The 7 Workflow Tools</a></li>
+          <li><a href="#investigate">investigate</a></li>
+          <li><a href="#assess_risk">assess_risk</a></li>
+          <li><a href="#check_compliance">check_compliance</a></li>
+          <li><a href="#plan_remediation">plan_remediation</a></li>
+          <li><a href="#security_overview">security_overview</a></li>
+          <li><a href="#reports">reports</a></li>
+          <li><a href="#cache_status">cache_status</a></li>
+          <li><a href="#response-format">Response Format</a></li>
           <li><a href="#threat-intel-categories">Threat Intel Categories</a></li>
         </ul>
       </aside>

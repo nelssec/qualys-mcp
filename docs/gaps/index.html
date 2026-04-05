@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Coverage Gaps | Qualys MCP Server</title>
+  <title>Known Gaps | Qualys MCP Server</title>
   <link rel="stylesheet" href="../css/style.css">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
   <script src="../js/nav.js" defer></script>
@@ -31,246 +31,59 @@
         <div class="breadcrumb">
           <a href="../index.html">Home</a>
           <span>&rsaquo;</span>
-          <span>Coverage Gaps</span>
+          <span>Known Gaps</span>
         </div>
 
-        <h1>Coverage Gaps</h1>
-        <p class="lead">Gap analysis mapping uncovered customer questions to new tool designs, ordered by priority. Currently 23% of 500 questions are fully covered.</p>
+        <h1>Known Gaps</h1>
+        <p class="lead">Known limitations and coverage gaps in Qualys MCP v0.1.0. The server covers 9+ Qualys modules through 7 workflow tools backed by 42 aggregator functions, but some areas remain limited.</p>
 
-        <h2 id="coverage-summary">Coverage Summary</h2>
+        <h2 id="known-gaps">Known Gaps</h2>
+
+        <h3 id="trend-analysis">Trend &amp; Historical Analysis</h3>
+        <p><strong>What's missing:</strong> Week-over-week and month-over-month trend data, vulnerability trends over 90 days, remediation rates over time.</p>
+        <p><strong>Why:</strong> Qualys VMDR API does not provide historical snapshot endpoints. Trends would require external storage of periodic snapshots.</p>
+        <p><strong>Workaround:</strong> Use <code>security_overview(period="week")</code> or <code>security_overview(period="month")</code> for period-scoped views.</p>
+
+        <h3 id="patch-management">Granular Patch Management</h3>
+        <p><strong>What's missing:</strong> Individual patch job queries by ID, patch scheduling, maintenance windows, rollback history.</p>
+        <p><strong>Workaround:</strong> Use <code>plan_remediation(scope="patches", platform="windows")</code> for platform-specific views. For individual job management, use the Qualys console.</p>
+
+        <h3 id="k8s-runtime">Kubernetes &amp; Container Runtime</h3>
+        <p><strong>What's missing:</strong> K8s cluster inventory, namespace-level breakdown, RBAC analysis, pod-level queries.</p>
+        <p><strong>Workaround:</strong> Use <code>assess_risk(scope="containers")</code> for image-level vulnerability data.</p>
+
+        <h3 id="was-scan-management">WAS Scan Management</h3>
+        <p><strong>What's missing:</strong> WAS scan status, scan scheduling, per-app scan history.</p>
+        <p><strong>Workaround:</strong> Use <code>assess_risk(scope="web", app_name="...")</code> for findings. Manage scans through the Qualys WAS console.</p>
+
+        <h3 id="sla">SLA &amp; Business-Unit Segmentation</h3>
+        <p><strong>What's missing:</strong> SLA-based queries, department-level metrics.</p>
+        <p><strong>Workaround:</strong> Use <code>assess_risk(tag="...")</code> and <code>plan_remediation(tag="...")</code> for tag-based segmentation.</p>
+
+        <h3 id="write-operations">Write Operations</h3>
+        <p><strong>What's missing:</strong> Creating remediation tickets, scheduling scans, modifying asset tags, accepting risks.</p>
+        <p><strong>Status:</strong> v0.1.0 is read-only by design. Write operations are under consideration for future releases.</p>
+
+        <h2 id="module-coverage">Module Coverage</h2>
         <div class="table-wrapper">
           <table>
             <thead>
-              <tr>
-                <th>Category</th>
-                <th>Total</th>
-                <th>Covered</th>
-                <th>Partial</th>
-                <th>Gap</th>
-                <th>Coverage %</th>
-              </tr>
+              <tr><th>Module</th><th>Coverage</th><th>Tool</th></tr>
             </thead>
             <tbody>
-              <tr><td>Vulnerability Management</td><td>90</td><td>32</td><td>14</td><td>44</td><td>53%</td></tr>
-              <tr><td>Patch Management</td><td>50</td><td>4</td><td>4</td><td>42</td><td>16%</td></tr>
-              <tr><td>TruRisk Eliminate</td><td>30</td><td>8</td><td>3</td><td>19</td><td>37%</td></tr>
-              <tr><td>Cloud Security</td><td>70</td><td>12</td><td>8</td><td>50</td><td>29%</td></tr>
-              <tr><td>Container Security</td><td>40</td><td>6</td><td>4</td><td>30</td><td>25%</td></tr>
-              <tr><td>Web Application Security</td><td>50</td><td>0</td><td>0</td><td>50</td><td>0%</td></tr>
-              <tr><td>Endpoint / EDR</td><td>35</td><td>0</td><td>0</td><td>35</td><td>0%</td></tr>
-              <tr><td>Certificates / CertView</td><td>30</td><td>0</td><td>0</td><td>30</td><td>0%</td></tr>
-              <tr><td>Asset Management</td><td>40</td><td>9</td><td>5</td><td>26</td><td>35%</td></tr>
-              <tr><td>Compliance</td><td>45</td><td>0</td><td>0</td><td>45</td><td>0%</td></tr>
-              <tr><td>Scanner / Infrastructure</td><td>20</td><td>5</td><td>1</td><td>14</td><td>30%</td></tr>
-              <tr><td><strong>Total</strong></td><td><strong>505</strong></td><td><strong>76</strong></td><td><strong>39</strong></td><td><strong>390</strong></td><td><strong>23%</strong></td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="callout callout-danger">
-          <div class="callout-title">Critical Coverage Gap</div>
-          <p>77% of realistic customer questions cannot be fully answered by the current tools. The largest gaps are WAS (0%), Compliance (0%), EDR (0%), and Certificates (0%).</p>
-        </div>
-
-        <h2 id="priority-1-zero-coverage-modules">Priority 1: Zero-Coverage Modules</h2>
-        <p>These tools address Qualys modules with zero existing coverage. Each tool unlocks an entire category of customer questions.</p>
-
-        <h3 id="get-webapp-vulns"><code>get_webapp_vulns</code> <span class="badge badge-danger">Critical</span> &mdash; 50 questions</h3>
-        <p>Returns web application vulnerability findings from the Qualys WAS module, including OWASP categories, severity, URL, and remediation guidance.</p>
-        <p><strong>Parameters:</strong> <code>webapp_id</code> (optional), <code>severity</code> (optional filter: 1-5), <code>status</code> (optional: NEW, ACTIVE, REOPENED, FIXED), <code>limit</code> (default 100)</p>
-        <p><strong>API endpoint:</strong> <code>POST /qps/rest/3.0/search/was/finding</code></p>
-        <p><strong>Return shape:</strong></p>
-        <pre><code>{
-  "webapp_id": "12345",
-  "total_findings": 42,
-  "by_severity": {"5": 2, "4": 8, "3": 12, "2": 15, "1": 5},
-  "findings": [
-    {
-      "id": "67890",
-      "qid": 150001,
-      "title": "SQL Injection",
-      "severity": 5,
-      "owasp": "A03:2021 Injection",
-      "url": "https://app.example.com/login",
-      "status": "ACTIVE",
-      "first_detected": "2026-01-15",
-      "times_detected": 3
-    }
-  ]
-}</code></pre>
-
-        <h3 id="get-expiring-certs"><code>get_expiring_certs</code> <span class="badge badge-danger">Critical</span> &mdash; 30 questions</h3>
-        <p>Returns certificates expiring within a specified window from Qualys CertView, enabling proactive renewal tracking and outage prevention.</p>
-        <p><strong>Parameters:</strong> <code>days</code> (default 30, certificates expiring within this many days), <code>grade</code> (optional filter: A, B, C, D, F), <code>limit</code> (default 100)</p>
-        <p><strong>API endpoint:</strong> <code>POST /certview/v2/certificates</code></p>
-        <p><strong>Return shape:</strong></p>
-        <pre><code>{
-  "expiring_within_days": 30,
-  "total": 18,
-  "by_grade": {"A": 5, "B": 8, "C": 3, "F": 2},
-  "certificates": [
-    {
-      "id": "cert-abc123",
-      "subject": "*.example.com",
-      "issuer": "DigiCert",
-      "expires": "2026-04-01",
-      "days_remaining": 16,
-      "grade": "B",
-      "key_size": 2048,
-      "hosts": ["web1.example.com", "web2.example.com"]
-    }
-  ]
-}</code></pre>
-
-        <h3 id="get-edr-events"><code>get_edr_events</code> <span class="badge badge-success">High</span> &mdash; 35 questions</h3>
-        <p>Returns endpoint detection and response events from Qualys EDR, including suspicious process executions, lateral movement indicators, and threat verdicts.</p>
-        <p><strong>Parameters:</strong> <code>asset_id</code> (optional), <code>severity</code> (optional), <code>event_type</code> (optional), <code>days</code> (default 7), <code>limit</code> (default 100)</p>
-        <p><strong>API endpoint:</strong> <code>POST /edr/v2/events/search</code></p>
-        <p><strong>Return shape:</strong></p>
-        <pre><code>{
-  "total_events": 127,
-  "by_severity": {"critical": 3, "high": 12, "medium": 45, "low": 67},
-  "events": [
-    {
-      "id": "evt-001",
-      "asset_id": "host-abc",
-      "hostname": "workstation-42",
-      "event_type": "process_execution",
-      "severity": "critical",
-      "verdict": "malicious",
-      "process": "powershell.exe",
-      "command_line": "powershell -enc ...",
-      "timestamp": "2026-03-14T08:23:00Z"
-    }
-  ]
-}</code></pre>
-
-        <h3 id="get-fim-events"><code>get_fim_events</code> <span class="badge badge-success">High</span> &mdash; 35 questions</h3>
-        <p>Returns file integrity monitoring events from Qualys FIM, tracking unauthorized changes to critical system files, configuration files, and registry keys.</p>
-        <p><strong>Parameters:</strong> <code>asset_id</code> (optional), <code>action</code> (optional: Created, Modified, Deleted, Renamed), <code>days</code> (default 7), <code>limit</code> (default 100)</p>
-        <p><strong>API endpoint:</strong> <code>POST /fim/v3/events/search</code></p>
-        <p><strong>Return shape:</strong></p>
-        <pre><code>{
-  "total_events": 89,
-  "by_action": {"Modified": 45, "Created": 22, "Deleted": 15, "Renamed": 7},
-  "events": [
-    {
-      "id": "fim-001",
-      "asset_id": "host-xyz",
-      "hostname": "db-server-01",
-      "file_path": "/etc/passwd",
-      "action": "Modified",
-      "old_hash": "sha256:abc...",
-      "new_hash": "sha256:def...",
-      "user": "root",
-      "timestamp": "2026-03-13T14:05:00Z"
-    }
-  ]
-}</code></pre>
-
-        <h3 id="get-compliance-posture"><code>get_compliance_posture</code> <span class="badge badge-success">High</span> &mdash; 45 questions</h3>
-        <p>Returns policy compliance posture from Qualys PC, showing pass/fail rates by framework, policy, and control. Enables compliance reporting for CIS, PCI-DSS, HIPAA, and custom policies.</p>
-        <p><strong>Parameters:</strong> <code>policy_id</code> (optional), <code>framework</code> (optional: CIS, PCI, HIPAA, SOC2), <code>asset_tag</code> (optional), <code>limit</code> (default 100)</p>
-        <p><strong>API endpoint:</strong> <code>POST /qps/rest/2.0/search/pc/posture</code> (requires PC API research)</p>
-        <p><strong>Return shape:</strong></p>
-        <pre><code>{
-  "total_policies": 5,
-  "overall_pass_rate": 72.4,
-  "by_policy": [
-    {
-      "policy_id": "pol-001",
-      "name": "CIS Linux L1",
-      "framework": "CIS",
-      "total_controls": 180,
-      "passed": 142,
-      "failed": 30,
-      "error": 8,
-      "pass_rate": 78.9,
-      "assets_evaluated": 250
-    }
-  ]
-}</code></pre>
-
-        <h2 id="priority-2-high-impact-extensions">Priority 2: High-Impact Extensions</h2>
-        <p>These tools extend partially covered modules with high question counts.</p>
-
-        <h3 id="get-scan-status"><code>get_scan_status</code> &mdash; 14 questions</h3>
-        <p>Returns the status of vulnerability scans (running, queued, paused, finished, failed) from the VMDR scan API. Enables scan monitoring and troubleshooting workflows.</p>
-        <p><strong>Parameters:</strong> <code>scan_id</code> (optional), <code>status</code> (optional filter), <code>days</code> (default 7), <code>limit</code> (default 50)</p>
-        <p><strong>API endpoint:</strong> <code>POST /api/2.0/fo/scan/</code></p>
-
-        <h3 id="get-asset-inventory"><code>get_asset_inventory</code> &mdash; 35 questions</h3>
-        <p>Returns a filterable, paginated asset inventory from CSAM v2 with grouping by OS, location, tag, or business unit. Answers bulk asset questions that <code>get_asset</code> (single-asset) cannot.</p>
-        <p><strong>Parameters:</strong> <code>filter</code> (QQL string), <code>group_by</code> (optional: os, tag, location), <code>limit</code> (default 100), <code>offset</code> (default 0)</p>
-        <p><strong>API endpoint:</strong> <code>POST /rest/2.0/search/am/asset</code></p>
-
-        <h3 id="get-vuln-trends"><code>get_vuln_trends</code> &mdash; 20 questions</h3>
-        <p>Computes vulnerability trend data over time by comparing detection snapshots. Shows whether the environment is improving or degrading across severity levels.</p>
-        <p><strong>Parameters:</strong> <code>days</code> (default 30), <code>severity</code> (optional filter), <code>group_by</code> (optional: severity, asset_tag)</p>
-        <p><strong>API endpoint:</strong> Computed from VMDR detection API snapshots</p>
-
-        <h3 id="get-vuln-exceptions"><code>get_vuln_exceptions</code> &mdash; 10 questions</h3>
-        <p>Returns vulnerability exceptions (accepted risks, false positives, disabled QIDs) to provide visibility into what has been explicitly excluded from remediation tracking.</p>
-        <p><strong>Parameters:</strong> <code>status</code> (optional: active, expired), <code>qid</code> (optional), <code>limit</code> (default 100)</p>
-        <p><strong>API endpoint:</strong> <code>GET /api/2.0/fo/exception/</code></p>
-
-        <h2 id="priority-3-valuable-extensions">Priority 3: Valuable Extensions</h2>
-        <p>Lower-priority tools that round out coverage for modules already partially addressed.</p>
-        <ul>
-          <li><strong><code>get_cloud_inventory</code></strong> &mdash; 15 questions. Lists cloud resources across AWS, Azure, and GCP using TotalCloud connectors API. Provides resource counts, types, and regions.</li>
-          <li><strong><code>get_cloud_compliance</code></strong> &mdash; 10 questions. Returns cloud compliance evaluation results (CIS Benchmarks, custom policies) from TotalCloud evaluations API.</li>
-          <li><strong><code>get_container_inventory</code></strong> &mdash; 10 questions. Lists container images, registries, and running containers with vulnerability summary from the Container Security API.</li>
-          <li><strong><code>get_webapp_inventory</code></strong> &mdash; 10 questions. Lists web applications tracked by WAS with last scan date, authentication status, and finding counts.</li>
-        </ul>
-
-        <h2 id="gap-summary-by-tool">Gap Summary by Tool</h2>
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>New Tool</th>
-                <th>Questions Answered</th>
-                <th>Priority</th>
-                <th>API Ready?</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td><code>get_webapp_vulns</code></td><td>50</td><td><span class="badge badge-danger">Critical</span></td><td>Helper exists</td></tr>
-              <tr><td><code>get_expiring_certs</code></td><td>30</td><td><span class="badge badge-danger">Critical</span></td><td>Helper exists</td></tr>
-              <tr><td><code>get_edr_events</code></td><td>35</td><td><span class="badge badge-success">High</span></td><td>Helper exists</td></tr>
-              <tr><td><code>get_fim_events</code></td><td>35</td><td><span class="badge badge-success">High</span></td><td>Helper exists</td></tr>
-              <tr><td><code>get_compliance_posture</code></td><td>45</td><td><span class="badge badge-success">High</span></td><td>PC API research needed</td></tr>
-              <tr><td><code>get_scan_status</code></td><td>14</td><td><span class="badge badge-success">High</span></td><td>Helper exists</td></tr>
-              <tr><td><code>get_asset_inventory</code></td><td>35</td><td><span class="badge badge-warning">Medium</span></td><td>CSAM API works</td></tr>
-              <tr><td><code>get_vuln_trends</code></td><td>20</td><td><span class="badge badge-warning">Medium</span></td><td>Computed from detections</td></tr>
-              <tr><td><code>get_vuln_exceptions</code></td><td>10</td><td><span class="badge badge-warning">Medium</span></td><td>Exceptions API</td></tr>
-              <tr><td><code>get_cloud_inventory</code></td><td>15</td><td><span class="badge badge-info">Low</span></td><td>Connectors API</td></tr>
-              <tr><td><code>get_cloud_compliance</code></td><td>10</td><td><span class="badge badge-info">Low</span></td><td>Evaluations API</td></tr>
-              <tr><td><code>get_container_inventory</code></td><td>10</td><td><span class="badge badge-info">Low</span></td><td>Container API</td></tr>
-              <tr><td><code>get_webapp_inventory</code></td><td>10</td><td><span class="badge badge-info">Low</span></td><td>WAS API</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <p>Total: ~361 additional questions (~72% improvement in coverage).</p>
-
-        <h2 id="existing-tool-enhancements">Existing Tool Enhancements</h2>
-        <p>Enhancements to existing tools that would close partial coverage gaps without requiring new tool definitions.</p>
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Tool</th>
-                <th>Current Gap</th>
-                <th>Enhancement</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td><code>get_asset</code></td><td>Single-asset only</td><td>Add bulk mode</td></tr>
-              <tr><td><code>get_cloud_risk</code></td><td>First cloud account only</td><td>Iterate all accounts</td></tr>
-              <tr><td><code>get_scanner_health</code></td><td>No scan history</td><td>Link to <code>get_scan_status</code></td></tr>
-              <tr><td><code>get_security_posture</code></td><td>No WAS/compliance</td><td>Add once tools exist</td></tr>
-              <tr><td><code>get_morning_report</code></td><td>No FIM/EDR/certs</td><td>Add once tools live</td></tr>
-              <tr><td><code>get_recommendations</code></td><td>Cloud-only compliance</td><td>Add PC gaps once tool exists</td></tr>
+              <tr><td>VMDR</td><td>High</td><td><code>investigate</code>, <code>assess_risk</code>, <code>security_overview</code></td></tr>
+              <tr><td>ETM</td><td>High</td><td><code>investigate</code>, <code>security_overview</code></td></tr>
+              <tr><td>CSAM</td><td>High</td><td><code>assess_risk</code>, <code>security_overview</code></td></tr>
+              <tr><td>KB</td><td>High</td><td><code>investigate</code></td></tr>
+              <tr><td>TotalCloud</td><td>Medium</td><td><code>assess_risk(scope="cloud")</code></td></tr>
+              <tr><td>Container Security</td><td>Medium</td><td><code>assess_risk(scope="containers")</code></td></tr>
+              <tr><td>WAS</td><td>Medium</td><td><code>assess_risk(scope="web")</code></td></tr>
+              <tr><td>CertView</td><td>Medium</td><td><code>assess_risk(scope="certs")</code></td></tr>
+              <tr><td>PM</td><td>Medium</td><td><code>plan_remediation</code></td></tr>
+              <tr><td>EDR</td><td>Medium</td><td><code>investigate(scope="edr")</code></td></tr>
+              <tr><td>FIM</td><td>Medium</td><td><code>investigate(scope="fim")</code></td></tr>
+              <tr><td>PC</td><td>Medium</td><td><code>check_compliance</code></td></tr>
+              <tr><td>CDR</td><td>Medium</td><td><code>assess_risk(scope="cloud")</code></td></tr>
             </tbody>
           </table>
         </div>
@@ -299,12 +112,14 @@
       <aside class="toc">
         <div class="toc-title">On this page</div>
         <ul>
-          <li><a href="#coverage-summary">Coverage Summary</a></li>
-          <li><a href="#priority-1-zero-coverage-modules">Priority 1: Zero-Coverage Modules</a></li>
-          <li><a href="#priority-2-high-impact-extensions">Priority 2: High-Impact Extensions</a></li>
-          <li><a href="#priority-3-valuable-extensions">Priority 3: Valuable Extensions</a></li>
-          <li><a href="#gap-summary-by-tool">Gap Summary by Tool</a></li>
-          <li><a href="#existing-tool-enhancements">Existing Tool Enhancements</a></li>
+          <li><a href="#known-gaps">Known Gaps</a></li>
+          <li><a href="#trend-analysis">Trend &amp; Historical Analysis</a></li>
+          <li><a href="#patch-management">Granular Patch Management</a></li>
+          <li><a href="#k8s-runtime">Kubernetes &amp; Container Runtime</a></li>
+          <li><a href="#was-scan-management">WAS Scan Management</a></li>
+          <li><a href="#sla">SLA &amp; Business-Unit Segmentation</a></li>
+          <li><a href="#write-operations">Write Operations</a></li>
+          <li><a href="#module-coverage">Module Coverage</a></li>
         </ul>
       </aside>
     </main>
