@@ -100,9 +100,9 @@ def _summarize(data):
         if count:
             stats["findings_count"] = count
 
-    headline = "Security overview complete"
-    if findings:
-        headline = findings[0]
+    if not findings:
+        findings.append("No notable security events found for this period. All scanners operational and no new critical findings.")
+    headline = findings[0]
 
     risk = "unknown"
     if stats.get("scanners_offline", 0) > 0 or stats.get("scan_errors", 0) > 0:

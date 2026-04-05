@@ -167,12 +167,18 @@ def _summarize(data):
     # Container vuln summary
     cvs = data.get("container_vuln_summary")
     if isinstance(cvs, dict):
+        total_images = cvs.get("totalImages", 0)
+        total_vuln_images = cvs.get("totalVulnerableImages", 0)
         total_vulns = cvs.get("totalVulns") or cvs.get("total") or 0
         critical_vulns = cvs.get("critical") or 0
+        if total_images:
+            stats["totalContainerImages"] = total_images
         if critical_vulns:
-            findings.append(f"{critical_vulns} critical container vulnerabilities detected")
+            findings.append(f"{critical_vulns} critical container vulnerabilities across {total_vuln_images} of {total_images} images")
         elif total_vulns:
-            findings.append(f"{total_vulns} container vulnerabilities detected")
+            findings.append(f"{total_vulns} container vulnerabilities across {total_images} images")
+        elif total_images:
+            findings.append(f"{total_images} container images scanned — no critical vulnerabilities found")
 
     # Image vulns
     iv = data.get("image_vulns")
@@ -184,9 +190,15 @@ def _summarize(data):
     # Running containers
     rc = data.get("running_containers")
     if isinstance(rc, dict):
-        running = rc.get("total") or rc.get("totalContainers") or 0
+        rc_summary = rc.get("summary", {})
+        running = rc_summary.get("totalRunning", 0) if isinstance(rc_summary, dict) else 0
+        with_crit = rc_summary.get("withCriticalVulns", 0) if isinstance(rc_summary, dict) else 0
         if running:
             stats["runningContainers"] = running
+            if with_crit:
+                findings.append(f"{with_crit} of {running} running containers have critical vulnerabilities")
+            else:
+                findings.append(f"{running} running containers — none with critical vulnerabilities")
 
     # Web app vulns
     wv = data.get("webapp_vulns")
@@ -196,7 +208,9 @@ def _summarize(data):
         if critical_web:
             findings.append(f"{critical_web} critical web application vulnerabilities found")
         elif total_web:
-            findings.append(f"{total_web} web application vulnerabilities found")
+            findings.append(f"{total_web} web application vulnerabilities found (none critical)")
+        else:
+            findings.append("No web application vulnerabilities found — WAS scan results are clean or no apps have been scanned")
 
     # Expiring certs
     ec = data.get("expiring_certs")
@@ -207,6 +221,8 @@ def _summarize(data):
             findings.append(f"{expired} SSL/TLS certificates have already expired")
         elif expiring:
             findings.append(f"{expiring} SSL/TLS certificates expiring soon")
+        else:
+            findings.append("No expiring or expired certificates found")
 
     # Cert security posture
     csp = data.get("cert_security_posture")
