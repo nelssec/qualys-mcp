@@ -686,7 +686,7 @@ def assess_risk(
     if scope_all or scope == "web" or web_params_set:
         plan["webapp_vulns"] = lambda: webapp_vulns(
             severity=0,
-            days=days,
+            days=0,
             app_name=app_name,
             owasp_category=owasp_category,
             limit=limit,
