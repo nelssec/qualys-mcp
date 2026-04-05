@@ -157,10 +157,16 @@ def _build_plan(
         threat_actor_exposure_agg,
         edr_events,
         fim_events,
+        totalai_summary,
     )
+
+    AI_KEYWORDS = {"ai", "llm", "gpt", "totalai", "jailbreak", "owasp llm", "model detection", "ai security", "ai risk", "ai vulnerability"}
 
     plan: dict[str, Any] = {}
     has_investigate_agg = False
+
+    if any(kw in target.lower() for kw in AI_KEYWORDS):
+        plan["totalai"] = lambda: totalai_summary(detail=detail)
 
     if target_type == "cve":
         plan["cve_deep"] = lambda: investigate_cve_agg(target, detail=detail)
@@ -307,6 +313,12 @@ def _summarize(data: dict) -> str:
         fim_summary = fim.get("summary", "")
         if fim_summary and isinstance(fim_summary, str):
             parts.append(f"FIM: {fim_summary}")
+
+    totalai = data.get("totalai") or {}
+    if totalai and isinstance(totalai, dict):
+        ai_summary = totalai.get("summary", "")
+        if ai_summary and isinstance(ai_summary, str):
+            parts.append(f"AI Security: {ai_summary}")
 
     vulns = data.get("vulns") or {}
     if vulns and isinstance(vulns, dict):
