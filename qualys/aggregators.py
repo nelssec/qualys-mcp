@@ -3051,7 +3051,8 @@ def cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7, per
         for p, a in first_accounts.items()
     }
     if include_threats:
-        eval_tasks['cdr'] = lambda: get_cdr(days, limit)
+        eval_tasks['cdr'] = lambda: get_cdr(days, min(limit, 50))
+        eval_tasks['cdr_count'] = lambda: get_cdr_count(days)
     eval_results = _run_concurrent(**eval_tasks)
 
     fails = {}  # {controlId: {controlName, service, count}}
@@ -3135,9 +3136,11 @@ def cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7, per
         result['byProvider'] = dict(sorted(by_provider.items(), key=lambda x: -x[1]))
         result['byCategory'] = dict(sorted(by_category.items(), key=lambda x: -x[1]))
 
+        cdr_total = eval_results.get('cdr_count') or len(findings_list)
+        result['totalThreats'] = cdr_total
         crit = result['stats']['critical']
         high = result['stats']['high']
-        total_threats = len(findings_list)
+        total_threats = cdr_total
         providers_str = ', '.join(result['byProvider'].keys()) or 'none'
         top_cats = ', '.join(list(result['byCategory'].keys())[:3]) or 'none'
         result['threatSummary'] = (

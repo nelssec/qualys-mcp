@@ -1149,6 +1149,24 @@ def get_cdr(days=7, limit=100, severity=None, cloud_provider=None, category=None
     return results
 
 
+def get_cdr_count(days=30):
+    """Get total CDR finding count without fetching all data."""
+    end = datetime.now(timezone.utc)
+    start = end - timedelta(days=days)
+    url = (f"{GATEWAY_URL}/cdr-api/rest/v1/findings/"
+           f"?startAt={start.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+           f"&endAt={end.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+           f"&pageSize=1&pageNumber=0")
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return 0
+    try:
+        parsed = json.loads(data)
+        return parsed.get('totalElements', 0)
+    except (json.JSONDecodeError, TypeError):
+        return 0
+
+
 def get_container_vulns_summary():
     """Fetch container vuln count + severity breakdown from /csapi/v1.3/vuln with groupBy.
 
