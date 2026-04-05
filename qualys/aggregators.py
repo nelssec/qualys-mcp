@@ -443,8 +443,9 @@ def get_security_posture(tag: str = "", asset_group: str = "") -> dict:
             aws=lambda: get_connectors('aws', 5),
             azure=lambda: get_connectors('azure', 5),
             gcp=lambda: get_connectors('gcp', 5),
+            oci=lambda: get_connectors('oci', 5),
         )
-        acc_key_map = {'aws': 'awsAccountId', 'azure': 'azureSubscriptionId', 'gcp': 'gcpProjectId'}
+        acc_key_map = {'aws': 'awsAccountId', 'azure': 'azureSubscriptionId', 'gcp': 'gcpProjectId', 'oci': 'ociTenancyId'}
         eval_tasks = {}
         for p, conns in cloud_conns.items():
             if conns:
@@ -471,8 +472,9 @@ def _get_first_cloud_evals():
         aws=lambda: get_connectors('aws', 1),
         azure=lambda: get_connectors('azure', 1),
         gcp=lambda: get_connectors('gcp', 1),
+        oci=lambda: get_connectors('oci', 1),
     )
-    for provider, acc_key in [('aws', 'awsAccountId'), ('azure', 'azureSubscriptionId'), ('gcp', 'gcpProjectId')]:
+    for provider, acc_key in [('aws', 'awsAccountId'), ('azure', 'azureSubscriptionId'), ('gcp', 'gcpProjectId'), ('oci', 'ociTenancyId')]:
         conns = connector_results.get(provider) or []
         if conns:
             acc = conns[0].get(acc_key)
@@ -1643,6 +1645,7 @@ def recommendations(detail: str = "standard") -> dict:
         cloud_aws=lambda: get_connectors('aws', 5),
         cloud_azure=lambda: get_connectors('azure', 5),
         cloud_gcp=lambda: get_connectors('gcp', 5),
+        cloud_oci=lambda: get_connectors('oci', 5),
         cloud_evals=lambda: _get_first_cloud_evals(),
         was=lambda: get_was_findings(5, 4),
         fim=lambda: _fetch_fim_events_raw(5, 7),
@@ -2779,8 +2782,8 @@ def cloud_account_summary(provider: str = 'all', detail: str = "standard") -> di
         cached['cacheAge'] = disk_cache.age(cache_key) or 0
         return compact(cached)
 
-    providers = ['aws', 'azure', 'gcp'] if provider == 'all' else [provider.lower()]
-    acc_key_map = {'aws': 'awsAccountId', 'azure': 'azureSubscriptionId', 'gcp': 'gcpProjectId'}
+    providers = ['aws', 'azure', 'gcp', 'oci'] if provider == 'all' else [provider.lower()]
+    acc_key_map = {'aws': 'awsAccountId', 'azure': 'azureSubscriptionId', 'gcp': 'gcpProjectId', 'oci': 'ociTenancyId'}
 
     # Fetch connectors
     conn_tasks = {p: (lambda p=p: get_connectors(p, 50)) for p in providers}
@@ -2883,8 +2886,8 @@ def cloud_controls(provider: str = 'all', service: str = '', result_filter: str 
         cached['cacheAge'] = disk_cache.age(cache_key) or 0
         return compact(cached)
 
-    providers = ['aws', 'azure', 'gcp'] if provider == 'all' else [provider.lower()]
-    acc_key_map = {'aws': 'awsAccountId', 'azure': 'azureSubscriptionId', 'gcp': 'gcpProjectId'}
+    providers = ['aws', 'azure', 'gcp', 'oci'] if provider == 'all' else [provider.lower()]
+    acc_key_map = {'aws': 'awsAccountId', 'azure': 'azureSubscriptionId', 'gcp': 'gcpProjectId', 'oci': 'ociTenancyId'}
 
     # If account_id given, use it directly; otherwise discover accounts
     if account_id:
@@ -2997,6 +3000,7 @@ def cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7, per
         aws=lambda: get_connectors('aws', 50),
         azure=lambda: get_connectors('azure', 50),
         gcp=lambda: get_connectors('gcp', 50),
+        oci=lambda: get_connectors('oci', 50),
     )
 
     all_accounts = []
@@ -3004,7 +3008,7 @@ def cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7, per
     for provider, conns in connector_results.items():
         if not conns:
             continue
-        acc_key = {'aws': 'awsAccountId', 'azure': 'azureSubscriptionId', 'gcp': 'gcpProjectId'}[provider]
+        acc_key = {'aws': 'awsAccountId', 'azure': 'azureSubscriptionId', 'gcp': 'gcpProjectId', 'oci': 'ociTenancyId'}.get(provider, 'accountId')
         for c in conns:
             acc = c.get(acc_key, '')
             result['accounts'].append({'id': acc, 'provider': provider.upper(), 'name': c.get('name', '')})
@@ -3017,7 +3021,7 @@ def cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7, per
     result['stats']['total'] = len(result['accounts'])
 
     if not result['accounts']:
-        result['message'] = 'No cloud connectors configured. Connect AWS, Azure, or GCP accounts in Qualys TotalCloud to see cloud risk data.'
+        result['message'] = 'No cloud connectors configured. Connect AWS, Azure, GCP, or OCI accounts in Qualys TotalCloud to see cloud risk data.'
         return compact(result)
 
     # Per-account summary: fast counts via pageSize=1 for ALL accounts
