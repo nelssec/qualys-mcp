@@ -3570,8 +3570,9 @@ def image_vulns_list(limit: int = 20, detail: str = "standard") -> dict:
 
 def running_containers(limit: int = 50, detail: str = "standard") -> dict:
     """Running containers with image vulnerability context."""
+    sample_size = min(max(limit, 100), 500)
     concurrent = _run_concurrent(
-        containers=lambda: get_containers(limit=max(limit, 100)),
+        containers=lambda: get_containers(limit=sample_size),
         total_containers=lambda: get_containers(1, count_only=True),
         images=lambda: get_images_by_vulns(limit=200),
     )
@@ -3632,14 +3633,18 @@ def running_containers(limit: int = 50, detail: str = "standard") -> dict:
     if len(rows) > 0 and total_containers > len(rows):
         crit_ratio = local_crit_count / len(rows)
         estimated_crit = int(crit_ratio * total_containers)
+        crit_is_estimated = True
     else:
         estimated_crit = local_crit_count
+        crit_is_estimated = False
 
     result = {
         'summary': {
             'totalRunning': total_containers,
             'returned': len(rows),
+            'sampled': len(rows),
             'withCriticalVulns': estimated_crit,
+            'withCriticalVulnsEstimated': crit_is_estimated,
             'withUnpatchedCritical': len(unpatched_critical),
         },
         'containers': rows[:limit],
