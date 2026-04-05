@@ -1652,6 +1652,114 @@ def _run_concurrent(**tasks):
 # ---------------------------------------------------------------------------
 # VMDR cache warm-up
 # ---------------------------------------------------------------------------
+# Policy Audit (Library Policies / CIS Benchmarks)
+# ---------------------------------------------------------------------------
+
+
+def get_policy_labels():
+    """Get all policy library labels (CIS, DISA STIG, Qualys, Vendor, etc.)."""
+    data = api_get(f"{GATEWAY_URL}/pcas/v1/library/label", gateway=True, not_found_ok=True)
+    if data is None:
+        return []
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+
+def get_policy_technologies(label_id=None):
+    """Get technologies available for policy audit, optionally filtered by label."""
+    url = f"{GATEWAY_URL}/pcas/v1/library/technology"
+    if label_id:
+        url += f"?labelId={label_id}"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return []
+    try:
+        parsed = json.loads(data)
+        return parsed.get('technologies', parsed) if isinstance(parsed, dict) else parsed
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+
+def get_policy_list(label_id=None, technology_id=None, limit=50):
+    """List library policies (CIS benchmarks, STIG, etc.)."""
+    url = f"{GATEWAY_URL}/pcas/v1/library/policy/list?pageSize={limit}"
+    if label_id:
+        url += f"&labelId={label_id}"
+    if technology_id:
+        url += f"&technologyId={technology_id}"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return []
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+
+def get_policy_detail(policy_id, detail_level="full"):
+    """Get detailed policy info including controls."""
+    url = f"{GATEWAY_URL}/pcas/v1/library/policy?policyId={policy_id}&detailLevel={detail_level}"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return {}
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+
+
+# ---------------------------------------------------------------------------
+# SaaS Detection and Response (SaaSDR)
+# ---------------------------------------------------------------------------
+
+
+def get_saasdr_controls(limit=50, is_custom=None):
+    """List SaaS security controls."""
+    url = f"{GATEWAY_URL}/sdr/api/controls/list?pageSize={limit}"
+    if is_custom is not None:
+        url += f"&isCustom={str(is_custom).lower()}"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return {}
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+
+
+def get_saasdr_control(control_id):
+    """Get a specific SaaS security control by ID."""
+    data = api_get(f"{GATEWAY_URL}/sdr/api/custom/controls/get/{control_id}", gateway=True, not_found_ok=True)
+    if data is None:
+        return {}
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+
+
+# ---------------------------------------------------------------------------
+# TotalCloud v2 Resources (OCI + improved pagination)
+# ---------------------------------------------------------------------------
+
+
+def get_cloud_resources(provider='oci', resource_type='INSTANCE', limit=50):
+    """Get cloud resources via v2 API (supports OCI, removes 10K limit)."""
+    url = f"{GATEWAY_URL}/cloudview-api/rest/v2/resource/{resource_type}/{provider}?pageSize={min(limit, 100)}"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return {'content': [], 'totalHits': 0}
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return {'content': [], 'totalHits': 0}
+
+
+# ---------------------------------------------------------------------------
+# VMDR cache warm-up
+# ---------------------------------------------------------------------------
 
 
 def _warmup_vmdr_cache():

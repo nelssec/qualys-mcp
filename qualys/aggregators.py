@@ -5636,3 +5636,100 @@ def cache_status_agg(clear: bool = False) -> dict:
 
     result['_meta'] = {'returned': 1, 'total': 1, 'truncated': False}
     return compact(result)
+
+
+# ---------------------------------------------------------------------------
+# Policy Audit aggregator
+# ---------------------------------------------------------------------------
+
+def policy_audit_agg(label: str = "", technology: str = "", policy_id: int = 0, limit: int = 20, detail: str = "standard") -> dict:
+    """Browse CIS benchmarks, DISA STIGs, and other compliance policies from the Qualys library."""
+    result = {'labels': [], 'policies': [], 'policyDetail': None, 'summary': ''}
+
+    if policy_id:
+        pd = get_policy_detail(policy_id)
+        result['policyDetail'] = pd
+        result['summary'] = f"Policy detail for ID {policy_id}: {pd.get('policyTitle', 'Unknown')}"
+        return _with_meta(result, 'policies')
+
+    concurrent = _run_concurrent(
+        labels=lambda: get_policy_labels(),
+        policies=lambda: get_policy_list(limit=limit),
+    )
+
+    labels = concurrent.get('labels') or []
+    policies = concurrent.get('policies') or []
+
+    if label:
+        label_lower = label.lower()
+        label_id = None
+        for l in labels:
+            if label_lower in l.get('labelName', '').lower():
+                label_id = l.get('labelId')
+                break
+        if label_id:
+            policies = get_policy_list(label_id=label_id, limit=limit)
+
+    result['labels'] = labels
+    result['policies'] = policies[:limit]
+    result['totalPolicies'] = len(policies)
+    result['summary'] = f"{len(policies)} compliance policies available across {len(labels)} categories"
+
+    if labels:
+        label_names = [l.get('labelName', '') for l in labels[:10]]
+        result['summary'] += f" ({', '.join(label_names)})"
+
+    return _apply_detail_level(_with_meta(result, 'policies', len(policies)), detail, list_keys=['policies', 'labels'])
+
+
+# ---------------------------------------------------------------------------
+# SaaS Detection and Response aggregator
+# ---------------------------------------------------------------------------
+
+def saasdr_controls_agg(limit: int = 50, detail: str = "standard") -> dict:
+    """List SaaS security controls from Qualys SaaS Detection and Response."""
+    data = get_saasdr_controls(limit=limit)
+    if not data:
+        return {'controls': [], 'summary': 'SaaS Detection and Response may not be enabled on this subscription.', '_meta': {'returned': 0, 'total': 0, 'truncated': False}}
+
+    controls = data.get('content', [])
+    total = data.get('totalElements', len(controls))
+
+    result = {
+        'controls': controls[:limit],
+        'totalControls': total,
+        'summary': f"{total} SaaS security controls configured",
+    }
+
+    return _apply_detail_level(_with_meta(result, 'controls', total), detail, list_keys=['controls'])
+
+
+# ---------------------------------------------------------------------------
+# TotalCloud v2 OCI resources aggregator
+# ---------------------------------------------------------------------------
+
+def oci_resources_agg(resource_type: str = "INSTANCE", limit: int = 50, detail: str = "standard") -> dict:
+    """List OCI cloud resources via TotalCloud v2 API."""
+    data = get_cloud_resources(provider='oci', resource_type=resource_type, limit=limit)
+
+    content = data.get('content', [])
+    total = data.get('totalHits', len(content))
+
+    resources = []
+    for r in content[:limit]:
+        resources.append({
+            'resourceId': r.get('resourceId', ''),
+            'region': r.get('region', ''),
+            'name': r.get('name', r.get('resourceId', '')[:30]),
+            'evaluatedOn': r.get('evaluatedOn', ''),
+            'connectorId': r.get('connectorId', ''),
+        })
+
+    result = {
+        'resources': resources,
+        'totalResources': total,
+        'resourceType': resource_type,
+        'summary': f"{total} OCI {resource_type.lower()} resources found",
+    }
+
+    return _apply_detail_level(_with_meta(result, 'resources', total), detail, list_keys=['resources'])

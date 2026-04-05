@@ -12,6 +12,7 @@ from qualys.aggregators import (
     compliance_posture,
     list_compliance_frameworks,
     vuln_exceptions,
+    policy_audit_agg,
 )
 from qualys.workflows import _apply_detail, _build_envelope, _dispatch
 
@@ -56,6 +57,8 @@ def _build_plan(
             status=exception_status, vuln_type=vuln_type,
             days_to_expiry=days_to_expiry, limit=limit, detail=detail,
         )
+
+    plan["policy_audit"] = lambda: policy_audit_agg(label=framework, limit=limit, detail=detail)
 
     return plan
 
