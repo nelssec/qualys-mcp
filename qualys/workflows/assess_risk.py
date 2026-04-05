@@ -141,14 +141,21 @@ def _summarize(data):
     # Cloud risk
     cr = data.get("cloud_risk")
     if isinstance(cr, dict):
-        accts = cr.get("accounts") or cr.get("totalAccounts") or 0
-        critical = cr.get("criticalFindings") or cr.get("critical") or 0
-        if accts:
-            stats["cloudAccounts"] = accts
-        if critical:
-            findings.append(f"{critical} critical cloud security findings across {accts} accounts")
-        elif accts:
-            findings.append(f"Cloud risk assessed across {accts} accounts")
+        accts_list = cr.get("accounts", [])
+        acct_count = len(accts_list) if isinstance(accts_list, list) else (accts_list if isinstance(accts_list, int) else 0)
+        failed_ctrls = len(cr.get("failedControls", []))
+        threats = len(cr.get("threats", []))
+        pass_rate = cr.get("overallPassRate")
+        if acct_count:
+            stats["cloudAccounts"] = acct_count
+        if pass_rate is not None:
+            stats["cloudPassRate"] = pass_rate
+        if threats:
+            findings.append(f"{threats} CDR threat findings across {acct_count} cloud accounts")
+        if failed_ctrls:
+            findings.append(f"{failed_ctrls} failing cloud controls ({pass_rate}% pass rate)" if pass_rate else f"{failed_ctrls} failing cloud controls")
+        elif acct_count:
+            findings.append(f"{acct_count} cloud accounts assessed — {pass_rate}% pass rate" if pass_rate else f"{acct_count} cloud accounts connected")
 
     # Cloud account summary
     cas = data.get("cloud_account_summary")
