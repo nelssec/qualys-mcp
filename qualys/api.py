@@ -1311,6 +1311,7 @@ def _get_was_count():
     req = Request(url, data=body.encode(), method='POST')
     req.add_header('Authorization', f'Basic {BASIC_AUTH}')
     req.add_header('Content-Type', 'text/xml')
+    req.add_header('Accept', 'application/json')
     req.add_header('X-Requested-With', 'qualys-mcp')
     try:
         with _open(req, timeout=15) as resp:
@@ -1327,6 +1328,7 @@ def _get_was_webapp_count():
     req = Request(url, data=body.encode(), method='POST')
     req.add_header('Authorization', f'Basic {BASIC_AUTH}')
     req.add_header('Content-Type', 'text/xml')
+    req.add_header('Accept', 'application/json')
     req.add_header('X-Requested-With', 'qualys-mcp')
     try:
         with _open(req, timeout=15) as resp:
