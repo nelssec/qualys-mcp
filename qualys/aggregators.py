@@ -5151,12 +5151,18 @@ def trurisk_score(days: int = 30, breakdown_by: str = "tag", detail: str = "stan
             'tags': tags[:5],
         })
 
-    if top_assets:
-        avg_now = sum(int(a.get('riskScore') or 0) for a in top_assets) / len(top_assets)
+    r900 = concurrent.get('risk_900') or 0
+    r700 = concurrent.get('risk_700') or 0
+    r500 = concurrent.get('risk_500') or 0
+    r100 = concurrent.get('risk_100') or 0
+    if total > 0:
+        weighted = (r900 * 950 + (r700 - r900) * 800 + (r500 - r700) * 600
+                    + (r100 - r500) * 300 + (total - r100) * 50)
+        avg_now = round(weighted / total)
     else:
         avg_now = 0
+    result['aggregate']['avgTruRisk'] = avg_now
 
-    avg_old = avg_now
     delta = 0
     if delta < -5:
         direction = 'improving'
@@ -5171,7 +5177,7 @@ def trurisk_score(days: int = 30, breakdown_by: str = "tag", detail: str = "stan
     result['trend'] = {
         'days': days,
         'avgTruRiskCurrent': round(avg_now),
-        'avgTruRiskPrior': round(avg_old),
+        'avgTruRiskPrior': round(avg_now),
         'delta': round(delta),
         'direction': direction,
         'display': f"TruRisk: {round(avg_now)} {arrow} {direction}",
