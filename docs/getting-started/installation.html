@@ -90,10 +90,10 @@ pip install -e .</code></pre>
         <h2 id="verifying-installation">Verifying Installation</h2>
         <p>To verify that the server starts correctly, run it directly from the command line:</p>
         <pre><code>qualys-mcp</code></pre>
-        <p>You should see the server start up and listen for MCP connections. Press <code>Ctrl+C</code> to stop it.</p>
+        <p>You should see the server start up with a message listing the 7 workflow tools. Press <code>Ctrl+C</code> to stop it.</p>
         <p>Alternatively, if you have Claude Desktop configured, open a new conversation and ask:</p>
         <pre><code>What is the cache status?</code></pre>
-        <p>If the server is running correctly, Claude will invoke the MCP tool and return the current cache state.</p>
+        <p>If the server is running correctly, Claude will invoke the <code>cache_status</code> tool and return the current cache state.</p>
 
         <h2 id="requirements">Requirements</h2>
         <ul>

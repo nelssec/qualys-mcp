@@ -35,240 +35,111 @@
         </div>
 
         <h1>Architecture</h1>
-        <p class="lead">Internal architecture of the Qualys MCP Server &mdash; caching, concurrency, request deduplication, and tool routing.</p>
+        <p class="lead">Internal architecture of Qualys MCP Server v0.1.0 &mdash; layered workflow design, caching, concurrency, and request deduplication.</p>
 
         <h2 id="system-overview">System Overview</h2>
-        <p>The Qualys MCP Server is a single-process FastMCP application that exposes 35 tool functions to AI assistants. Each tool call flows through caching, optional concurrent execution, and response assembly before returning structured data.</p>
+        <p>Qualys MCP v0.1.0 uses a four-layer architecture: 7 MCP tool wrappers dispatch to 5 workflow modules, which orchestrate 42 aggregator functions, which call the Qualys APIs through a shared HTTP + caching layer.</p>
 <pre><code>AI Assistant (Claude, etc.)
     |
-    v  MCP tool call
+    v  MCP tool call (one of 7 tools)
 FastMCP Server (qualys_mcp.py)
     |
-    +-- 35 @mcp.tool() functions
-    |     |-- Each calls: api_get(), csam_search(), etm_api(), etc.
+    +-- 7 @mcp.tool() wrappers
+    |     investigate, assess_risk, check_compliance,
+    |     plan_remediation, security_overview, reports, cache_status
     |
-    +-- _run_concurrent() -- ThreadPoolExecutor(max_workers=8)
-    |     Used in: get_morning_report, get_weekly_priorities,
-    |              get_security_posture, get_patch_status, etc.
+    +-- qualys/workflows/ (5 workflow modules)
+    |     investigate.py, assess_risk.py, compliance.py,
+    |     remediation.py, overview.py
     |
-    +-- In-memory caches:
-          BEARER_TOKEN -- 3.5h TTL
-          DETECTION_CACHE -- 5-min TTL
-          QDS_CACHE -- 5-min TTL
-          KB_CACHE -- 1h TTL
-          WAS_CACHE -- 10-min TTL
-          SCANNER_CACHE -- 5-min TTL
-          ETM_RESULT_CACHE -- 1h TTL</code></pre>
+    +-- qualys/aggregators.py (42 aggregator functions)
+    |     Each aggregator wraps one or more Qualys API calls
+    |
+    +-- qualys/api.py (HTTP + caching)
+          _run_concurrent() -- ThreadPoolExecutor(max_workers=8)
+          _get_or_fetch() -- request deduplication
+          Tiered in-memory caches</code></pre>
 
-        <h2 id="cache-architecture">Cache Architecture</h2>
-        <p>The server uses a tiered in-memory cache to balance freshness against API call volume. Each tier reflects the volatility of its data: operational data changes frequently and gets short TTLs, while reference data and authentication tokens use longer windows.</p>
+        <h2 id="workflow-layer">Workflow Layer</h2>
+        <p>Each workflow module receives parameters from its MCP tool wrapper and orchestrates multiple aggregator calls in parallel. The workflow handles:</p>
+        <ul>
+          <li><strong>Intent classification</strong> &mdash; determines which aggregators to call based on parameters (e.g., target="CVE-2024-3400" triggers CVE investigation aggregators)</li>
+          <li><strong>Parallel dispatch</strong> &mdash; fires multiple aggregators concurrently via <code>_run_concurrent()</code></li>
+          <li><strong>Cross-source correlation</strong> &mdash; identifies connections across data sources (e.g., a CVE affecting assets that also have cloud misconfigurations)</li>
+          <li><strong>Response envelope assembly</strong> &mdash; structures results into summary, data, correlations, and actions sections</li>
+        </ul>
 
+        <h3>Workflow Modules</h3>
         <table>
           <thead>
-            <tr>
-              <th>Cache</th>
-              <th>TTL</th>
-              <th>Key Strategy</th>
-            </tr>
+            <tr><th>Module</th><th>MCP Tool</th><th>Scope</th></tr>
           </thead>
           <tbody>
-            <tr>
-              <td>Bearer token</td>
-              <td>3.5 hours</td>
-              <td>Single global token</td>
-            </tr>
-            <tr>
-              <td>KB entries</td>
-              <td>1 hour</td>
-              <td>Per-QID</td>
-            </tr>
-            <tr>
-              <td>VMDR detections</td>
-              <td>5 minutes</td>
-              <td>Per severity_days_qds_min (limit excluded)</td>
-            </tr>
-            <tr>
-              <td>QDS scores</td>
-              <td>5 minutes</td>
-              <td>Per-QID</td>
-            </tr>
-            <tr>
-              <td>WAS findings</td>
-              <td>10 minutes</td>
-              <td>Per limit_severity_days_app_name</td>
-            </tr>
-            <tr>
-              <td>Scanner list</td>
-              <td>5 minutes</td>
-              <td>Single global list</td>
-            </tr>
-            <tr>
-              <td>ETM results</td>
-              <td>1 hour</td>
-              <td>Single global (unfiltered only)</td>
-            </tr>
+            <tr><td><code>workflows/investigate.py</code></td><td><code>investigate</code></td><td>CVE deep-dive, threat actors, asset investigation, EDR/FIM events, KB search</td></tr>
+            <tr><td><code>workflows/assess_risk.py</code></td><td><code>assess_risk</code></td><td>VMs, cloud, containers, web apps, certificates, assets</td></tr>
+            <tr><td><code>workflows/compliance.py</code></td><td><code>check_compliance</code></td><td>Framework posture, failing controls, risk acceptances</td></tr>
+            <tr><td><code>workflows/remediation.py</code></td><td><code>plan_remediation</code></td><td>Patch priorities, deployment status, mitigation coverage</td></tr>
+            <tr><td><code>workflows/overview.py</code></td><td><code>security_overview</code></td><td>Daily/weekly/monthly briefing, scanner health, ETM findings</td></tr>
           </tbody>
         </table>
 
-        <p>The three tiers map to data volatility:</p>
-        <ul>
-          <li><strong>L1 &mdash; Hot (5-minute TTL):</strong> Volatile operational data such as detections, QDS scores, and scanner lists. These change frequently and must stay fresh.</li>
-          <li><strong>L2 &mdash; Warm (1-hour TTL):</strong> Slow-changing reference data like KB entries and ETM report results. These rarely change within an hour.</li>
-          <li><strong>L3 &mdash; Cold (3.5-hour TTL):</strong> Authentication tokens. The bearer token is refreshed only when it expires.</li>
-        </ul>
+        <h2 id="aggregator-layer">Aggregator Layer</h2>
+        <p>The 42 aggregator functions in <code>qualys/aggregators.py</code> are the building blocks of every workflow. Each aggregator wraps one or more Qualys API calls, normalizes the response data, and returns a structured dict. Aggregators are stateless and composable &mdash; any workflow can call any aggregator.</p>
+
+        <h2 id="cache-architecture">Cache Architecture</h2>
+        <p>Tiered in-memory cache with TTLs matched to data volatility:</p>
+
+        <table>
+          <thead>
+            <tr><th>Cache</th><th>TTL</th><th>Key Strategy</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Bearer token</td><td>3.5 hours</td><td>Single global token</td></tr>
+            <tr><td>KB entries</td><td>1 hour</td><td>Per-QID</td></tr>
+            <tr><td>VMDR detections</td><td>5 minutes</td><td>Per severity_days_qds_min</td></tr>
+            <tr><td>QDS scores</td><td>5 minutes</td><td>Per-QID</td></tr>
+            <tr><td>WAS findings</td><td>10 minutes</td><td>Per query params</td></tr>
+            <tr><td>Scanner list</td><td>5 minutes</td><td>Single global list</td></tr>
+            <tr><td>ETM results</td><td>1 hour</td><td>Single global (unfiltered)</td></tr>
+          </tbody>
+        </table>
+
+        <p>Cache warmup runs on startup via a background thread (<code>_warmup_vmdr_cache()</code>) so the first real query hits warm caches.</p>
 
         <h2 id="request-deduplication">Request Deduplication</h2>
-        <p>When multiple tool calls fire concurrently (e.g., inside <code>get_morning_report</code>), they may request the same underlying data. The <code>_get_or_fetch</code> pattern uses per-key locks to ensure only one thread fetches while others wait for the result:</p>
-<pre><code>def _get_or_fetch(cache_key: str, fetch_fn, ttl: int = 300):
-    """Get from cache or fetch with request deduplication.
-
-    If two threads request the same uncached key simultaneously,
-    only one will fetch -- the other waits and gets the result.
-    """
-    # Fast path -- cache hit, no lock needed
+        <p>The <code>_get_or_fetch()</code> helper uses per-key locks to ensure that when multiple aggregators request the same data concurrently, only one thread makes the API call while others wait for the result:</p>
+<pre><code>def _get_or_fetch(cache_key, fetch_fn, ttl=300):
+    # Fast path -- cache hit
     hit, data = _cache_get(cache_key)
     if hit:
         return data
 
-    # Slow path -- serialize with per-key lock
-    if cache_key not in FETCH_LOCKS:
-        FETCH_LOCKS[cache_key] = Lock()
-
+    # Slow path -- per-key lock, double-check
     with FETCH_LOCKS[cache_key]:
-        # Double-check after acquiring lock
         hit, data = _cache_get(cache_key)
         if hit:
             return data
-
-        # Actually fetch
         data = fetch_fn()
-        if data is not None:
-            _cache_set(cache_key, data, ttl)
+        _cache_set(cache_key, data, ttl)
         return data</code></pre>
-        <p>This double-check locking pattern prevents duplicate API calls when the same data is requested by parallel threads within <code>_run_concurrent()</code>.</p>
 
         <h2 id="concurrency-model">Concurrency Model</h2>
-        <p>The server uses <code>ThreadPoolExecutor(max_workers=8)</code> via the <code>_run_concurrent()</code> helper to parallelize independent API calls within a single tool invocation. Not all tools benefit from concurrency &mdash; some make only one API call.</p>
-
-        <h3>Tools Using Concurrent Execution</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>Tool</th>
-              <th>Parallel Calls</th>
-              <th>What Runs in Parallel</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><code>get_morning_report</code></td>
-              <td>6</td>
-              <td>Detections, KB lookups, threat intel, new vulns, scanner health, ETM</td>
-            </tr>
-            <tr>
-              <td><code>get_weekly_priorities</code></td>
-              <td>9</td>
-              <td>CSAM queries across risk tiers, EOL, criticality buckets</td>
-            </tr>
-            <tr>
-              <td><code>get_security_posture</code></td>
-              <td>10</td>
-              <td>CSAM counts, cloud connectors, container stats, risk distribution</td>
-            </tr>
-            <tr>
-              <td><code>get_patch_status</code></td>
-              <td>Concurrent</td>
-              <td>Risk distribution and remediation queries</td>
-            </tr>
-            <tr>
-              <td><code>get_eliminate_status</code></td>
-              <td>Concurrent</td>
-              <td>Patch jobs, mitigation jobs, catalog lookups</td>
-            </tr>
-            <tr>
-              <td><code>get_image_vulns</code></td>
-              <td>2</td>
-              <td>Image details + vulnerability list</td>
-            </tr>
-            <tr>
-              <td><code>get_tech_debt</code></td>
-              <td>Concurrent</td>
-              <td>OS lifecycle + hardware queries</td>
-            </tr>
-            <tr>
-              <td><code>get_cloud_risk</code></td>
-              <td>3</td>
-              <td>AWS, Azure, GCP connector fetches in parallel</td>
-            </tr>
-            <tr>
-              <td><code>get_recommendations</code></td>
-              <td>Concurrent</td>
-              <td>Parallel provider and posture queries</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <h3>Sequential Tools</h3>
-        <p>Tools that make a single API call or require serial data dependencies run sequentially: <code>investigate_cve</code>, <code>get_qid_details</code>, <code>get_new_vulns</code>, <code>get_webapp_vulns</code>, <code>get_expiring_certs</code>, <code>get_edr_events</code>, <code>get_fim_events</code>, and others.</p>
-
-        <h2 id="tool-routing">Tool Routing</h2>
-        <p>There is no explicit router or coordinator tool. Instead, the LLM selects tools based on enhanced docstrings that include routing hints. Each tool docstring follows a pattern that tells the LLM when to use it and when not to:</p>
-<pre><code>"""[Risk Management] Weekly top risks...
-Use when asked: 'what should we fix this week', 'top vulnerabilities',
-'prioritize', 'what are our biggest risks', 'what to patch first'
-NOT for: single CVE lookups (use investigate_cve),
-morning updates (use get_morning_report)
-"""</code></pre>
-        <p>This approach avoids the latency of a meta-routing layer while giving the LLM enough context to pick the right tool on the first attempt.</p>
-
-        <h3>Aggregator Tools</h3>
-        <p>Three tools act as aggregators, combining data from multiple sources in a single call:</p>
-        <ul>
-          <li><strong><code>get_asset(detail="full")</code></strong> &mdash; Combines CSAM metadata, ETM confirmed findings, and VMDR host detections for a single asset via parallel calls (~5-8s cold, ~2s warm).</li>
-          <li><strong><code>get_morning_report(quick=True)</code></strong> &mdash; Fast all-CSAM environment snapshot (&lt;3s): total assets, OS breakdown, cloud split, EOL counts, criticality distribution.</li>
-          <li><strong><code>get_risk_by_tag(tag)</code></strong> &mdash; Risk distribution for a tagged asset group: count, risk tiers, top risky assets, EOL count via parallel CSAM queries (~3s).</li>
-        </ul>
+        <p><code>ThreadPoolExecutor(max_workers=8)</code> via <code>_run_concurrent()</code> parallelizes independent API calls within a single workflow invocation. Each workflow dispatches its aggregator calls concurrently, and cloud provider fetches (AWS, Azure, GCP) run in parallel rather than sequentially.</p>
 
         <h2 id="performance-budget">Performance Budget</h2>
-        <p>The target is a 10-second total response time for any single tool call. The budget breaks down as follows:</p>
+        <p>Target: all tool responses under 15 seconds. Measured performance:</p>
         <table>
           <thead>
-            <tr>
-              <th>Phase</th>
-              <th>Budget</th>
-              <th>What Happens</th>
-            </tr>
+            <tr><th>Tool</th><th>Typical Latency</th><th>Notes</th></tr>
           </thead>
           <tbody>
-            <tr>
-              <td>Token check</td>
-              <td>0ms</td>
-              <td>Memory lookup</td>
-            </tr>
-            <tr>
-              <td>Parallel API calls</td>
-              <td>3&ndash;8s</td>
-              <td>Actual Qualys API calls</td>
-            </tr>
-            <tr>
-              <td>Data processing</td>
-              <td>&lt;0.5s</td>
-              <td>XML/JSON parsing</td>
-            </tr>
-            <tr>
-              <td>Response assembly</td>
-              <td>&lt;0.1s</td>
-              <td>Dict construction</td>
-            </tr>
+            <tr><td><code>security_overview</code> (quick)</td><td>~1.7s</td><td>CSAM-heavy, all cached</td></tr>
+            <tr><td><code>check_compliance</code> (cached)</td><td>~2ms</td><td>Cached compliance data</td></tr>
+            <tr><td><code>assess_risk</code> (containers)</td><td>~3s</td><td>Container image scan</td></tr>
+            <tr><td><code>investigate</code> (CVE, standard)</td><td>~8-15s</td><td>KB + CSAM + threat intel</td></tr>
+            <tr><td><code>investigate</code> (CVE, deep)</td><td>~15-45s</td><td>All sources + summary</td></tr>
           </tbody>
         </table>
-        <p>Key bottleneck mitigations:</p>
-        <ul>
-          <li><strong>VMDR classic API (~2min)</strong> &mdash; Use ETM instead for detection queries. Cached ETM reports return in &lt;1s.</li>
-          <li><strong>ETM report creation (~1-5min)</strong> &mdash; Always cache the last completed report with a 1-hour TTL.</li>
-          <li><strong>Cloud evaluation loops (~10s)</strong> &mdash; Parallelize provider fetches across AWS, Azure, and GCP.</li>
-          <li><strong>WAS findings</strong> &mdash; 10-minute cache on <code>get_webapp_vulns</code>.</li>
-        </ul>
 
         <div class="page-nav">
           <a href="../examples/index.html">
@@ -295,10 +166,11 @@ morning updates (use get_morning_report)
         <div class="toc-title">On this page</div>
         <ul>
           <li><a href="#system-overview">System Overview</a></li>
+          <li><a href="#workflow-layer">Workflow Layer</a></li>
+          <li><a href="#aggregator-layer">Aggregator Layer</a></li>
           <li><a href="#cache-architecture">Cache Architecture</a></li>
           <li><a href="#request-deduplication">Request Deduplication</a></li>
           <li><a href="#concurrency-model">Concurrency Model</a></li>
-          <li><a href="#tool-routing">Tool Routing</a></li>
           <li><a href="#performance-budget">Performance Budget</a></li>
         </ul>
       </aside>

@@ -8,12 +8,12 @@ Qualys has **six distinct query syntaxes** across its APIs. Each module uses a d
 
 | Module | Syntax | Used In |
 |--------|--------|---------|
-| ETM | QQL string | `get_etm_findings(qql=...)` |
-| CSAM v2 | JSON filter objects | `csam_search()`, `csam_count()`, `get_asset_inventory()` |
-| VMDR Classic | URL query parameters | `get_detections()`, `get_new_vulns()` |
-| WAS/QPS | XML `<Criteria>` body | `get_was_findings()`, `get_webapp_vulns()` |
-| Container Security | URL filter string | `get_images()`, `get_containers()` |
-| TotalCloud/CDR | URL query params | `get_cloud_risk(include_threats=True)`, `get_connectors()` |
+| ETM | QQL string | `investigate()`, `security_overview()` |
+| CSAM v2 | JSON filter objects | `assess_risk()`, `security_overview()` |
+| VMDR Classic | URL query parameters | `investigate()` (KB lookups, detections) |
+| WAS/QPS | XML `<Criteria>` body | `assess_risk(scope="web")` |
+| Container Security | URL filter string | `assess_risk(scope="containers")` |
+| TotalCloud/CDR | URL query params | `assess_risk(scope="cloud")` |
 
 ---
 
@@ -139,7 +139,7 @@ asset.name='server-prod-db-01'
 ### ETM API Usage
 
 ```python
-# In get_etm_findings:
+# Used internally by investigate() and security_overview():
 body = {
     "filter": "vulnerabilities.vulnerability.cveIds:CVE-2021-44228",
     "pageSize": 50
@@ -628,7 +628,7 @@ Filter fields:
 
 ## Adding QQL Support to Tool Descriptions
 
-When adding QQL support to `get_etm_findings`, include this in the docstring:
+QQL is used internally by the `investigate` and `security_overview` tools. Example syntax for the `qql` parameter in `security_overview()`:
 
 ```python
 """

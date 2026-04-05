@@ -1,481 +1,71 @@
-# Qualys MCP — Example Q&A Pairs
+# Qualys MCP v0.1.0 -- Example Q&A Pairs
 
-These examples show how real security questions map to MCP tool calls. Use this as a guide when building prompts or asking an AI assistant.
-
----
-
-## Daily Operations
-
-```
-Q: What happened overnight? Any new threats I should know about?
-→ get_morning_report()
-
-Q: What should my team focus on this week?
-→ get_weekly_priorities()
-
-Q: Give me our overall security posture — how are we doing?
-→ get_security_posture()
-
-Q: What new vulnerabilities dropped in the last 7 days?
-→ get_new_vulns(days=7)
-
-Q: What new Critical vulnerabilities showed up this month?
-→ get_new_vulns(days=30)
-
-Q: What should we improve in our security program?
-→ get_recommendations()
-```
+These examples show how real security questions map to the 7 workflow tools.
 
 ---
 
-## CVE Investigation
+## Investigation
 
 ```
 Q: Are we affected by Log4Shell?
-→ investigate_cve(cve="CVE-2021-44228")
+-> investigate(target="CVE-2021-44228")
 
-Q: Show me everything about CVE-2024-3400
-→ investigate_cve(cve="CVE-2024-3400")
+Q: Tell me everything about CVE-2024-3400
+-> investigate(target="CVE-2024-3400", depth="deep")
 
-Q: Is PrintNightmare still in our environment?
-→ investigate_cve(cve="CVE-2021-34527")
+Q: Are we exposed to Lazarus Group?
+-> investigate(target="Lazarus Group")
 
-Q: Tell me about these three CVEs
-→ get_cve_details(cves="CVE-2024-1234,CVE-2024-5678,CVE-2024-9012")
+Q: What ransomware vulnerabilities exist in our environment?
+-> investigate(target="ransomware", threat_type="Ransomware")
 
-Q: Compare CVE-2023-44487 and CVE-2024-3400 — which is worse for us?
-→ get_cve_details(cves="CVE-2023-44487,CVE-2024-3400")
+Q: What's happening on 10.0.0.1?
+-> investigate(target="10.0.0.1", scope="all")
 
-Q: What do we know about CVE-2024-21413? What's the patch?
-→ investigate_cve(cve="CVE-2024-21413")
-```
-
----
-
-## Threat Intelligence
-
-```
-Q: What vulnerabilities have active ransomware associations?
-→ get_threat_intel(threat_type="Ransomware")
-
-Q: Show me vulns with public exploits in the wild
-→ get_threat_intel(threat_type="Exploit_Public")
-
-Q: What zero-days are we currently exposed to?
-→ get_threat_intel(threat_type="Active_Attacks")
-
-Q: Which of our vulns are in the CISA Known Exploited list?
-→ get_threat_intel(threat_type="Cisa_Known_Exploited_Vulns")
-
-Q: Show me all wormable vulnerabilities in our environment
-→ get_threat_intel(threat_type="Wormable")
-
-Q: Which vulns could lead to remote code execution?
-→ get_threat_intel(threat_type="Remote_Code_Execution")
-
-Q: What privilege escalation vulnerabilities are we exposed to?
-→ get_threat_intel(threat_type="Privilege_Escalation")
-
-Q: What's our threat exposure from the last 2 weeks?
-→ get_threat_intel(days=14)
-```
-
----
-
-## QID Lookups
-
-```
-Q: What is QID 105233?
-→ get_qid_details(qids="105233")
-
-Q: Show me details for these QIDs
-→ get_qid_details(qids="105233,91360,376267")
-
-Q: Which assets have QID 376267?
-→ get_qid_details(qids="376267")
-```
-
----
-
-## Software-Specific Vulnerabilities
-
-```
 Q: What vulnerabilities affect Apache in our environment?
-→ get_vulns_by_software(software="Apache")
+-> investigate(target="Apache", software="Apache")
 
-Q: Show me all Log4j vulnerabilities
-→ get_vulns_by_software(software="log4j")
+Q: Show me EDR events for the past week
+-> investigate(target="endpoint threats", scope="edr", days=7)
 
-Q: Are we running any vulnerable versions of OpenSSL?
-→ get_vulns_by_software(software="OpenSSL")
-
-Q: What VMware ESXi vulnerabilities do we have?
-→ get_vulns_by_software(software="VMware ESXi")
-
-Q: Show me all Microsoft Office vulnerabilities
-→ get_vulns_by_software(software="Microsoft Office")
-
-Q: What vulnerabilities exist for our Cisco devices?
-→ get_vulns_by_software(software="Cisco")
-
-Q: Show me all Chrome and Edge vulnerabilities
-→ get_vulns_by_software(software="Chrome")
+Q: Were there any suspicious file changes on production servers?
+-> investigate(target="production", scope="fim", days=1)
 ```
 
 ---
 
-## Asset Risk
+## Risk Assessment
 
 ```
-Q: Why is asset 233946644 showing up as high risk?
-→ get_asset(asset_id="233946644")
+Q: What's our overall risk posture?
+-> assess_risk()
 
-Q: Walk me through the risk profile for server prod-web-01
-→ get_asset(asset_id="<id for prod-web-01>")
+Q: Show me cloud risk in AWS
+-> assess_risk(scope="cloud", provider="aws")
 
-Q: How many EOL systems do we have? What are they?
-→ get_tech_debt()
+Q: What are our top risky assets?
+-> assess_risk(scope="assets", sort_by="trurisk")
 
-Q: Which Windows 2012 servers are still in our environment?
-→ get_tech_debt()
-```
+Q: Container image vulnerabilities
+-> assess_risk(scope="containers")
 
----
+Q: Which certificates are expiring soon?
+-> assess_risk(scope="certs", days=30)
 
-## Aggregator Tools
+Q: Show me EOL systems
+-> assess_risk(scope="assets", eol_only=True)
 
-### Full Asset Profile
+Q: Risk breakdown for our Production environment
+-> assess_risk(tag="Production", breakdown_by="tag")
 
-```
-Q: Give me everything on asset 233946644 — risk, vulns, detections, the works
-→ get_asset(asset_id="233946644", detail="full")
+Q: Web application vulnerabilities in customer-portal
+-> assess_risk(scope="web", app_name="customer-portal")
 
-Q: I need to build a remediation ticket for prod-db-01. What's the full picture?
-→ get_asset(asset_id="<id for prod-db-01>", detail="full")
+Q: Any weak ciphers or TLS 1.0 usage?
+-> assess_risk(scope="certs", weak_ciphers=True, protocol_filter="TLSv1.0")
 
-Q: What ETM findings and VMDR detections does this asset have?
-→ get_asset(asset_id="<assetId>", detail="full")
-```
-
-Combines CSAM metadata (OS, IP, software, EOL), ETM confirmed findings (QDS, CVSS, patch status), and VMDR host detections in a single parallel call (~5-8s cold, ~2s warm). Use assetId from `get_weekly_priorities`, `get_asset`, or `get_etm_findings`.
-
-### Risk by Tag
-
-```
-Q: How's our Production environment looking risk-wise?
-→ get_risk_by_tag(tag="Production")
-
-Q: What's the risk exposure in our PCI scope?
-→ get_risk_by_tag(tag="PCI")
-
-Q: Show me the top 20 riskiest DMZ assets
-→ get_risk_by_tag(tag="DMZ", limit=20)
-
-Q: How many critical-risk assets are in our AWS environment?
-→ get_risk_by_tag(tag="AWS")
-```
-
-Returns asset count, risk tier distribution (TruRisk > 900/700/500), top risky assets, and EOL count — all from parallel CSAM queries (~3s).
-
-### Environment Summary
-
-```
-Q: What does our environment look like?
-→ get_morning_report(quick=True)
-
-Q: Quick health check — how many assets, what OS mix, cloud vs on-prem?
-→ get_morning_report(quick=True)
-
-Q: I'm new here. Give me the lay of the land.
-→ get_morning_report(quick=True)
-```
-
-Fast all-CSAM snapshot (<3s): total assets, OS family breakdown, cloud provider split, EOL counts, criticality distribution. Use this first for orientation, then drill into `get_weekly_priorities` or `get_risk_by_tag` for details.
-
----
-
-## Patching
-
-```
-Q: What's our overall patching coverage?
-→ get_patch_status()
-
-Q: Which assets have the most missing patches?
-→ get_patch_status()
-
-Q: What are the highest-priority patches we should deploy?
-→ get_patch_status()
-```
-
----
-
-## TruRisk Eliminate
-
-```
-Q: What's the status of our Eliminate program?
-→ get_eliminate_status()
-
-Q: How many vulnerabilities have we mitigated vs patched?
-→ get_eliminate_status()
-
-Q: Are there any active patch or mitigation jobs?
-→ get_eliminate_status()
-
-Q: What's in our Eliminate mitigation catalog?
-→ get_eliminate_status()
-```
-
----
-
-## ETM Findings
-
-```
-Q: Show me all confirmed findings across our environment
-→ get_etm_findings()
-
-Q: What confirmed findings have the highest QDS scores?
-→ get_etm_findings()
-
-Q: Show me ETM findings for our web servers (using QQL)
-→ get_etm_findings(qql="asset.tags.name:'Web Servers'")
-
-Q: Pull the ETM report
-→ get_etm_findings(report_id="<report_id>")
-```
-
----
-
-## Cloud Security
-
-```
-Q: What's our cloud security posture?
-→ get_cloud_risk()
-
-Q: How many CIS controls are failing in AWS?
-→ get_cloud_risk()
-
-Q: What cloud threats were detected this week?
-→ get_cloud_risk(include_threats=True, days=7)
-
-Q: Show me critical CDR findings in AWS
-→ get_cloud_risk(include_threats=True, severity="CRITICAL", cloud_provider="AWS")
-
-Q: Are there any crypto-miners detected in our cloud?
-→ get_cloud_risk(include_threats=True, days=30)
-
-Q: Show me Azure threat detections from last month
-→ get_cloud_risk(include_threats=True, days=30, cloud_provider="AZURE")
-```
-
----
-
-## Container Security
-
-```
-Q: What vulnerabilities are in our production container images?
-→ get_image_vulns(image_id="<production_image_id>")
-
-Q: Show me all Critical vulns in the nginx:latest image
-→ get_image_vulns(image_id="<nginx_image_id>", limit=20)
-```
-
----
-
-## Scanner Health
-
-```
-Q: Are all my scanners healthy?
-→ get_scanner_health()
-
-Q: Which scanners are offline or out of date?
-→ get_scanner_health()
-
-Q: When did each scanner last update its signatures?
-→ get_scanner_health()
-```
-
----
-
-## Web Application Security
-
-```
-Q: What web application vulnerabilities were found this week?
-→ get_webapp_vulns(days=7)
-
-Q: Show me all Critical web app findings
-→ get_webapp_vulns(severity=5)
-
-Q: Show me all WAS findings for customer-portal
-→ get_webapp_vulns(app_name="customer-portal")
-
-Q: What web app vulns do we have across all apps?
-→ get_webapp_vulns(severity=0, days=30)
-
-Q: Are any of our web apps vulnerable to SQL injection?
-→ get_webapp_vulns(owasp_category="Injection")
-
-Q: Show me the OWASP Top 10 breakdown for the last quarter
-→ get_webapp_vulns(severity=0, days=90)
-
-Q: Which web apps have the most critical vulnerabilities?
-→ get_webapp_vulns(severity=4)
-# Check the byWebApp field in the response — sorted by critical count
-
-Q: Any XSS findings on our API gateway this month?
-→ get_webapp_vulns(app_name="api", owasp_category="XSS", days=30)
-```
-
----
-
-## Certificate Monitoring
-
-```
-Q: Which SSL certs expire in the next 30 days?
-→ get_expiring_certs(days=30)
-
-Q: Are any certificates already expired?
-→ get_expiring_certs(include_expired=True)
-
-Q: Show me all certs expiring in the next 90 days
-→ get_expiring_certs(days=90)
-
-Q: Which certs use weak algorithms like SHA1?
-→ get_expiring_certs(weak_only=True)
-
-Q: Show me all self-signed certificates
-→ get_expiring_certs(weak_only=True)
-
-Q: Are any servers still using TLS 1.0?
-→ get_expiring_certs(weak_only=True)
-
-Q: Which servers have weak cipher suites or key sizes?
-→ get_expiring_certs(weak_only=True)
-
-Q: Give me a full certificate health report
-→ get_expiring_certs(days=90, include_expired=True)
-```
-
----
-
-## EDR / Endpoint Detection
-
-```
-Q: What malware was detected this week?
-→ get_edr_events(days=7)
-
-Q: Show me all critical endpoint threat detections
-→ get_edr_events(severity="CRITICAL")
-
-Q: Are any hosts showing ransomware behavior?
-→ get_edr_events(category="ransomware", days=30)
-
-Q: Show me all EDR events for host DESKTOP-ABC123
-→ get_edr_events(host="DESKTOP-ABC123")
-
-Q: Show me C2 beaconing detections this month
-→ get_edr_events(category="c2", days=30)
-```
-
-### Expected output shape
-
-```json
-{
-  "summary": {
-    "total": 23,
-    "critical": 2,
-    "high": 8,
-    "medium": 13,
-    "low": 0,
-    "affectedHosts": 7
-  },
-  "byCategory": {
-    "Malware": 5,
-    "Suspicious Process": 12,
-    "C2": 1,
-    "Lateral Movement": 5
-  },
-  "topHosts": [
-    {"hostname": "DESKTOP-ABC123", "eventCount": 9},
-    {"hostname": "prod-web-01", "eventCount": 4}
-  ],
-  "events": [
-    {
-      "id": "evt-123",
-      "severity": "CRITICAL",
-      "category": "Malware",
-      "name": "Emotet Trojan",
-      "hostname": "DESKTOP-ABC123",
-      "ip": "10.0.1.45",
-      "user": "jsmith",
-      "process": "svchost.exe",
-      "timestamp": "2024-03-12T03:22:00Z"
-    }
-  ]
-}
-```
-
-Severity labels are normalized: `1`→`LOW`, `2`→`MEDIUM`, `3`→`HIGH`, `4/5`→`CRITICAL`.
-
----
-
-## File Integrity Monitoring
-
-```
-Q: What file changes happened on production servers today?
-→ get_fim_events(days=1, host="prod")
-
-Q: Which critical system files were modified this week?
-→ get_fim_events(days=7, severity="CRITICAL")
-
-Q: Were there any off-hours config file changes last night?
-→ get_fim_events(days=1, path="/etc")
-   Look for events with offHours: true in the response.
-
-Q: Show me all FIM events for /etc/passwd
-→ get_fim_events(path="/etc/passwd", days=7)
-```
-
-The response includes a `summary` with total/modified/created/deleted counts, `topHosts` ranked by event count, and `criticalChanges` for system-critical paths (/etc/passwd, /etc/shadow, /etc/sudoers, /etc/hosts, /boot, registry keys). Events outside 08:00–18:00 are flagged with `offHours: true`.
-
-Example response shape:
-```json
-{
-  "summary": {"total": 847, "critical": 12, "high": 45, "affectedHosts": 23, "modified": 634, "created": 156, "deleted": 57},
-  "topHosts": [{"hostname": "prod-db-01", "eventCount": 234}],
-  "criticalChanges": [
-    {"hostname": "prod-web-01", "path": "/etc/passwd", "action": "MODIFIED", "timestamp": "2025-01-15T03:22:00Z", "user": "root", "offHours": true}
-  ]
-}
-```
-
----
-
-## Remediation Workflow
-
-```
-Q: What remediation tickets are currently open?
-→ get_remediation_tickets(status="OPEN")
-
-Q: Show me all overdue remediation tickets
-→ get_remediation_tickets(overdue=True)
-
-Q: What tickets are assigned to jsmith?
-→ get_remediation_tickets(assignee="jsmith")
-
-Q: Create a remediation ticket for QID 376267 on asset 233946644
-→ create_remediation_ticket(qid="376267", asset_id="233946644", assignee="jsmith")
-
-Q: What's our SLA compliance rate?
-→ get_sla_status()
-
-Q: What's our mean time to remediate?
-→ get_sla_status()
-
-Q: How quickly are we fixing critical vulnerabilities?
-→ get_sla_status()
-
-Q: Which overdue tickets are the highest severity?
-→ get_remediation_tickets(overdue=True)
+Q: Why is asset 233946644 high risk?
+-> assess_risk(asset_id="233946644")
 ```
 
 ---
@@ -483,247 +73,163 @@ Q: Which overdue tickets are the highest severity?
 ## Compliance
 
 ```
-Q: What's our CIS Benchmark compliance score?
-→ get_compliance_posture(framework="CIS")
+Q: Are we PCI compliant?
+-> check_compliance(framework="PCI")
 
-Q: Show me all failing PCI-DSS controls
-→ get_compliance_posture(framework="PCI-DSS")
+Q: Show me all failing CIS controls
+-> check_compliance(framework="CIS")
 
-Q: What's our Linux policy compliance rate?
-→ get_compliance_posture(platform="Linux")
+Q: HIPAA compliance posture
+-> check_compliance(framework="HIPAA")
 
-Q: Which systems are failing the most compliance checks?
-→ get_compliance_posture()
+Q: What risk acceptances are expiring soon?
+-> check_compliance(include_exceptions=True, days_to_expiry=30)
+
+Q: What frameworks do we have?
+-> check_compliance()
+
+Q: Linux compliance rate
+-> check_compliance(platform="linux")
 ```
 
 ---
 
-## Patch Management
+## Remediation Planning
 
 ```
-Q: Show me active patch deployment jobs
-→ get_eliminate_status()
+Q: What should we patch first?
+-> plan_remediation()
 
-Q: What Windows patches are outstanding?
-→ get_eliminate_status(platform="Windows")
+Q: Outstanding Windows patches
+-> plan_remediation(scope="patches", platform="windows")
 
-Q: What's our patch coverage for Linux?
-→ get_eliminate_status(platform="Linux")
+Q: Is there a mitigation for CVE-2024-3400?
+-> plan_remediation(scope="mitigations", cves=["CVE-2024-3400"])
 
-Q: Show me failed patch jobs from the last week
-→ get_eliminate_status(status="Failed", days=7)
+Q: Patch deployment status
+-> plan_remediation(scope="patches", status="Running")
 
-Q: Give me patch status across all platforms
-→ get_eliminate_status(platform="all")
+Q: What's missing from our security program?
+-> plan_remediation(scope="program")
 
-Q: What's running right now for macOS patching?
-→ get_eliminate_status(platform="macOS", status="Running")
-```
-
----
-
-## Scan Management
-
-```
-Q: Show me all running scans right now
-→ get_scan_status(state="Running")
-
-Q: What scans failed in the last 24 hours?
-→ get_scan_status(state="Error", days=1)
-
-Q: Show me scan history for the past week
-→ get_scan_status(days=7)
-
-Q: Which scans are currently queued?
-→ get_scan_status(state="Queued")
-
-Q: Give me a full scan dashboard — active, queued, paused, and errors
-→ get_scan_status(state="Running,Paused,Queued,Error", days=7)
-
-Q: Any scan failures? Which scanners are involved?
-→ get_scan_status(state="Error", days=3)
-  (check failedScans list for scanner names, then follow up with get_scanner_health())
-
-Q: How many scans completed today?
-→ get_scan_status(days=1)
-  (check stats.completedToday in the response)
+Q: Critical severity patches only
+-> plan_remediation(severity="critical")
 ```
 
 ---
 
-## Asset Inventory
+## Security Overview
 
 ```
-Q: Show me all Windows assets
-→ get_asset_inventory(os="Windows")
+Q: Morning security briefing
+-> security_overview(period="today")
 
-Q: Which assets are tagged as production?
-→ get_asset_inventory(tag="production")
+Q: What happened this week?
+-> security_overview(period="week")
 
-Q: Show me all EOL assets
-→ get_asset_inventory(eol_only=True)
+Q: Quick environment snapshot
+-> security_overview(quick=True)
 
-Q: Find assets matching "web-server"
-→ get_asset_inventory(query="web-server")
+Q: Any new critical vulns today?
+-> security_overview(period="today", severity="5")
 
-Q: Which assets haven't been seen in 90 days?
-→ get_asset_inventory(days_since_seen=90)
+Q: Scanner status
+-> security_overview(scope="infrastructure")
 
-Q: Show me stale Linux servers
-→ get_asset_inventory(os="Linux", days_since_seen=60)
-```
-
----
-
-## Vulnerability Exceptions
-
-```
-Q: What vulnerability exceptions do we have?
-→ get_vuln_exceptions()
-
-Q: Which exceptions are expiring in the next 30 days?
-→ get_vuln_exceptions(days_to_expiry=30)
-
-Q: Show me all false positive exceptions
-→ get_vuln_exceptions(vuln_type="false_positive")
+Q: Monthly security summary
+-> security_overview(period="month")
 ```
 
 ---
 
-## Multi-Tool Workflows
-
-Some questions are best answered by combining multiple tools:
+## Reports
 
 ```
-Q: We got a security alert about a new critical CVE. What do I need to know?
-→ 1. investigate_cve(cve="CVE-XXXX-XXXX")    — Are we affected? How many assets?
-→ 2. get_threat_intel()                       — Is it actively exploited?
-→ 3. get_patch_status()                       — Is there a patch? What's our coverage?
+Q: List all available reports
+-> reports(action="list")
 
-Q: Prepare me for the weekly security standup.
-→ 1. get_morning_report()                     — What's new since last week?
-→ 2. get_weekly_priorities()                  — What should the team work on?
-→ 3. get_eliminate_status()                   — How is remediation progressing?
+Q: Show me report templates
+-> reports(action="templates")
 
-Q: We're about to go through a PCI-DSS audit. Where do we stand?
-→ 1. get_security_posture()                   — Overall risk posture
-→ 2. get_cloud_risk()                         — Cloud compliance status
-→ 3. get_tech_debt()                          — EOL systems (fails PCI-DSS)
-→ 4. get_compliance_posture(framework="PCI-DSS")  — Policy compliance pass/fail rates
-→ 5. get_expiring_certs()                     — Cert expiry and weak algorithms
+Q: Generate a PDF report using template 12345
+-> reports(action="generate", template_id="12345", output_format="pdf")
 
-Q: Is our cloud environment secure?
-→ 1. get_cloud_risk()                         — Misconfig / CIS benchmark failures
-→ 2. get_cloud_risk(include_threats=True, days=30) — Active cloud threats
-→ 3. get_security_posture()                   — Cloud stats in overall posture
+Q: Check report status
+-> reports(action="status", report_id="67890")
 
-Q: I need to brief the CISO on our security program.
-→ 1. get_security_posture()                   — Health score, risk distribution
-→ 2. get_threat_intel()                       — Active threat exposure
-→ 3. get_weekly_priorities()                  — Top risks by TruRisk
-→ 4. get_patch_status()                       — Patching coverage
-→ 5. get_recommendations()                    — Improvement opportunities
+Q: Download report
+-> reports(action="download", report_id="67890")
+```
+
+---
+
+## Cache Management
+
+```
+Q: What's cached right now?
+-> cache_status()
+
+Q: Clear all caches
+-> cache_status(clear=True)
 ```
 
 ---
 
 ## Multi-turn Conversation Examples
 
-These examples show how context carries across multiple turns, allowing follow-up questions to refine results without repeating filters.
-
-### Filter Chaining
-
-```
-Turn 1: "Show me vulnerabilities for assets tagged env:prod"
-  → search_vulns() + get_asset_inventory(tag="env:prod")
-  Context: tag=env:prod
-
-Turn 2: "Now filter to critical severity only"
-  → search_vulns(threat_type=...) with tag=env:prod still applied
-  Context: tag=env:prod, severity=Critical
-
-Turn 3: "Which of those have patches available?"
-  → search_vulns() or get_patch_status() — tag + severity preserved
-  Context: tag=env:prod, severity=Critical, patch_available=true
-```
-
 ### CVE Investigation Drilldown
 
 ```
 Turn 1: "Are we affected by Log4Shell?"
-  → investigate_cve(cve="CVE-2021-44228")
-  Context: cve=CVE-2021-44228
+  -> investigate(target="CVE-2021-44228")
 
-Turn 2: "How many assets are affected?"
-  → get_etm_findings(qql="...CVE-2021-44228") — CVE preserved
-  Context: cve=CVE-2021-44228, scope=affected_assets
+Turn 2: "What's the risk for our production assets?"
+  -> assess_risk(tag="Production")
 
-Turn 3: "Show me only the production ones"
-  → get_asset_inventory(tag="Production") — CVE + prod filter
-  Context: cve=CVE-2021-44228, tag=Production
+Turn 3: "What patches are available?"
+  -> plan_remediation(cves=["CVE-2021-44228"])
 ```
 
-### Asset Drilldown
+### Security Standup Prep
 
 ```
-Turn 1: "What are our riskiest assets?"
-  → get_weekly_priorities()
+Turn 1: "Give me the morning briefing"
+  -> security_overview(period="today")
 
-Turn 2: "Tell me more about asset 233946644"
-  → get_asset(asset_id="233946644", detail="full")
-  Context: asset_id=233946644
+Turn 2: "What should we prioritize this week?"
+  -> plan_remediation()
 
-Turn 3: "What patches does it need?"
-  → get_patch_status() or get_etm_findings() — asset_id preserved
-  Context: asset_id=233946644, focus=patches
+Turn 3: "How's our compliance?"
+  -> check_compliance()
 ```
 
-### Cross-Tool Context
+### PCI Audit Prep
 
 ```
-Turn 1: "Give me the morning security briefing"
-  → get_morning_report()
+Turn 1: "Are we PCI compliant?"
+  -> check_compliance(framework="PCI")
 
-Turn 2: "What threat intel on the ransomware vulns mentioned?"
-  → search_vulns(threat_type="Ransomware")
-  Context: threat_type=Ransomware
+Turn 2: "What's our cloud risk?"
+  -> assess_risk(scope="cloud")
 
-Turn 3: "Are any of those being actively exploited?"
-  → search_vulns(threat_type="Active_Attacks") — ransomware context preserved
+Turn 3: "Any expiring certificates?"
+  -> assess_risk(scope="certs", days=90)
 
-Turn 4: "What's our patch coverage for these?"
-  → get_patch_status() + get_eliminate_status() — threat context preserved
-```
-
-### Web App Vulnerability Drill
-
-```
-Turn 1: "What web app vulnerabilities were found this month?"
-  → get_webapp_vulns(days=30)
-  Context: days=30
-
-Turn 2: "Filter to SQL injection findings only"
-  → get_webapp_vulns(owasp_category="Injection", days=30)
-  Context: days=30, owasp_category=Injection
-
-Turn 3: "Which apps are affected?"
-  → get_webapp_vulns(...) — filters preserved, focus on per-app breakdown
+Turn 4: "Outstanding patches for PCI scope?"
+  -> plan_remediation(tag="PCI")
 ```
 
 ---
 
 ## Tips for AI Assistants
 
-- **For "what happened" questions** → Start with `get_morning_report()` or `get_new_vulns()`
-- **For specific CVE questions** → `investigate_cve()` gives full context; `get_cve_details()` for bulk
-- **For "what should we fix" questions** → `get_weekly_priorities()` ranks by TruRisk
-- **For full asset investigation** → `get_asset(asset_id=..., detail="full")` combines CSAM + ETM + VMDR in one call
-- **For asset-specific questions** → `get_asset(asset_id=...)` with the asset's numeric ID
-- **For tag-based risk** → `get_risk_by_tag(tag="...")` — risk tiers and top assets for a business unit or environment
-- **For environment orientation** → `get_morning_report(quick=True)` — fast snapshot before deeper analysis
-- **For cloud questions** → `get_cloud_risk()` for posture, `get_cloud_risk(include_threats=True)` for active threats
-- **For software vulnerability searches** → `get_vulns_by_software(software="<product name>")`
-- **For threat hunting** → `get_threat_intel(threat_type="<category>")` — see all available RTI tags
-- **For program health** → `get_security_posture()` → `get_recommendations()` → `get_scanner_health()`
-- **For remediation tracking** → `get_remediation_tickets()` for ticket status, `get_sla_status()` for MTTR and compliance
-- **For overdue items** → `get_remediation_tickets(overdue=True)` — include in morning reports
+- **For "what happened" questions** -> `security_overview(period="today")` or `security_overview(period="week")`
+- **For specific CVE questions** -> `investigate(target="CVE-XXXX-XXXX")`
+- **For "what should we fix" questions** -> `plan_remediation()`
+- **For risk posture questions** -> `assess_risk()` with appropriate scope
+- **For compliance questions** -> `check_compliance(framework="...")`
+- **For cloud/container/web/cert questions** -> `assess_risk(scope="cloud|containers|web|certs")`
+- **For threat hunting** -> `investigate(target="...", threat_type="Ransomware")`
+- **For asset-specific questions** -> `assess_risk(asset_id="...")`
+- **For environment orientation** -> `security_overview(quick=True)`
+- **For scanner/infrastructure health** -> `security_overview(scope="infrastructure")`
