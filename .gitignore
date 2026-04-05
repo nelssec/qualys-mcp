@@ -1,44 +1,24 @@
-# Binaries (only at root level)
-/qualys-mcp
-/mcp-gateway
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-
-# Test binaries
-*.test
-*.out
-
-# Go workspace
-go.work
-go.work.sum
-
-# Environment files
-.env
-.env.local
-
-# OS files
-.DS_Store
-__pycache__/
-
-# Eval results
-eval_results/
-
-# Build artifacts
-dist/
-*.egg-info/
+# Python
 __pycache__/
 *.pyc
 *.pyo
+*.egg-info/
+dist/
+build/
+.venv/
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+
+# Eval results
+eval_results/
+!eval_results/.gitkeep
+benchmark_results.json
 
 # Dev/internal
 devclaw/
 discovery/
-
-# Local test outputs
-benchmark_results.json
-eval_results/
-!eval_results/.gitkeep
-.venv/
