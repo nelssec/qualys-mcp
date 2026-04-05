@@ -36,6 +36,9 @@ eval = [
     "python-dotenv",
     "pyyaml",
 ]
+dev = [
+    "pytest>=7.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/nelssec/qualys-mcp"
@@ -44,11 +47,6 @@ Issues = "https://github.com/nelssec/qualys-mcp/issues"
 
 [project.scripts]
 qualys-mcp = "qualys_mcp:main"
-
-[project.optional-dependencies.dev]
-dev = [
-    "pytest>=7.0",
-]
 
 [tool.hatch.build.targets.wheel]
 packages = ["qualys", "."]
