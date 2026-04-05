@@ -201,10 +201,12 @@ def _summarize(data):
         rc_summary = rc.get("summary", {})
         running = rc_summary.get("totalRunning", 0) if isinstance(rc_summary, dict) else 0
         with_crit = rc_summary.get("withCriticalVulns", 0) if isinstance(rc_summary, dict) else 0
+        is_estimated = rc_summary.get("withCriticalVulnsEstimated", False) if isinstance(rc_summary, dict) else False
         if running:
             stats["runningContainers"] = running
             if with_crit:
-                findings.append(f"{with_crit} of {running} running containers have critical vulnerabilities")
+                approx = "~" if is_estimated else ""
+                findings.append(f"{approx}{with_crit} of {running} running containers have critical vulnerabilities")
             else:
                 findings.append(f"{running} running containers — none with critical vulnerabilities")
 
