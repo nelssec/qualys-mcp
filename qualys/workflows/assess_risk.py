@@ -21,6 +21,7 @@ from qualys.aggregators import (
     asset_inventory,
     asset_detail,
     saasdr_controls_agg,
+    totalai_summary,
 )
 from qualys.workflows import _dispatch, _build_envelope, _apply_detail
 

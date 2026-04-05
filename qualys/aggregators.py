@@ -5733,3 +5733,42 @@ def oci_resources_agg(resource_type: str = "INSTANCE", limit: int = 50, detail: 
     }
 
     return _apply_detail_level(_with_meta(result, 'resources', total), detail, list_keys=['resources'])
+
+
+# ---------------------------------------------------------------------------
+# TotalAI aggregator
+# ---------------------------------------------------------------------------
+
+def totalai_summary(detail: str = "standard") -> dict:
+    """AI security posture — AI/LLM vulnerability detections + AI asset inventory."""
+    result = {'aiVulnerabilities': 0, 'aiAssets': 0, 'modelDetections': None,
+              'detections': [], 'summary': ''}
+
+    concurrent = _run_concurrent(
+        ai_assets=lambda: csam_count([{"field": "software.name", "operator": "CONTAINS", "value": "GPT"}]),
+        llm_assets=lambda: csam_count([{"field": "software.name", "operator": "CONTAINS", "value": "LLM"}]),
+    )
+
+    gpt_count = concurrent.get('ai_assets') or 0
+    llm_count = concurrent.get('llm_assets') or 0
+    total_ai_assets = gpt_count + llm_count
+
+    result['aiAssets'] = total_ai_assets
+    result['gptAssets'] = gpt_count
+    result['llmAssets'] = llm_count
+
+    if total_ai_assets > 0:
+        result['summary'] = (
+            f"{total_ai_assets} AI/LLM-related assets detected ({gpt_count} GPT, {llm_count} LLM). "
+            "For TotalAI model detection results (jailbreaks, OWASP LLM Top 10, misalignment), "
+            "check the TotalAI module in the Qualys UI at TotalAI > Model Detections."
+        )
+    else:
+        result['summary'] = (
+            "No AI/LLM assets detected via CSAM software inventory. "
+            "TotalAI model detection data (jailbreaks, OWASP LLM Top 10) is available "
+            "in the Qualys UI but not yet exposed via public API."
+        )
+
+    result['_meta'] = {'returned': 1, 'total': 1, 'truncated': False}
+    return compact(result)
