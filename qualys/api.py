@@ -1304,6 +1304,38 @@ def get_was_findings(limit=100, severity=None, days=None, app_name=None):
     return _get_or_fetch(WAS_CACHE, WAS_CACHE_TIME, cache_key, _fetch, 600, disk_ttl=DISK_TTL_WAS)
 
 
+def _get_was_count():
+    """Get total count of ACTIVE WAS findings via count API."""
+    url = f"{BASE_URL}/qps/rest/3.0/count/was/finding"
+    body = '<ServiceRequest><filters><Criteria field="status" operator="EQUALS">ACTIVE</Criteria></filters></ServiceRequest>'
+    req = Request(url, data=body.encode(), method='POST')
+    req.add_header('Authorization', f'Basic {BASIC_AUTH}')
+    req.add_header('Content-Type', 'text/xml')
+    req.add_header('X-Requested-With', 'qualys-mcp')
+    try:
+        with _open(req, timeout=15) as resp:
+            data = json.loads(resp.read())
+            return data.get('ServiceResponse', {}).get('count', 0)
+    except Exception:
+        return 0
+
+
+def _get_was_webapp_count():
+    """Get total count of web apps via count API."""
+    url = f"{BASE_URL}/qps/rest/3.0/count/was/webapp"
+    body = '<ServiceRequest></ServiceRequest>'
+    req = Request(url, data=body.encode(), method='POST')
+    req.add_header('Authorization', f'Basic {BASIC_AUTH}')
+    req.add_header('Content-Type', 'text/xml')
+    req.add_header('X-Requested-With', 'qualys-mcp')
+    try:
+        with _open(req, timeout=15) as resp:
+            data = json.loads(resp.read())
+            return data.get('ServiceResponse', {}).get('count', 0)
+    except Exception:
+        return 0
+
+
 # ---------------------------------------------------------------------------
 # Patch Management & TruRisk Mitigate
 # ---------------------------------------------------------------------------
