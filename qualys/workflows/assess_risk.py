@@ -20,6 +20,7 @@ from qualys.aggregators import (
     tech_debt,
     asset_inventory,
     asset_detail,
+    saasdr_controls_agg,
 )
 from qualys.workflows import _dispatch, _build_envelope, _apply_detail
 
@@ -156,6 +157,14 @@ def _summarize(data):
             findings.append(f"{failed_ctrls} failing cloud controls ({pass_rate}% pass rate)" if pass_rate else f"{failed_ctrls} failing cloud controls")
         elif acct_count:
             findings.append(f"{acct_count} cloud accounts assessed — {pass_rate}% pass rate" if pass_rate else f"{acct_count} cloud accounts connected")
+
+    # SaaS Detection & Response
+    saas = data.get("saasdr_controls")
+    if isinstance(saas, dict):
+        saas_total = saas.get("totalControls", 0)
+        if saas_total:
+            findings.append(f"{saas_total} SaaS security controls configured")
+            stats["saasdrControls"] = saas_total
 
     # Cloud account summary
     cas = data.get("cloud_account_summary")
@@ -662,6 +671,7 @@ def assess_risk(
             limit=limit,
             detail=detail,
         )
+        plan["saasdr_controls"] = lambda: saasdr_controls_agg(limit=limit, detail=detail)
 
     # ------------------------------------------------------------------
     # Containers (scope "all" or "containers", or image_id set)
