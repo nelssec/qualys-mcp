@@ -2,7 +2,7 @@
 
 > ⚠️ **Unofficial project.** This is a personal project to showcase the viability of connecting AI assistants to Qualys via the Model Context Protocol. It is not affiliated with, endorsed by, or supported by Qualys, Inc.
 
-A lightweight MCP server that connects AI assistants to Qualys security data. **35 tools**, pure Python, zero config beyond credentials. Install with `uvx` and start asking security questions in plain English.
+An MCP server that connects AI assistants to Qualys security data. **7 workflow tools** covering vulnerability management, cloud security, containers, compliance, remediation, and more. Pure Python, zero config beyond credentials.
 
 **📖 [Full documentation →](https://qualys-mcp.netlify.app/)**
 
@@ -47,296 +47,140 @@ For environments with self-signed certs, add `"QUALYS_SSL_VERIFY": "false"` to t
 
 ## Tools
 
-35 tools covering vulnerability management, threat intelligence, asset risk, cloud security, containers, web application security, certificate monitoring, endpoint detection, file integrity monitoring, patch management, compliance, remediation workflow, aggregator tools, and security program coaching.
-
-### Daily Operations & Coaching
+7 workflow tools that intelligently dispatch to 42 internal aggregators across all Qualys modules. Each tool handles routing, concurrent API calls, cross-domain correlation, and response synthesis automatically.
 
 | Tool | What it answers |
 |------|----------------|
-| `get_morning_report` | What happened overnight? New vulns, ransomware/exploit flags, top risks, action items |
-| `get_recommendations` | What should we improve? Module gaps, risk reduction opportunities, prioritized next steps |
-| `get_eliminate_status` | What's our patching and mitigation status? Patch jobs, mitigation jobs, catalog coverage |
-| `get_etm_findings` | What confirmed vulnerabilities exist across all sources? ETM findings with QID, QDS, TruRisk, CVE, patch status |
-| `get_scanner_health` | Are our scanners healthy? Appliance status, failed scans, capacity utilization, signature updates |
+| `investigate` | Deep-dive any security topic — CVEs, threat actors, assets, EDR/FIM events, KB searches |
+| `assess_risk` | Cross-domain risk — VMs, cloud (AWS/Azure/GCP/OCI), containers, web apps, certificates, assets |
+| `check_compliance` | Compliance posture — PCI, HIPAA, CIS, NIST, SOC2 pass/fail, failing controls, exceptions |
+| `plan_remediation` | Patch priorities, deployment status, mitigation coverage, program gap analysis |
+| `security_overview` | Daily/weekly/monthly briefing — scanner health, scan status, vulnerability findings |
+| `reports` | Generate, list, download, and manage Qualys reports |
+| `cache_status` | View and clear API caches |
 
-### Security Posture & Priorities
+### Key Parameters
 
-| Tool | What it answers |
-|------|----------------|
-| `get_security_posture` | How secure are we overall? Health score, risk distribution, container and cloud stats |
-| `get_weekly_priorities` | What should my team fix this week? Top risk assets ranked by TruRisk |
-| `get_patch_status` | What's our patching coverage? Risk distribution and assets needing remediation |
-| `get_scan_status` | What scans are running, queued, paused, or failed? Duration, targets, scanner names, completion stats, and error details with scanner health suggestions |
-| `get_compliance_posture` | What's our policy compliance rate? Pass/fail by framework (PCI-DSS, CIS, NIST, HIPAA) |
+**investigate**
+- `target` — CVE ID, threat actor, hostname, IP, or free-text topic
+- `depth` — `quick` (~10s) / `standard` (~20s) / `deep` (~45s)
+- `scope` — `all` / `vulns` / `threats` / `assets` / `edr` / `fim`
 
-### Vulnerability Intelligence
+**assess_risk**
+- `scope` — `all` / `cloud` / `containers` / `web` / `certs` / `assets`
+- `tag` / `asset_group` — filter by business group
+- `provider` — `aws` / `azure` / `gcp` (cloud scope)
+- `asset_id` — single asset deep-dive
 
-| Tool | What it answers |
-|------|----------------|
-| `investigate_cve` | Are we affected by CVE-XXXX? QIDs, severity, patches, threat intel |
-| `get_cve_details` | Tell me about these 5 CVEs. Bulk lookup with concurrent fetching |
-| `get_new_vulns` | What new vulns dropped this week? Severity breakdown, RTI tags, patch status |
-| `get_vulns_by_software` | What vulns affect Apache? Search by software, vendor, or product name |
-| `get_threat_intel` | What vulns have ransomware/active exploits? RTI breakdown across 12+ threat categories |
-| `get_vuln_exceptions` | What vulnerabilities have approved exceptions? Risk acceptances, false positives, expiring exceptions |
+**check_compliance**
+- `framework` — `PCI` / `HIPAA` / `CIS` / `NIST` / `SOC2`
+- `include_exceptions` — include risk acceptances
 
-### Asset & Infrastructure Risk
+**plan_remediation**
+- `scope` — `all` / `patches` / `mitigations` / `program`
+- `severity` — `critical` / `high` / `moderate`
+- `cves` / `qids` — check mitigation coverage for specific vulns
 
-| Tool | What it answers |
-|------|----------------|
-| `get_asset_risk` | Why is this asset risky? TruRisk score, software inventory, EOL status |
-| `get_asset_full_profile` | Full single-asset profile combining CSAM + ETM + VMDR detections in parallel (~5-8s) |
-| `get_risk_by_tag` | Risk distribution for a tagged asset group (e.g., 'PCI', 'Production', 'AWS') |
-| `get_environment_summary` | Fast all-CSAM environment snapshot: OS, cloud, EOL, criticality tiers (<3s) |
-| `get_asset_inventory` | What assets do we have? Search by OS, tag, or query; EOL filtering, stale-asset detection, OS/tag breakdowns with total count |
-| `get_tech_debt` | How many EOL/EOS systems do we have? OS and hardware lifecycle status |
-| `get_cloud_risk` | What's our cloud security posture? AWS/Azure/GCP accounts and failed controls |
-| `get_image_vulns` | What vulns are in this container image? Severity breakdown and fixes |
-
-### Web & Application Security
-
-| Tool | What it answers |
-|------|----------------|
-| `get_webapp_vulns` | What web app vulnerabilities were found? Per-app breakdown, OWASP Top 10 mapping, vulnerability categories (XSS/SQLi/CSRF), severity stats. Filter by severity, days, app name, or OWASP category |
-| `get_expiring_certs` | SSL/TLS cert expiry + issue detection: expiring/expired certs, weak keys, SHA-1, self-signed, TLS 1.0/1.1, per-cert grading |
-
-### Threat Detection
-
-| Tool | What it answers |
-|------|----------------|
-| `get_edr_events` | What endpoint threats were detected? Malware, ransomware, C2, lateral movement — summary counts, per-category breakdown, top affected hosts, normalized severity labels |
-| `get_fim_events` | What file changes happened? Summary counts (modified/created/deleted), top affected hosts, critical-path alerts (/etc/passwd, /etc/shadow, registry keys), off-hours change flagging. Filter by host, path, severity |
-| `get_cdr_findings` | What cloud threats were detected? CDR findings from TotalCloud (malware, C2, crypto-miners) |
-
-### Patch Management
-
-| Tool | What it answers |
-|------|----------------|
-| `get_pm_status` | What's our patch deployment status? Jobs, patch severity breakdown, asset coverage %, failed/active job counts. Filter by platform (Windows/Linux/macOS/all), status, and date range |
-
-### Remediation Workflow
-
-| Tool | What it answers |
-|------|----------------|
-| `get_remediation_tickets` | What remediation tickets are open? Filter by status, assignee, or overdue flag. Shows QID, severity, due dates, and assignees |
-| `create_remediation_ticket` | Create a remediation ticket for a QID + asset combo with assignee |
-| `get_sla_status` | What's our SLA compliance? Open/closed/overdue counts, compliance rate, MTTR by severity, overdue ticket details |
-
-### QID Lookups
-
-| Tool | What it answers |
-|------|----------------|
-| `get_qid_details` | What is this QID? Severity, CVEs, threat intel, affected assets |
-
-### Admin
-
-| Tool | What it answers |
-|------|----------------|
-| `cache_status` | What's cached? KB entries, detection cache age; use clear=True to reset |
-
-### Threat Intel Categories
-
-`get_threat_intel` supports filtering by any RTI (Real-Time Threat Indicator) tag:
-
-`Ransomware` `Malware` `Active_Attacks` `Exploit_Public` `Easy_Exploit` `Wormable` `Cisa_Known_Exploited_Vulns` `Denial_of_Service` `Privilege_Escalation` `Remote_Code_Execution` `Predicted_High_Risk` `Unauthenticated_Exploitation`
+**security_overview**
+- `period` — `today` / `week` / `month`
+- `quick` — fast snapshot (~2s) vs full briefing
 
 ## Example Conversations
 
 ### Daily Operations
 ```
-"What happened overnight?"                     → get_morning_report()
-"What should my team focus on this week?"      → get_weekly_priorities()
-"How secure are we?"                           → get_security_posture()
-"What new vulns came out this week?"           → get_new_vulns(days=7)
-"What modules should we add?"                  → get_recommendations()
+"Give me a security overview"                  → security_overview(quick=True)
+"What happened this week?"                     → security_overview(period="week")
+"What should we patch first?"                  → plan_remediation(scope="patches", severity="critical")
+"How's our compliance?"                        → check_compliance()
 ```
 
-### CVE Investigation
+### Investigation
 ```
-"Are we affected by Log4Shell?"                → investigate_cve("CVE-2021-44228")
-"Show me everything about CVE-2024-3400"       → investigate_cve("CVE-2024-3400")
-"Compare CVE-2024-3400 and CVE-2023-4966"      → get_cve_details("CVE-2024-3400,CVE-2023-4966")
-```
-
-### Threat Intelligence
-```
-"What vulns have active ransomware?"           → get_threat_intel(threat_type="Ransomware")
-"Show me vulns with public exploits"           → get_threat_intel(threat_type="Exploit_Public")
-"Which CISA KEV vulns are we exposed to?"      → get_threat_intel(threat_type="Cisa_Known_Exploited_Vulns")
+"Tell me about CVE-2024-3400"                  → investigate(target="CVE-2024-3400")
+"Are we exposed to ransomware?"                → investigate(target="ransomware")
+"What do we know about Iranian threats?"        → investigate(target="iran")
+"Investigate this host: 10.0.0.1"              → investigate(target="10.0.0.1", scope="edr")
 ```
 
-### Software Vulnerabilities
+### Risk Assessment
 ```
-"Show me Apache vulnerabilities"               → get_vulns_by_software("Apache")
-"Are we running vulnerable Log4j?"            → get_vulns_by_software("log4j")
-"What OpenSSL vulnerabilities do we have?"    → get_vulns_by_software("OpenSSL")
-```
-
-### Asset & Patching
-```
-"What should we patch first?"                  → get_patch_status()
-"What's wrong with asset 233946644?"           → get_asset_risk("233946644")
-"How many EOL systems do we have?"             → get_tech_debt()
-"What's our patch/mitigate status?"            → get_eliminate_status()
-"Show me all Windows assets"                   → get_asset_inventory(os="Windows")
-"What's our patching pipeline for Linux?"      → get_pm_status(platform="Linux")
+"What's our overall risk?"                     → assess_risk(scope="all")
+"How's our cloud security?"                    → assess_risk(scope="cloud")
+"Any container vulnerabilities?"               → assess_risk(scope="containers")
+"Web app security status?"                     → assess_risk(scope="web")
+"Show me risk for Production assets"           → assess_risk(tag="Production")
 ```
 
-### Cloud & Infrastructure
+### Compliance & Remediation
 ```
-"What's our cloud posture?"                    → get_cloud_risk()
-"What cloud threats were detected this week?"  → get_cdr_findings(days=7)
-"Show me critical AWS CDR findings"            → get_cdr_findings(severity="CRITICAL", cloud_provider="AWS")
-"Are our scanners healthy?"                    → get_scanner_health()
-"What scans are running right now?"            → get_scan_status(state="Running")
-```
-
-### ETM Findings
-```
-"Show me all confirmed critical findings"      → get_etm_findings(qql="vulnerabilities.vulnerability.severity:5")
-"Am I affected by Log4Shell across all sources?" → get_etm_findings(qql="vulnerabilities.vulnerability.cveIds:CVE-2021-44228")
+"Are we PCI compliant?"                        → check_compliance(framework="PCI")
+"What's our patch coverage?"                   → plan_remediation(scope="patches")
+"Is there a mitigation for CVE-2024-3400?"     → plan_remediation(cves=["CVE-2024-3400"])
+"What security gaps do we have?"               → plan_remediation(scope="program")
 ```
 
-### Web App & Certificate Security
+### Multi-Step Workflows
 ```
-"What web app vulnerabilities do we have?"     → get_webapp_vulns()
-"Show me critical WAS findings for our portal" → get_webapp_vulns(severity=5, app_name="portal")
-"Any SQL injection findings this week?"        → get_webapp_vulns(owasp_category="Injection", days=7)
-"OWASP Top 10 breakdown across all apps"       → get_webapp_vulns(severity=0, days=90)
-"Which SSL certs expire this month?"           → get_expiring_certs(days=30)
-"Are any certs already expired?"               → get_expiring_certs(include_expired=True)
-"Show me certs with issues (weak/self-signed)" → get_expiring_certs(weak_only=True)
-"Are any servers still using TLS 1.0?"         → get_expiring_certs(weak_only=True)
-```
-
-### Endpoint & File Integrity
-```
-"What malware was detected this week?"         → get_edr_events(days=7)
-"Show me critical endpoint threats"            → get_edr_events(severity="Critical")
-"What file changes happened today?"            → get_fim_events(days=1)
-"Were /etc/passwd or sudoers modified?"        → get_fim_events(path="/etc/passwd")
-```
-
-### Compliance
-```
-"What's our PCI-DSS compliance score?"        → get_compliance_posture(framework="PCI-DSS")
-"Show me failing CIS controls"                 → get_compliance_posture(framework="CIS")
-"What exceptions expire soon?"                 → get_vuln_exceptions(days_to_expiry=30)
-```
-
-### Remediation Workflow
-```
-"What remediation tickets are open?"           → get_remediation_tickets(status="OPEN")
-"Show me overdue remediation tickets"          → get_remediation_tickets(overdue=True)
-"What tickets are assigned to jsmith?"         → get_remediation_tickets(assignee="jsmith")
-"Create a ticket for QID 376267 on asset 123" → create_remediation_ticket(qid="376267", asset_id="123", assignee="jsmith")
-"What's our SLA compliance rate?"             → get_sla_status()
-"What's our mean time to remediate?"          → get_sla_status()
-```
-
-### Multi-Tool Workflows
-```
-"New critical CVE just dropped — what do I need to know?"
-→ investigate_cve() → get_threat_intel() → get_patch_status()
+"New critical CVE dropped — what do I need to know?"
+→ investigate(target="CVE-...") → plan_remediation(cves=["CVE-..."]) → check_compliance()
 
 "Prepare me for the weekly security standup"
-→ get_morning_report() → get_weekly_priorities() → get_eliminate_status()
+→ security_overview(period="week") → assess_risk(scope="all") → plan_remediation(scope="patches")
 
-"Briefing the CISO on our security program"
-→ get_security_posture() → get_threat_intel() → get_patch_status() → get_recommendations()
-
-"We're about to go through a PCI-DSS audit. Where do we stand?"
-→ get_security_posture() → get_cloud_risk() → get_tech_debt() → get_compliance_posture(framework="PCI-DSS") → get_expiring_certs()
+"PCI audit prep"
+→ check_compliance(framework="PCI", include_exceptions=True) → assess_risk(scope="all") → plan_remediation()
 ```
 
-See [docs/examples.md](docs/examples.md) for the full Q&A reference with 100+ mapped examples.
+## Architecture
+
+```
+AI Assistant → qualys_mcp.py (7 tools) → workflows/ (dispatch + synthesis) → aggregators.py (42 functions) → api.py (HTTP + caching) → Qualys APIs
+```
+
+Each workflow tool:
+1. Builds a dispatch plan based on parameters
+2. Runs selected aggregators concurrently
+3. Merges results into a unified response envelope
+4. Applies cross-domain correlation
+5. Returns prioritized findings and recommended actions
+
+## Performance
+
+Tested on an 89,000-asset environment (US2 POD):
+
+| Workflow | Time |
+|----------|------|
+| `security_overview(quick=True)` | 1.7s |
+| `assess_risk(scope="cloud")` | 1.3s |
+| `assess_risk(scope="containers")` | 3.1s |
+| `check_compliance()` | <1ms (cached) |
+| `plan_remediation(scope="patches")` | 2.6s |
+| `investigate(target="CVE-2024-3400")` | 12.8s |
+| `assess_risk(scope="all")` | 4.9s |
 
 ## Eval Harness
 
-Automated evaluation that sends 500 customer questions from `docs/questions.md` against the live MCP server and scores response quality using Claude-as-judge.
-
-### Requirements
+300 routing test questions + 900 variants + 30 multi-turn conversation workflows for automated evaluation.
 
 ```bash
-pip install anthropic mcp
-export ANTHROPIC_API_KEY="sk-..."
-```
+# Install eval dependencies
+pip install anthropic mcp python-dotenv pyyaml
 
-### Usage
-
-```bash
-# Full eval (500 questions)
-python -m eval
-
-# Smoke test (~20 questions, fast)
+# Run eval
 python -m eval --quick
-
-# Single category
-python -m eval --category "Vulnerability Management"
-
-# First N questions
-python -m eval --limit 10
-
-# Set pass/fail threshold (default: 0.7)
-python -m eval --threshold 0.8
-
-# Don't update coverage tags in docs/questions.md
-python -m eval --no-update
 ```
 
-### Scoring
-
-Each response is scored by Claude-as-judge:
-
-| Score | Weight | Meaning |
-|-------|--------|---------|
-| `correct` | 1.0 | Tool called, returned data, answered well |
-| `partial` | 0.5 | Tool called but answer incomplete |
-| `wrong` | 0.0 | Wrong tool or missed the point |
-| `tool-error` | 0.0 | Tool exception or no tool called |
-
-Results are saved to `eval_results/YYYY-MM-DD.json` with per-question detail and automatic regression detection against previous runs.
-
-## CI/CD
-
-### What runs on every PR
-
-| Check | Description |
-|-------|-------------|
-| Smoke Test | `test_tools.sh fast` — all fast tools return without errors |
-| Conversation Tests | `tests/run_conversations.py` — multi-turn context validation (no credentials needed) |
-| Benchmark Regression | `benchmark.py --quick` — fails if any tool is >2x baseline latency |
-| Eval Harness | `eval.py --quick --limit 50` — fails if score <80% (skipped if eval.py not present) |
-
-A summary comment with benchmark latencies and eval score is posted on the PR automatically.
-
-### Nightly Full Eval
-
-Runs every night at 2am UTC on `main`:
-- Full benchmark (all tools)
-- Full eval suite (if `eval.py` exists)
-- Conversation tests
-- Results uploaded as artifacts (retained 90 days)
-
-### Required GitHub Secrets
-
-| Secret | Description |
-|--------|-------------|
-| `QUALYS_USERNAME` | Qualys API username |
-| `QUALYS_PASSWORD` | Qualys API password |
-| `QUALYS_BASE_URL` | Qualys API base URL (e.g. `qualysapi.qualys.com`) |
-| `QUALYS_GATEWAY_URL` | Qualys Gateway URL (e.g. `gateway.qg1.apps.qualys.com`) |
-
-### Updating the Benchmark Baseline
+## Testing
 
 ```bash
-python benchmark.py --quick --json benchmark_baseline.json
-git add benchmark_baseline.json && git commit -m "chore: update benchmark baseline"
+# Unit tests (282 tests)
+pip install pytest
+pytest tests/ --ignore=tests/conversations -q
+
+# Smoke test
+bash test_tools.sh fast
 ```
-
-### Eval Threshold
-
-Default pass threshold is **80%**. Override by setting the `EVAL_THRESHOLD` repository variable in GitHub Settings → Variables.
 
 ## Qualys PODs
 
@@ -345,52 +189,16 @@ Default pass threshold is **80%**. Override by setting the `EVAL_THRESHOLD` repo
 | US1 | qualysapi.qualys.com | gateway.qg1.apps.qualys.com |
 | US2 | qualysapi.qg2.apps.qualys.com | gateway.qg2.apps.qualys.com |
 | US3 | qualysapi.qg3.apps.qualys.com | gateway.qg3.apps.qualys.com |
+| US4 | qualysapi.qg4.apps.qualys.com | gateway.qg4.apps.qualys.com |
 | EU1 | qualysapi.qualys.eu | gateway.qg1.apps.qualys.eu |
 | EU2 | qualysapi.qg2.apps.qualys.eu | gateway.qg2.apps.qualys.eu |
-
-## CI / Testing
-
-Every pull request runs a CI pipeline with four stages:
-
-| Step | What it does | Fails PR if |
-|------|-------------|-------------|
-| **Smoke Test** | `bash test_tools.sh fast` — verifies tools return without errors | Any tool errors |
-| **Benchmark** | `python benchmark.py --quick --json benchmark_results.json` — measures latency | Any tool >2x baseline |
-| **Eval Harness** | `python eval.py --quick --limit 50` — scores responses against expected keywords | Score < 80% (configurable) |
-| **Conversation Tests** | `pytest tests/conversations/ -v` — multi-turn conversation flow tests | Any test fails |
-
-A nightly workflow runs the full eval suite (`--limit 500`) and updates `benchmark_baseline.json` on main.
-
-### Required GitHub Secrets
-
-| Secret | Description |
-|--------|-------------|
-| `QUALYS_USERNAME` | Qualys API username |
-| `QUALYS_PASSWORD` | Qualys API password |
-| `QUALYS_BASE_URL` | Qualys API base URL (e.g., `qualysapi.qualys.com`) |
-| `QUALYS_GATEWAY_URL` | Qualys Gateway URL (e.g., `gateway.qg1.apps.qualys.com`) |
-
-Optional: Set `EVAL_PASS_THRESHOLD` as a repository variable to override the default 80% pass threshold.
-
-### Running Tests Locally
-
-```bash
-# Smoke test
-bash test_tools.sh fast
-
-# Benchmark (quick mode)
-python benchmark.py --quick --json benchmark_results.json
-
-# Eval harness
-python eval.py --quick
-
-# Conversation tests
-pip install pytest
-pytest tests/conversations/ -v
-
-# Update benchmark baseline
-python benchmark.py --quick --json benchmark_baseline.json
-```
+| EU3 | qualysapi.qg3.apps.qualys.eu | gateway.qg3.apps.qualys.eu |
+| IN1 | qualysapi.qg1.apps.qualys.in | gateway.qg1.apps.qualys.in |
+| CA1 | qualysapi.qg1.apps.qualys.ca | gateway.qg1.apps.qualys.ca |
+| AE1 | qualysapi.qg1.apps.qualys.ae | gateway.qg1.apps.qualys.ae |
+| UK1 | qualysapi.qg1.apps.qualys.co.uk | gateway.qg1.apps.qualys.co.uk |
+| AU1 | qualysapi.qg1.apps.qualys.com.au | gateway.qg1.apps.qualys.com.au |
+| KSA1 | qualysapi.qg1.apps.qualysksa.com | gateway.qg1.apps.qualysksa.com |
 
 ## License
 
