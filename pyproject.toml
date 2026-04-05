@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "qualys-mcp"
-version = "3.0.0"
+version = "0.1.0"
 description = "MCP server for Qualys security APIs - natural language interaction with vulnerability, asset, and cloud security data"
 readme = "README.md"
 license = "MIT"
@@ -13,7 +13,7 @@ authors = [
 ]
 keywords = ["mcp", "qualys", "security", "vulnerability", "vmdr", "claude", "ai"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Intended Audience :: Information Technology",
     "License :: OSI Approved :: MIT License",
