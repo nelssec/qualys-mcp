@@ -3519,12 +3519,13 @@ def container_vuln_summary(limit: int = 20, detail: str = "standard") -> dict:
     for img in images:
         vulns = img.get('vulnerabilities', {}) or {}
         sev = vulns.get('severity', {}) or {}
-        crit = sev.get('5', 0)
-        high = sev.get('4', 0)
-        med = sev.get('3', 0)
-        low = sev.get('2', 0) + sev.get('1', 0)
+        crit = sev.get('5', 0) or sev.get(5, 0) or vulns.get('severity5Count', 0)
+        high = sev.get('4', 0) or sev.get(4, 0) or vulns.get('severity4Count', 0)
+        med = sev.get('3', 0) or sev.get(3, 0) or vulns.get('severity3Count', 0)
+        low = (sev.get('2', 0) or sev.get(2, 0) or vulns.get('severity2Count', 0)) + \
+              (sev.get('1', 0) or sev.get(1, 0) or vulns.get('severity1Count', 0))
         img_total = crit + high + med + low
-        patchable = vulns.get('patchAvailable', 0)
+        patchable = vulns.get('patchAvailable', 0) or vulns.get('patchAvailableCount', 0)
         totals['critical'] += crit
         totals['high'] += high
         totals['medium'] += med
@@ -3588,15 +3589,24 @@ def running_containers(limit: int = 50, detail: str = "standard") -> dict:
             vulns = img.get('vulnerabilities', {}) or {}
             sev = vulns.get('severity', {}) or {}
             img_vulns[iid] = {
-                'critical': sev.get('5', 0), 'high': sev.get('4', 0),
-                'medium': sev.get('3', 0),
-                'patchable': vulns.get('patchAvailable', 0),
+                'critical': sev.get('5', 0) or sev.get(5, 0) or vulns.get('severity5Count', 0),
+                'high': sev.get('4', 0) or sev.get(4, 0) or vulns.get('severity4Count', 0),
+                'medium': sev.get('3', 0) or sev.get(3, 0) or vulns.get('severity3Count', 0),
+                'patchable': vulns.get('patchAvailable', 0) or vulns.get('patchAvailableCount', 0),
             }
 
     rows = []
     for c in containers:
         iid = c.get('imageId', '')
         vuln_info = img_vulns.get(iid, {})
+        if not vuln_info.get('critical') and not vuln_info.get('high'):
+            c_vulns = c.get('vulnerabilities', {}) or {}
+            vuln_info = {
+                'critical': c_vulns.get('severity5Count', 0) or (c_vulns.get('severity', {}) or {}).get('5', 0),
+                'high': c_vulns.get('severity4Count', 0) or (c_vulns.get('severity', {}) or {}).get('4', 0),
+                'medium': c_vulns.get('severity3Count', 0) or (c_vulns.get('severity', {}) or {}).get('3', 0),
+                'patchable': c_vulns.get('patchAvailableCount', 0) or c_vulns.get('patchAvailable', 0),
+            }
         rows.append(compact({
             'containerId': c.get('containerId', ''),
             'name': c.get('name', ''),
