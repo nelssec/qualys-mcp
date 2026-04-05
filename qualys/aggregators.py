@@ -2799,13 +2799,20 @@ def cloud_account_summary(provider: str = 'all', detail: str = "standard") -> di
     providers = ['aws', 'azure', 'gcp', 'oci'] if provider == 'all' else [provider.lower()]
     acc_key_map = {'aws': 'awsAccountId', 'azure': 'azureSubscriptionId', 'gcp': 'gcpProjectId', 'oci': 'ociTenancyId'}
 
-    # Fetch connectors
-    conn_tasks = {p: (lambda p=p: get_connectors(p, 50)) for p in providers}
+    # Fetch connectors + OCI asset count (OCI has no connector API)
+    conn_tasks = {p: (lambda p=p: get_connectors(p, 50)) for p in providers if p != 'oci'}
+    if 'oci' in providers:
+        conn_tasks['oci_assets'] = lambda: csam_count([{"field": "cloud.provider", "operator": "EQUALS", "value": "OCI"}])
     conn_results = _run_concurrent(**conn_tasks)
 
     # Build account list
     accounts = []
     for p in providers:
+        if p == 'oci':
+            oci_count = conn_results.get('oci_assets') or 0
+            if oci_count > 0:
+                accounts.append({'id': 'oci-tenant', 'provider': 'OCI', 'name': f'OCI ({oci_count} assets)'})
+            continue
         conns = conn_results.get(p) or []
         acc_key = acc_key_map.get(p, 'awsAccountId')
         for c in conns:
@@ -3014,15 +3021,20 @@ def cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7, per
         aws=lambda: get_connectors('aws', 50),
         azure=lambda: get_connectors('azure', 50),
         gcp=lambda: get_connectors('gcp', 50),
-        oci=lambda: get_connectors('oci', 50),
+        oci_assets=lambda: csam_count([{"field": "cloud.provider", "operator": "EQUALS", "value": "OCI"}]),
     )
 
     all_accounts = []
     first_accounts = {}
+
+    oci_count = connector_results.pop('oci_assets', 0) or 0
+    if oci_count > 0:
+        result['accounts'].append({'id': 'oci-tenant', 'provider': 'OCI', 'name': f'OCI ({oci_count} assets)'})
+
     for provider, conns in connector_results.items():
         if not conns:
             continue
-        acc_key = {'aws': 'awsAccountId', 'azure': 'azureSubscriptionId', 'gcp': 'gcpProjectId', 'oci': 'ociTenancyId'}.get(provider, 'accountId')
+        acc_key = {'aws': 'awsAccountId', 'azure': 'azureSubscriptionId', 'gcp': 'gcpProjectId'}.get(provider, 'accountId')
         for c in conns:
             acc = c.get(acc_key, '')
             result['accounts'].append({'id': acc, 'provider': provider.upper(), 'name': c.get('name', '')})
