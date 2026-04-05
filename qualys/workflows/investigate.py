@@ -225,6 +225,12 @@ def _build_plan(
                 detail=detail,
             )
 
+    # For general/unknown targets, also search KB by software name — catches threat names in vuln titles
+    if target_type == "general" and not software and "vulns" not in plan:
+        plan["vulns"] = lambda: search_vulns_agg(
+            days=365, software=target, limit=limit, detail=detail,
+        )
+
     # General target or scope=="all" without investigate_agg yet
     scope_all = "all" in scope or scope == []
     needs_general = target_type == "general" or (scope_all and not has_investigate_agg and "investigate" not in plan)
@@ -309,7 +315,9 @@ def _summarize(data: dict) -> str:
             parts.append(f"Vuln search: {vulns_summary}")
 
     if not parts:
-        parts.append("Investigation returned no results. This could mean the target is not in the Qualys Knowledge Base, not detected in your environment, or the search timed out. Try a more specific target (exact CVE ID, hostname, or IP address).")
+        parts.append(f"No results found for '{data.get('_target', 'unknown')}' in the Qualys Knowledge Base or detection data. "
+                     "For threat actor attribution (e.g., CrackArmor, APT groups), check Qualys TruLens at ETM > TruLens > Threat Actors in the Qualys UI. "
+                     "Try a more specific target: exact CVE ID, hostname, IP address, or software name.")
     headline = parts[0]
 
     risk = "unknown"
@@ -538,6 +546,7 @@ def investigate(
 
     # --- Dispatch ---
     results, elapsed_ms = _dispatch(plan)
+    results["_target"] = target
 
     # --- Deep mode: add narrative summary via summarize_investigation_agg ---
     if depth == "deep":
