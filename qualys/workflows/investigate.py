@@ -306,7 +306,9 @@ def _summarize(data: dict) -> str:
         if vulns_summary and isinstance(vulns_summary, str):
             parts.append(f"Vuln search: {vulns_summary}")
 
-    headline = parts[0] if parts else "Investigation complete."
+    if not parts:
+        parts.append("Investigation returned no results. This could mean the target is not in the Qualys Knowledge Base, not detected in your environment, or the search timed out. Try a more specific target (exact CVE ID, hostname, or IP address).")
+    headline = parts[0]
 
     risk = "unknown"
     cve_deep = data.get("cve_deep") or {}

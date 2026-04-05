@@ -295,8 +295,34 @@ def _build_envelope(
 
     if errors:
         envelope["_errors"] = errors
+        error_notes = []
+        for err_name in errors:
+            note = _error_explanation(err_name)
+            if note:
+                error_notes.append(note)
+        if error_notes:
+            envelope["_notes"] = error_notes
 
     return envelope
+
+
+_ERROR_HINTS = {
+    "cloud_risk": "Cloud risk data unavailable — the CDR or cloud evaluation API may be temporarily down. Try again shortly.",
+    "etm_findings": "ETM findings unavailable — the Enterprise TruRisk Management module may not be enabled. Ask your Qualys admin to verify ETM is licensed.",
+    "expiring_certs": "Certificate data unavailable — CertView may not be configured or no certificates have been scanned.",
+    "webapp_vulns": "Web application vulnerability data unavailable — WAS/TotalAppSec may not be configured or no web apps have been scanned.",
+    "threat_actor": "Threat actor data unavailable — the Knowledge Base search timed out or returned no results for this actor.",
+    "edr_events": "EDR event data unavailable — Endpoint Detection & Response may not be enabled on this subscription.",
+    "fim_events": "FIM event data unavailable — File Integrity Monitoring may not be enabled on this subscription.",
+    "scanner_health": "Scanner health data unavailable — check scanner appliance connectivity.",
+    "vuln_exceptions": "Vulnerability exceptions unavailable — the exception/waiver API may not be enabled.",
+    "compliance_posture": "Compliance data unavailable — Policy Compliance may not be configured or no policies are assigned.",
+    "morning_report": "Morning report data unavailable — asset data could not be retrieved.",
+}
+
+
+def _error_explanation(aggregator_name):
+    return _ERROR_HINTS.get(aggregator_name)
 
 
 # ---------------------------------------------------------------------------

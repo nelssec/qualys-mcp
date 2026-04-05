@@ -78,6 +78,9 @@ def _summarize(data):
             stats["patches_missing"] = missing
             findings.append(f"{missing} patches missing across managed assets")
 
+    if not findings:
+        findings.append("No outstanding patches or remediation actions found. Patch management data may not be available — verify TruRisk Eliminate is configured.")
+
     headline = "Remediation plan assessed"
     if stats.get("patch_coverage") is not None:
         headline = f"Patch coverage: {stats['patch_coverage']}%"

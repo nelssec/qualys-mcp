@@ -107,6 +107,8 @@ def _summarize(data: dict[str, Any]) -> dict[str, Any]:
         findings.append(f"{failing} failing controls identified")
     if exception_count:
         findings.append(f"{exception_count} active risk acceptances")
+    if not findings:
+        findings.append("No compliance data available. Policy Compliance may not be configured, or no compliance policies are assigned to assets in this environment.")
 
     return {
         "headline": headline,
