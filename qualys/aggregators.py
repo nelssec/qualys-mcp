@@ -1078,14 +1078,25 @@ def investigate_agg(topic: str, depth: str = "standard", prior_context: str = ""
                         lambda aid=asset_id: asset_detail(aid, detail_level='full'))
 
     elif inv_type == 'ransomware':
-        tasks = {
-            'etm_findings': lambda: _safe_call('get_etm_findings',
-                lambda: etm_findings(qql='threatName:ransomware')),
-            'weekly_priorities': lambda: _safe_call('get_weekly_priorities', lambda: weekly_priorities()),
-        }
-        results = _run_concurrent(**tasks)
-        findings['etm_findings'] = results.get('etm_findings')
-        findings['weekly_priorities'] = results.get('weekly_priorities')
+        if depth == 'quick':
+            tasks = {
+                'ransomware_vulns': lambda: _safe_call('search_vulns',
+                    lambda: search_vulns_agg(days=30, threat_type='Ransomware', limit=20)),
+                'risk_summary': lambda: _safe_call('trurisk',
+                    lambda: trurisk_score(days=30)),
+            }
+            results = _run_concurrent(**tasks)
+            findings['ransomware_vulns'] = results.get('ransomware_vulns')
+            findings['risk_summary'] = results.get('risk_summary')
+        else:
+            tasks = {
+                'etm_findings': lambda: _safe_call('get_etm_findings',
+                    lambda: etm_findings(qql='threatName:ransomware')),
+                'weekly_priorities': lambda: _safe_call('get_weekly_priorities', lambda: weekly_priorities()),
+            }
+            results = _run_concurrent(**tasks)
+            findings['etm_findings'] = results.get('etm_findings')
+            findings['weekly_priorities'] = results.get('weekly_priorities')
 
         if depth in ('standard', 'deep'):
             std_tasks = {
@@ -1136,13 +1147,19 @@ def investigate_agg(topic: str, depth: str = "standard", prior_context: str = ""
             findings['expiring_certs'] = deep_results.get('expiring_certs')
 
     else:
-        tasks = {
-            'morning_report': lambda: _safe_call('get_morning_report', lambda: morning_report()),
-            'weekly_priorities': lambda: _safe_call('get_weekly_priorities', lambda: weekly_priorities()),
-        }
+        if depth == 'quick':
+            tasks = {
+                'morning_report': lambda: _safe_call('get_morning_report', lambda: morning_report(quick=True)),
+                'risk_summary': lambda: _safe_call('trurisk', lambda: trurisk_score(days=30)),
+            }
+        else:
+            tasks = {
+                'morning_report': lambda: _safe_call('get_morning_report', lambda: morning_report()),
+                'weekly_priorities': lambda: _safe_call('get_weekly_priorities', lambda: weekly_priorities()),
+            }
         results = _run_concurrent(**tasks)
-        findings['morning_report'] = results.get('morning_report')
-        findings['weekly_priorities'] = results.get('weekly_priorities')
+        for k, v in results.items():
+            findings[k] = v
 
         if depth in ('standard', 'deep'):
             findings['search_vulns'] = _safe_call('search_vulns', lambda: search_vulns_agg())
@@ -1501,7 +1518,7 @@ def threat_actor_exposure_agg(threat_actor: str, actor_tags: list[str], limit: i
 
     # Step 1: Search KB for vulns matching threat actor tags
     # Fetch recent KB entries with threat intel info
-    kb_after = (datetime.now(timezone.utc) - timedelta(days=365)).strftime('%Y-%m-%d')
+    kb_after = (datetime.now(timezone.utc) - timedelta(days=90)).strftime('%Y-%m-%d')
     data = api_get(
         f"{BASE_URL}/api/2.0/fo/knowledge_base/vuln/?action=list&details=All"
         f"&show_supported_modules_info=0&published_after={kb_after}",
@@ -1552,17 +1569,14 @@ def threat_actor_exposure_agg(threat_actor: str, actor_tags: list[str], limit: i
     # Step 2: Cross-reference with active VMDR detections
     matching_qids = {v['qid'] for v in matching_vulns}
 
-    # Fetch detections (severity 3+ covers medium/high/critical)
+    # Fetch critical detections only (sev 5) for cross-reference
     concurrent = _run_concurrent(
         det_sev5=lambda: get_detections(severity=5),
-        det_sev4=lambda: get_detections(severity=4),
-        det_sev3=lambda: get_detections(severity=3),
     )
     all_detections = []
-    for key in ('det_sev5', 'det_sev4', 'det_sev3'):
-        dets = concurrent.get(key)
-        if dets:
-            all_detections.extend(dets)
+    dets = concurrent.get('det_sev5')
+    if dets:
+        all_detections.extend(dets)
 
     # Filter detections to only those matching our QIDs
     active_dets = [d for d in all_detections if d.get('qid') in matching_qids]
