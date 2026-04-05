@@ -10,6 +10,7 @@ from qualys.api import (
     _fetch_edr_events_raw,
     _fetch_fim_events_raw,
     _get_was_count,
+    _get_was_severity_counts,
     _get_was_webapp_count,
     _log,
     _open,
@@ -3976,10 +3977,12 @@ def webapp_vulns(severity: int = 0, days: int = 0, app_name: str = "", owasp_cat
         findings=lambda: get_was_findings(limit * 3, severity=sev_arg, days=days_arg, app_name=app_arg),
         total_count=lambda: _get_was_count(),
         webapp_count=lambda: _get_was_webapp_count(),
+        sev_counts=lambda: _get_was_severity_counts(),
     )
     findings = was_concurrent.get('findings') or []
     was_total = was_concurrent.get('total_count') or len(findings)
     was_apps = was_concurrent.get('webapp_count') or 0
+    sev_counts = was_concurrent.get('sev_counts') or {}
 
     webapp_vulns_map = {}
 
@@ -4044,6 +4047,11 @@ def webapp_vulns(severity: int = 0, days: int = 0, app_name: str = "", owasp_cat
             'owaspCategory': owasp_cat,
         })
 
+    if sev_counts:
+        result['stats']['critical'] = sev_counts.get(5, 0)
+        result['stats']['high'] = sev_counts.get(4, 0)
+        result['stats']['medium'] = sev_counts.get(3, 0)
+        result['stats']['low'] = sev_counts.get(2, 0) + sev_counts.get(1, 0)
     result['stats']['total'] = was_total if was_total > len(result['findings']) else len(result['findings'])
     result['stats']['webApps'] = was_apps if was_apps > len(webapp_vulns_map) else len(webapp_vulns_map)
     result['findings'] = sorted(result['findings'], key=lambda x: x['severity'], reverse=True)[:limit]
