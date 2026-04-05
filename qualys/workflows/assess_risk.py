@@ -211,12 +211,14 @@ def _summarize(data):
     # Web app vulns
     wv = data.get("webapp_vulns")
     if isinstance(wv, dict):
-        total_web = wv.get("total") or wv.get("totalFindings") or 0
-        critical_web = wv.get("critical") or 0
+        wv_stats = wv.get("stats", {}) if isinstance(wv.get("stats"), dict) else {}
+        total_web = wv_stats.get("total", 0) or wv.get("total", 0) or wv.get("totalFindings", 0)
+        critical_web = wv_stats.get("critical", 0) or wv.get("critical", 0)
+        web_apps = wv_stats.get("webApps", 0)
         if critical_web:
-            findings.append(f"{critical_web} critical web application vulnerabilities found")
+            findings.append(f"{critical_web} critical web application vulnerabilities across {web_apps} apps ({total_web} total findings)")
         elif total_web:
-            findings.append(f"{total_web} web application vulnerabilities found (none critical)")
+            findings.append(f"{total_web} web application findings across {web_apps} apps (none critical)")
         else:
             findings.append("No web application vulnerabilities found — WAS scan results are clean or no apps have been scanned")
 

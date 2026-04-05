@@ -3571,11 +3571,13 @@ def running_containers(limit: int = 50, detail: str = "standard") -> dict:
     concurrent = _run_concurrent(
         containers=lambda: get_containers(limit=limit),
         total_containers=lambda: get_containers(1, count_only=True),
+        containers_with_sev5=lambda: get_containers(1, count_only=True, filter_str="vulnerabilities.severity:5"),
         images=lambda: get_images_by_vulns(limit=200),
     )
 
     containers = concurrent.get('containers') or []
     total_containers = concurrent.get('total_containers') or len(containers)
+    containers_with_sev5 = concurrent.get('containers_with_sev5') or 0
     images_list = concurrent.get('images') or []
 
     if not containers and not images_list:
@@ -3626,11 +3628,12 @@ def running_containers(limit: int = 50, detail: str = "standard") -> dict:
 
     unpatched_critical = [r for r in rows if r.get('critical', 0) > 0 and r.get('patchable', 0) > 0]
 
+    local_crit_count = sum(1 for r in rows if r.get('critical', 0) > 0)
     result = {
         'summary': {
             'totalRunning': total_containers,
             'returned': len(rows),
-            'withCriticalVulns': sum(1 for r in rows if r.get('critical', 0) > 0),
+            'withCriticalVulns': containers_with_sev5 if containers_with_sev5 > local_crit_count else local_crit_count,
             'withUnpatchedCritical': len(unpatched_critical),
         },
         'containers': rows[:limit],
