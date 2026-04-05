@@ -144,7 +144,7 @@ def _summarize(data):
         accts_list = cr.get("accounts", [])
         acct_count = len(accts_list) if isinstance(accts_list, list) else (accts_list if isinstance(accts_list, int) else 0)
         failed_ctrls = len(cr.get("failedControls", []))
-        threats = len(cr.get("threats", []))
+        threats = cr.get("totalThreats", 0) or len(cr.get("threats", []))
         pass_rate = cr.get("overallPassRate")
         if acct_count:
             stats["cloudAccounts"] = acct_count
