@@ -9,6 +9,8 @@ from qualys.api import *
 from qualys.api import (
     _fetch_edr_events_raw,
     _fetch_fim_events_raw,
+    _get_was_count,
+    _get_was_webapp_count,
     _log,
     _open,
     _parse_duration,
@@ -3569,15 +3571,13 @@ def image_vulns_list(limit: int = 20, detail: str = "standard") -> dict:
 def running_containers(limit: int = 50, detail: str = "standard") -> dict:
     """Running containers with image vulnerability context."""
     concurrent = _run_concurrent(
-        containers=lambda: get_containers(limit=limit),
+        containers=lambda: get_containers(limit=max(limit, 100)),
         total_containers=lambda: get_containers(1, count_only=True),
-        containers_with_sev5=lambda: get_containers(1, count_only=True, filter_str="vulnerabilities.severity:5"),
         images=lambda: get_images_by_vulns(limit=200),
     )
 
     containers = concurrent.get('containers') or []
     total_containers = concurrent.get('total_containers') or len(containers)
-    containers_with_sev5 = concurrent.get('containers_with_sev5') or 0
     images_list = concurrent.get('images') or []
 
     if not containers and not images_list:
@@ -3629,11 +3629,17 @@ def running_containers(limit: int = 50, detail: str = "standard") -> dict:
     unpatched_critical = [r for r in rows if r.get('critical', 0) > 0 and r.get('patchable', 0) > 0]
 
     local_crit_count = sum(1 for r in rows if r.get('critical', 0) > 0)
+    if len(rows) > 0 and total_containers > len(rows):
+        crit_ratio = local_crit_count / len(rows)
+        estimated_crit = int(crit_ratio * total_containers)
+    else:
+        estimated_crit = local_crit_count
+
     result = {
         'summary': {
             'totalRunning': total_containers,
             'returned': len(rows),
-            'withCriticalVulns': containers_with_sev5 if containers_with_sev5 > local_crit_count else local_crit_count,
+            'withCriticalVulns': estimated_crit,
             'withUnpatchedCritical': len(unpatched_critical),
         },
         'containers': rows[:limit],
@@ -3927,7 +3933,15 @@ def webapp_vulns(severity: int = 0, days: int = 0, app_name: str = "", owasp_cat
     sev_arg = severity if severity > 0 else None
     days_arg = days if days > 0 else None
     app_arg = app_name if app_name else None
-    findings = get_was_findings(limit * 3, severity=sev_arg, days=days_arg, app_name=app_arg)
+
+    was_concurrent = _run_concurrent(
+        findings=lambda: get_was_findings(limit * 3, severity=sev_arg, days=days_arg, app_name=app_arg),
+        total_count=lambda: _get_was_count(),
+        webapp_count=lambda: _get_was_webapp_count(),
+    )
+    findings = was_concurrent.get('findings') or []
+    was_total = was_concurrent.get('total_count') or len(findings)
+    was_apps = was_concurrent.get('webapp_count') or 0
 
     webapp_vulns_map = {}
 
@@ -3992,8 +4006,8 @@ def webapp_vulns(severity: int = 0, days: int = 0, app_name: str = "", owasp_cat
             'owaspCategory': owasp_cat,
         })
 
-    result['stats']['total'] = len(result['findings'])
-    result['stats']['webApps'] = len(webapp_vulns_map)
+    result['stats']['total'] = was_total if was_total > len(result['findings']) else len(result['findings'])
+    result['stats']['webApps'] = was_apps if was_apps > len(webapp_vulns_map) else len(webapp_vulns_map)
     result['findings'] = sorted(result['findings'], key=lambda x: x['severity'], reverse=True)[:limit]
     result['byWebApp'] = sorted(
         webapp_vulns_map.values(),
