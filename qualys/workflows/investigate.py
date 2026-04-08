@@ -170,7 +170,6 @@ def _build_plan(
 
     if target_type == "cve":
         plan["cve_deep"] = lambda: investigate_cve_agg(target, detail=detail)
-        plan["cve_meta"] = lambda: cve_details(target, detail=detail)
 
     elif target_type == "threat_actor":
         actor_tags = _resolve_actor_tags(target) or []
@@ -219,7 +218,7 @@ def _build_plan(
             detail=detail,
         )
 
-    if "vulns" in scope or software or threat_type:
+    if ("vulns" in scope or software or threat_type) and target_type != "cve":
         if "vulns" not in plan:
             plan["vulns"] = lambda: search_vulns_agg(
                 days=days,

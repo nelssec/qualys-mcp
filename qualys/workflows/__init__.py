@@ -8,7 +8,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FuturesTimeout
 from qualys.api import _run_concurrent, _log
 
-AGGREGATOR_TIMEOUT = 120
+AGGREGATOR_TIMEOUT = 180
 
 
 # ---------------------------------------------------------------------------
