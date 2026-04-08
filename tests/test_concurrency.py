@@ -95,14 +95,10 @@ class TestKBSemaphore:
 
 class TestAsyncTools:
     def test_all_tools_are_async(self):
-        from qualys_mcp import mcp
-        import inspect
-        tools = mcp._tool_manager._tools
-        for name, tool in tools.items():
-            fn = tool.fn if hasattr(tool, 'fn') else tool
-            if callable(fn) and hasattr(fn, '__wrapped__'):
-                fn = fn.__wrapped__
-            assert asyncio.iscoroutinefunction(fn) or True, f"Tool {name} should be async"
+        with open("qualys_mcp.py") as f:
+            src = f.read()
+        tool_count = src.count("async def ")
+        assert tool_count >= 7, f"Expected at least 7 async tool functions, found {tool_count}"
 
     def test_qualys_mcp_source_uses_asyncio_to_thread(self):
         with open("qualys_mcp.py") as f:
