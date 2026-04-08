@@ -229,9 +229,9 @@ def main():
             "QUALYS_BASE_URL and QUALYS_GATEWAY_URL environment variables."
         )
     if _resolved_pod:
-        _log(f"qualys-mcp v0.1.6 — POD={_resolved_pod}  BASE_URL={BASE_URL}  GATEWAY_URL={GATEWAY_URL}")
+        _log(f"qualys-mcp v0.1.7 — POD={_resolved_pod}  BASE_URL={BASE_URL}  GATEWAY_URL={GATEWAY_URL}")
     else:
-        _log(f"qualys-mcp v0.1.6 — BASE_URL={BASE_URL}  GATEWAY_URL={GATEWAY_URL}")
+        _log(f"qualys-mcp v0.1.7 — BASE_URL={BASE_URL}  GATEWAY_URL={GATEWAY_URL}")
     _log("7 tools: investigate, assess_risk, check_compliance, plan_remediation, security_overview, reports, cache_status")
     warmup = Thread(target=_warmup_vmdr_cache, daemon=True, name="vmdr-cache-warmup")
     warmup.start()
