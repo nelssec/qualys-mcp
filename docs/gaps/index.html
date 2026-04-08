@@ -35,7 +35,7 @@
         </div>
 
         <h1>Known Gaps</h1>
-        <p class="lead">Known limitations and coverage gaps in Qualys MCP v0.1.0. The server covers 9+ Qualys modules through 7 workflow tools backed by 42 aggregator functions, but some areas remain limited.</p>
+        <p class="lead">Known limitations and coverage gaps in Qualys MCP v0.1.6. The server covers 13+ Qualys modules through 7 async workflow tools backed by 42 aggregator functions, but some areas remain limited.</p>
 
         <h2 id="known-gaps">Known Gaps</h2>
 
@@ -62,7 +62,7 @@
 
         <h3 id="write-operations">Write Operations</h3>
         <p><strong>What's missing:</strong> Creating remediation tickets, scheduling scans, modifying asset tags, accepting risks.</p>
-        <p><strong>Status:</strong> v0.1.0 is read-only by design. Write operations are under consideration for future releases.</p>
+        <p><strong>Status:</strong> v0.1.6 is read-only by design. Write operations are under consideration for future releases.</p>
 
         <h2 id="module-coverage">Module Coverage</h2>
         <div class="table-wrapper">
@@ -75,7 +75,7 @@
               <tr><td>ETM</td><td>High</td><td><code>investigate</code>, <code>security_overview</code></td></tr>
               <tr><td>CSAM</td><td>High</td><td><code>assess_risk</code>, <code>security_overview</code></td></tr>
               <tr><td>KB</td><td>High</td><td><code>investigate</code></td></tr>
-              <tr><td>TotalCloud</td><td>Medium</td><td><code>assess_risk(scope="cloud")</code></td></tr>
+              <tr><td>TotalCloud (AWS/Azure/GCP/OCI)</td><td>Medium</td><td><code>assess_risk(scope="cloud")</code></td></tr>
               <tr><td>Container Security</td><td>Medium</td><td><code>assess_risk(scope="containers")</code></td></tr>
               <tr><td>WAS</td><td>Medium</td><td><code>assess_risk(scope="web")</code></td></tr>
               <tr><td>CertView</td><td>Medium</td><td><code>assess_risk(scope="certs")</code></td></tr>
@@ -84,6 +84,9 @@
               <tr><td>FIM</td><td>Medium</td><td><code>investigate(scope="fim")</code></td></tr>
               <tr><td>PC</td><td>Medium</td><td><code>check_compliance</code></td></tr>
               <tr><td>CDR</td><td>Medium</td><td><code>assess_risk(scope="cloud")</code></td></tr>
+              <tr><td>TotalAI</td><td>Medium</td><td><code>investigate</code></td></tr>
+              <tr><td>Policy Audit (PCAS)</td><td>Medium</td><td><code>check_compliance</code></td></tr>
+              <tr><td>SaaS Detection &amp; Response</td><td>Medium</td><td><code>assess_risk</code></td></tr>
             </tbody>
           </table>
         </div>

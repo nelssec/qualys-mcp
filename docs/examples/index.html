@@ -35,7 +35,7 @@
         </div>
 
         <h1>Examples</h1>
-        <p class="lead">Example Q&amp;A pairs showing how real security questions map to the 7 workflow tools in Qualys MCP v0.1.0.</p>
+        <p class="lead">Example Q&amp;A pairs showing how real security questions map to the 7 workflow tools in Qualys MCP v0.1.6.</p>
 
         <h2 id="investigation">Investigation</h2>
 <pre><code>Q: Are we affected by Log4Shell?
@@ -68,12 +68,35 @@ Q: What CISA KEV vulns affect us?
 Q: Deep investigation of our OpenSSL exposure
 &rarr; investigate(target="OpenSSL", software="OpenSSL", depth="deep")</code></pre>
 
+        <h2 id="ai-security">AI Security (TotalAI)</h2>
+<pre><code>Q: Are our AI models being jailbroken?
+&rarr; investigate(target="AI jailbreak detections")
+
+Q: Show me OWASP LLM Top 10 detections
+&rarr; investigate(target="OWASP LLM", scope="all")
+
+Q: TotalAI model security status
+&rarr; investigate(target="TotalAI detections")</code></pre>
+
+        <h2 id="policy-audit">Policy Audit</h2>
+<pre><code>Q: Search our compliance policy library
+&rarr; check_compliance(framework="CIS")
+
+Q: DISA STIG controls
+&rarr; check_compliance(framework="CIS")
+
+Q: How many policies do we have?
+&rarr; check_compliance()</code></pre>
+
         <h2 id="risk-assessment">Risk Assessment</h2>
 <pre><code>Q: What's our overall risk posture?
 &rarr; assess_risk()
 
 Q: Cloud risk in AWS
 &rarr; assess_risk(scope="cloud", provider="aws")
+
+Q: OCI cloud posture
+&rarr; assess_risk(scope="cloud", provider="oci")
 
 Q: Top risky assets
 &rarr; assess_risk(scope="assets", sort_by="trurisk")
@@ -103,7 +126,10 @@ Q: Stale assets not seen in 90 days
 &rarr; assess_risk(scope="assets", days_since_seen=90)
 
 Q: Azure cloud posture
-&rarr; assess_risk(scope="cloud", provider="azure")</code></pre>
+&rarr; assess_risk(scope="cloud", provider="azure")
+
+Q: SaaS security controls
+&rarr; assess_risk(scope="all")</code></pre>
 
         <h2 id="compliance">Compliance</h2>
 <pre><code>Q: Are we PCI compliant?
@@ -252,6 +278,8 @@ Turn 4: "Outstanding patches for PCI scope"
         <div class="toc-title">On this page</div>
         <ul>
           <li><a href="#investigation">Investigation</a></li>
+          <li><a href="#ai-security">AI Security (TotalAI)</a></li>
+          <li><a href="#policy-audit">Policy Audit</a></li>
           <li><a href="#risk-assessment">Risk Assessment</a></li>
           <li><a href="#compliance">Compliance</a></li>
           <li><a href="#remediation">Remediation Planning</a></li>

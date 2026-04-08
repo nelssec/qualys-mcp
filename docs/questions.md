@@ -1,4 +1,4 @@
-# Qualys MCP v0.1.0 -- Example Questions by Category
+# Qualys MCP v0.1.6 -- Example Questions by Category
 
 How each question maps to the 7 workflow tools.
 
@@ -19,10 +19,19 @@ How each question maps to the 7 workflow tools.
 
 ---
 
+## AI Security Questions (TotalAI)
+
+- Are our AI models being jailbroken? -> `investigate(target="AI jailbreak detections")`
+- Show me OWASP LLM Top 10 detections -> `investigate(target="OWASP LLM", scope="all")`
+- TotalAI model security status -> `investigate(target="TotalAI detections")`
+
+---
+
 ## Risk Assessment Questions
 
 - What's our overall risk? -> `assess_risk()`
 - Cloud risk in AWS -> `assess_risk(scope="cloud", provider="aws")`
+- OCI cloud posture -> `assess_risk(scope="cloud", provider="oci")`
 - Top risky assets -> `assess_risk(scope="assets", sort_by="trurisk")`
 - Container vulnerabilities -> `assess_risk(scope="containers")`
 - Expiring certificates -> `assess_risk(scope="certs", days=30)`
@@ -33,6 +42,7 @@ How each question maps to the 7 workflow tools.
 - Why is this asset risky? -> `assess_risk(asset_id="233946644")`
 - Stale assets not seen in 90 days -> `assess_risk(scope="assets", days_since_seen=90)`
 - Azure cloud posture -> `assess_risk(scope="cloud", provider="azure")`
+- SaaS security controls -> `assess_risk(scope="all")`
 
 ---
 
@@ -46,6 +56,8 @@ How each question maps to the 7 workflow tools.
 - Linux compliance -> `check_compliance(platform="linux")`
 - NIST compliance -> `check_compliance(framework="NIST")`
 - SOC2 posture -> `check_compliance(framework="SOC2")`
+- DISA STIG policy library -> `check_compliance(framework="CIS")`
+- How many policies do we have? -> `check_compliance()`
 
 ---
 

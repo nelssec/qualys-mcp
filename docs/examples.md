@@ -1,4 +1,4 @@
-# Qualys MCP v0.1.0 -- Example Q&A Pairs
+# Qualys MCP v0.1.6 -- Example Q&A Pairs
 
 These examples show how real security questions map to the 7 workflow tools.
 
@@ -34,6 +34,36 @@ Q: Were there any suspicious file changes on production servers?
 
 ---
 
+## AI Security (TotalAI)
+
+```
+Q: Are our AI models being jailbroken?
+-> investigate(target="AI jailbreak detections")
+
+Q: Show me OWASP LLM Top 10 detections
+-> investigate(target="OWASP LLM", scope="all")
+
+Q: TotalAI model security status
+-> investigate(target="TotalAI detections")
+```
+
+---
+
+## Policy Audit
+
+```
+Q: Search our compliance policy library
+-> check_compliance(framework="CIS")
+
+Q: DISA STIG controls
+-> check_compliance(framework="CIS")
+
+Q: How many policies do we have?
+-> check_compliance()
+```
+
+---
+
 ## Risk Assessment
 
 ```
@@ -42,6 +72,9 @@ Q: What's our overall risk posture?
 
 Q: Show me cloud risk in AWS
 -> assess_risk(scope="cloud", provider="aws")
+
+Q: OCI cloud posture
+-> assess_risk(scope="cloud", provider="oci")
 
 Q: What are our top risky assets?
 -> assess_risk(scope="assets", sort_by="trurisk")
@@ -66,6 +99,9 @@ Q: Any weak ciphers or TLS 1.0 usage?
 
 Q: Why is asset 233946644 high risk?
 -> assess_risk(asset_id="233946644")
+
+Q: SaaS security controls status
+-> assess_risk(scope="all")
 ```
 
 ---
@@ -219,6 +255,19 @@ Turn 4: "Outstanding patches for PCI scope?"
   -> plan_remediation(tag="PCI")
 ```
 
+### AI Security Review
+
+```
+Turn 1: "Are our AI models secure?"
+  -> investigate(target="TotalAI detections")
+
+Turn 2: "What's our overall security posture?"
+  -> security_overview(period="today")
+
+Turn 3: "Are we compliant with AI security policies?"
+  -> check_compliance()
+```
+
 ---
 
 ## Tips for AI Assistants
@@ -229,7 +278,10 @@ Turn 4: "Outstanding patches for PCI scope?"
 - **For risk posture questions** -> `assess_risk()` with appropriate scope
 - **For compliance questions** -> `check_compliance(framework="...")`
 - **For cloud/container/web/cert questions** -> `assess_risk(scope="cloud|containers|web|certs")`
+- **For OCI cloud** -> `assess_risk(scope="cloud", provider="oci")`
 - **For threat hunting** -> `investigate(target="...", threat_type="Ransomware")`
 - **For asset-specific questions** -> `assess_risk(asset_id="...")`
 - **For environment orientation** -> `security_overview(quick=True)`
 - **For scanner/infrastructure health** -> `security_overview(scope="infrastructure")`
+- **For AI/LLM security** -> `investigate(target="TotalAI detections")`
+- **For policy library search** -> `check_compliance(framework="CIS")`
