@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Qualys MCP Server v3 — 5 analytical workflow tools + 2 utility tools."""
 
+import asyncio
 from threading import Thread
 from fastmcp import FastMCP
 from qualys.api import BASE_URL, GATEWAY_URL, _resolved_pod, _log, _warmup_vmdr_cache
@@ -15,7 +16,7 @@ mcp = FastMCP("qualys-mcp")
 
 
 @mcp.tool()
-def investigate(target: str, depth: str = "standard", scope: str = "all",
+async def investigate(target: str, depth: str = "standard", scope: str = "all",
                 tag: str = "", asset_group: str = "", threat_type: str = "",
                 software: str = "", days: int = 7, limit: int = 20,
                 detail: str = "standard", prior_context: str = "",
@@ -41,14 +42,14 @@ def investigate(target: str, depth: str = "standard", scope: str = "all",
 
     Returns: unified envelope with summary (headline, risk_level, key_findings), data (per-source results),
     correlations (cross-source insights), actions (prioritized next steps with tool_hints)."""
-    return investigate_wf(target=target, depth=depth, scope=scope, tag=tag,
+    return await asyncio.to_thread(investigate_wf, target=target, depth=depth, scope=scope, tag=tag,
                           asset_group=asset_group, threat_type=threat_type,
                           software=software, days=days, limit=limit,
                           detail=detail, prior_context=prior_context, audience=audience)
 
 
 @mcp.tool()
-def assess_risk(scope: str = "all", tag: str = "", asset_group: str = "",
+async def assess_risk(scope: str = "all", tag: str = "", asset_group: str = "",
                 asset_id: str = "", os: str = "", query: str = "",
                 days_since_seen: int = 0, days_since_scan: int = 0, eol_only: bool = False,
                 provider: str = "", service: str = "", account_id: str = "",
@@ -93,7 +94,7 @@ def assess_risk(scope: str = "all", tag: str = "", asset_group: str = "",
         breakdown_by: "tag" | "none"
 
     Returns: unified envelope with summary, data (per-domain results), correlations, actions."""
-    return assess_risk_wf(scope=scope, tag=tag, asset_group=asset_group,
+    return await asyncio.to_thread(assess_risk_wf, scope=scope, tag=tag, asset_group=asset_group,
                           asset_id=asset_id, os=os, query=query,
                           days_since_seen=days_since_seen, days_since_scan=days_since_scan,
                           eol_only=eol_only, provider=provider, service=service,
@@ -106,7 +107,7 @@ def assess_risk(scope: str = "all", tag: str = "", asset_group: str = "",
 
 
 @mcp.tool()
-def check_compliance(framework: str = "", platform: str = "", tag: str = "",
+async def check_compliance(framework: str = "", platform: str = "", tag: str = "",
                      asset_group: str = "", include_exceptions: bool = False,
                      exception_status: str = "Active", vuln_type: str = "",
                      days_to_expiry: int = 30, limit: int = 20,
@@ -129,14 +130,14 @@ def check_compliance(framework: str = "", platform: str = "", tag: str = "",
         detail: "summary" | "standard" | "detailed"
 
     Returns: unified envelope with summary, data (posture + exceptions), correlations, actions."""
-    return check_compliance_wf(framework=framework, platform=platform, tag=tag,
+    return await asyncio.to_thread(check_compliance_wf, framework=framework, platform=platform, tag=tag,
                                asset_group=asset_group, include_exceptions=include_exceptions,
                                exception_status=exception_status, vuln_type=vuln_type,
                                days_to_expiry=days_to_expiry, limit=limit, detail=detail)
 
 
 @mcp.tool()
-def plan_remediation(scope: str = "all", tag: str = "", asset_group: str = "",
+async def plan_remediation(scope: str = "all", tag: str = "", asset_group: str = "",
                      platform: str = "", severity: str = "", status: str = "",
                      qids: list = None, cves: list = None, limit: int = 20,
                      detail: str = "standard") -> dict:
@@ -158,13 +159,13 @@ def plan_remediation(scope: str = "all", tag: str = "", asset_group: str = "",
         detail: "summary" | "standard" | "detailed"
 
     Returns: unified envelope with summary, data (patches + mitigations + program), correlations, actions."""
-    return plan_remediation_wf(scope=scope, tag=tag, asset_group=asset_group,
+    return await asyncio.to_thread(plan_remediation_wf, scope=scope, tag=tag, asset_group=asset_group,
                                platform=platform, severity=severity, status=status,
                                qids=qids, cves=cves, limit=limit, detail=detail)
 
 
 @mcp.tool()
-def security_overview(period: str = "today", scope: str = "all", quick: bool = False,
+async def security_overview(period: str = "today", scope: str = "all", quick: bool = False,
                       tag: str = "", asset_group: str = "", qql: str = "",
                       severity: str = "", scan_state: str = "Running,Paused,Queued,Error",
                       limit: int = 50, detail: str = "standard") -> dict:
@@ -186,14 +187,14 @@ def security_overview(period: str = "today", scope: str = "all", quick: bool = F
         detail: "summary" | "standard" | "detailed"
 
     Returns: unified envelope with summary, data (briefing + infrastructure + findings), correlations, actions."""
-    return security_overview_wf(period=period, scope=scope, quick=quick,
+    return await asyncio.to_thread(security_overview_wf, period=period, scope=scope, quick=quick,
                                 tag=tag, asset_group=asset_group, qql=qql,
                                 severity=severity, scan_state=scan_state,
                                 limit=limit, detail=detail)
 
 
 @mcp.tool()
-def reports(action: str, report_id: str = "", template_id: str = "",
+async def reports(action: str, report_id: str = "", template_id: str = "",
             asset_group_ids: str = "", template_name: str = "",
             report_title: str = "", output_format: str = "pdf") -> dict:
     """[Reporting] Unified report operations — list, templates, generate, status, download, delete.
@@ -206,18 +207,18 @@ def reports(action: str, report_id: str = "", template_id: str = "",
         template_name: filter templates by name substring
         report_title: custom title for generated report
         output_format: "pdf" | "html" | "mht" | "xml" | "csv" | "docx" (default pdf)"""
-    return reports_agg(action=action, report_id=report_id, template_id=template_id,
+    return await asyncio.to_thread(reports_agg, action=action, report_id=report_id, template_id=template_id,
                        asset_group_ids=asset_group_ids, template_name=template_name,
                        report_title=report_title, output_format=output_format)
 
 
 @mcp.tool()
-def cache_status(clear: bool = False) -> dict:
+async def cache_status(clear: bool = False) -> dict:
     """[Admin] Show cache stats or clear all caches.
 
     Parameters:
         clear: True to clear all caches, False to show stats only"""
-    return cache_status_agg(clear=clear)
+    return await asyncio.to_thread(cache_status_agg, clear=clear)
 
 
 def main():
