@@ -287,6 +287,25 @@ def _summarize(data):
         else:
             headline_parts.append("Risk assessment complete")
 
+    # Derive risk_level from domain data when TruRisk isn't available
+    if risk_level == "unknown" and findings:
+        crit_signals = 0
+        high_signals = 0
+        for f in findings:
+            fl = f.lower()
+            if "critical" in fl:
+                crit_signals += 1
+            if any(w in fl for w in ("failing", "failed", "expired", "offline", "high")):
+                high_signals += 1
+        if crit_signals >= 2:
+            risk_level = "critical"
+        elif crit_signals >= 1 or high_signals >= 2:
+            risk_level = "high"
+        elif high_signals >= 1 or len(findings) >= 2:
+            risk_level = "medium"
+        else:
+            risk_level = "low"
+
     return {
         "headline": "; ".join(headline_parts),
         "risk_level": risk_level,

@@ -46,7 +46,7 @@ def _build_plan(
             state=s, days=dy, limit=lm, detail=d
         )
 
-    if scope in ("all", "findings") or qql:
+    if (scope in ("all", "findings") or qql) and not quick:
         plan["etm_findings"] = lambda q=qql, d=detail: etm_findings(qql=q, detail=d)
 
     return plan

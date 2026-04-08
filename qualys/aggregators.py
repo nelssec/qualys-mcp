@@ -1286,7 +1286,9 @@ def investigate_agg(topic: str, depth: str = "standard", prior_context: str = ""
             risk_level = 'high'
         elif high_risk_count > 10:
             risk_level = 'medium'
-        key_facts.append(f"{env.get('totalAssets', '?')} total assets, {high_risk_count} high-risk")
+        total_a = env.get('totalAssets') or mr.get('totalAssets') or ''
+        if total_a:
+            key_facts.append(f"{total_a} total assets, {high_risk_count} high-risk")
         threats_data = report.get('threats') or {}
         if threats_data.get('ransomwareLinked'):
             key_facts.append(f"{threats_data['ransomwareLinked']} ransomware-linked vulns")
