@@ -40,7 +40,7 @@ concurrent tool invocations without stalling the MCP server (#213).
 ### 53 tools consolidated to 7
 
 The previous architecture exposed 53 individual MCP tools. The LLM had to guess which
-tool to use for ambiguous questions. v0.1.0 consolidates these into 7 intent-based
+tool to use for ambiguous questions. The current architecture consolidates these into 7 intent-based
 workflow tools with parameter-based routing. Each workflow internally dispatches to the
 appropriate aggregator functions based on scope, target, and other parameters.
 
