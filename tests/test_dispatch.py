@@ -59,7 +59,7 @@ class TestInvestigateBuildPlan:
         return plan
 
     def test_cve_target_keys(self):
-        """CVE target type should produce cve_deep and cve_meta keys.
+        """CVE target type should produce cve_deep key (cve_meta removed to avoid redundant API calls).
 
         Note: empty scope defaults to scope_all=True which also adds 'investigate'
         for the general/all path — so we only assert the CVE-specific keys are present.
@@ -83,7 +83,7 @@ class TestInvestigateBuildPlan:
                 prior_context="",
             )
         assert "cve_deep" in plan
-        assert "cve_meta" in plan
+        assert "cve_deep" in plan
         assert "threat_actor" not in plan
 
     def test_threat_actor_target_keys(self):
@@ -201,7 +201,7 @@ class TestInvestigateBuildPlan:
                 prior_context="",
             )
         assert "cve_deep" in plan
-        assert "cve_meta" in plan
+        assert "cve_deep" in plan
         assert "edr" in plan
 
     def test_scope_vulns_adds_vulns_key(self):
