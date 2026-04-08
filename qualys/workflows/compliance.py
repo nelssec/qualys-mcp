@@ -45,9 +45,14 @@ def _build_plan(
     """
     plan = {}
 
-    plan["compliance_posture"] = lambda: compliance_posture(
-        framework=framework, platform=platform, limit=limit, detail=detail,
-    )
+    def _get_compliance():
+        result = compliance_posture(framework=framework, platform=platform, limit=limit, detail=detail)
+        if not result or (isinstance(result, dict) and not result.get("summary") and not result.get("topFailingControls")):
+            result = compliance_posture(framework="", platform=platform, limit=limit, detail=detail)
+            if result and isinstance(result, dict):
+                result["_note"] = f"Framework-specific query for '{framework}' returned no data. Showing overall compliance posture."
+        return result
+    plan["compliance_posture"] = _get_compliance
 
     if not framework or framework.lower() == "list":
         plan["list_compliance_frameworks"] = lambda: list_compliance_frameworks()
