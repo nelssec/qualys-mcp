@@ -38,7 +38,7 @@ def _build_plan(
     days = _PERIOD_DAYS.get(period, 1)
     plan = {}
 
-    plan["morning_report"] = lambda q=quick, d=detail: morning_report(quick=q, detail=d)
+    plan["morning_report"] = lambda d=detail: morning_report(quick=True, detail=d)
 
     if scope in ("all", "infrastructure"):
         plan["scanner_health"] = lambda d=detail: scanner_health(detail=d)
@@ -265,7 +265,7 @@ def security_overview(
         detail=detail,
     )
 
-    overview_timeout = 30 if quick else 120
+    overview_timeout = 30 if quick else 60
     results, elapsed_ms = _dispatch(plan, timeout=overview_timeout)
 
     envelope = _build_envelope(

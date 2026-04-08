@@ -238,7 +238,7 @@ def _build_plan(
 
     # General target or scope=="all" without investigate_agg yet
     scope_all = "all" in scope or scope == []
-    needs_general = target_type == "general" or (scope_all and not has_investigate_agg and "investigate" not in plan)
+    needs_general = target_type == "general" or (scope_all and not has_investigate_agg and "investigate" not in plan and target_type not in ("cve", "threat_actor"))
     if needs_general and "investigate" not in plan:
         plan["investigate"] = lambda: investigate_agg(
             topic=target,
@@ -348,6 +348,17 @@ def _summarize(data: dict) -> str:
     threat_actor = data.get("threat_actor") or {}
     if isinstance(threat_actor, dict) and threat_actor.get("activeInEnvironment", 0) > 0:
         risk = "high" if risk == "unknown" else risk
+
+    totalai = data.get("totalai") or {}
+    if isinstance(totalai, dict) and totalai.get("totalDetections", 0) > 0:
+        jailbreaks = totalai.get("jailbreakCount", 0)
+        if jailbreaks > 10:
+            risk = "high" if risk == "unknown" else risk
+        elif totalai.get("totalDetections", 0) > 0:
+            risk = "medium" if risk == "unknown" else risk
+
+    if risk == "unknown" and len(parts) > 1:
+        risk = "low"
 
     return {
         "headline": headline,
