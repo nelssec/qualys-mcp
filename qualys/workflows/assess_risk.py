@@ -765,7 +765,7 @@ def assess_risk(
     # ------------------------------------------------------------------
     # Dispatch and build envelope
     # ------------------------------------------------------------------
-    risk_timeout = 30 if scope != "all" else 60
+    risk_timeout = 60 if scope != "all" else 90
     results, elapsed_ms = _dispatch(plan, timeout=risk_timeout)
 
     # Compute correlations once for reuse in actions_fn

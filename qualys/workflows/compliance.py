@@ -47,7 +47,12 @@ def _build_plan(
 
     def _get_compliance():
         result = compliance_posture(framework=framework, platform=platform, limit=limit, detail=detail)
-        if not result or (isinstance(result, dict) and not result.get("summary") and not result.get("topFailingControls")):
+        is_empty = (not result or
+                    (isinstance(result, dict) and
+                     not result.get("topFailingControls") and
+                     (not result.get("summary") or
+                      (isinstance(result.get("summary"), dict) and result["summary"].get("controls", 0) == 0))))
+        if is_empty and framework:
             result = compliance_posture(framework="", platform=platform, limit=limit, detail=detail)
             if result and isinstance(result, dict):
                 result["_note"] = f"Framework-specific query for '{framework}' returned no data. Showing overall compliance posture."
