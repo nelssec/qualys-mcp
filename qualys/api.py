@@ -78,6 +78,7 @@ def _provider_from_url(url: str) -> str:
 KB_CONFLICT_MAX_RETRIES = 3
 KB_CONFLICT_BASE_DELAY = 3  # seconds
 KB_BUSY_MSG = "Knowledge base export is currently busy (concurrent request in progress). Please try again in a moment."
+_KB_SEM = Semaphore(1)  # Qualys KB allows only one concurrent query per subscription
 CDR_UNAVAILABLE_MSG = "CDR findings currently unavailable"
 CSAM_MAX_RETRIES = int(os.environ.get("CSAM_MAX_RETRIES", "3"))
 CSAM_RATE_LIMITED_MSG = "Asset search temporarily unavailable due to rate limiting. Please try again in a moment."
@@ -422,6 +423,17 @@ def get_bearer_token():
 
 
 def api_get(url, gateway=False, timeout=30, not_found_ok=False, server_error_sentinel=None):
+    is_kb_api = "/fo/knowledge_base/" in url or "/fo/asset/host/vm/detection/" in url
+    if is_kb_api:
+        _KB_SEM.acquire()
+    try:
+        return _api_get_inner(url, gateway, timeout, not_found_ok, server_error_sentinel)
+    finally:
+        if is_kb_api:
+            _KB_SEM.release()
+
+
+def _api_get_inner(url, gateway, timeout, not_found_ok, server_error_sentinel):
     provider = _provider_from_url(url)
     _perf_log("api_call", provider=provider, endpoint=url.split("?")[0])
     for attempt in range(MAX_RETRIES):
