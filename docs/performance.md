@@ -1,32 +1,37 @@
-# Qualys MCP v0.1.0 -- Performance
+# Qualys MCP v0.1.6 -- Performance
 
 ## Measured Benchmarks
 
-Measured against a real Qualys tenant with 89K assets and 282 test cases.
+Measured against a real Qualys tenant with 89K assets and 295 test cases.
 
 | Tool | Typical Latency | Notes |
 |------|----------------|-------|
 | `security_overview` (quick=True) | ~1.7s | CSAM-heavy, cached |
 | `security_overview` (full) | ~8-10s | All sources, parallel |
-| `check_compliance` (cached) | ~2ms | Cached compliance data |
-| `check_compliance` (cold) | ~5-12s | PC API + CSAM |
-| `assess_risk` (containers) | ~3s | Container image scan |
-| `assess_risk` (all) | ~5-10s | All domains in parallel |
-| `assess_risk` (cloud) | ~5-8s | Parallel AWS/Azure/GCP |
+| `check_compliance` (cached) | <1ms | Cached compliance data |
+| `check_compliance` (cold) | ~5-12s | PC API + CSAM + policy audit |
+| `assess_risk` (cloud) | ~1.3s | Parallel AWS/Azure/GCP/OCI |
+| `assess_risk` (containers) | ~3.1s | Container image scan |
+| `assess_risk` (all) | ~4.9s | All domains in parallel |
 | `assess_risk` (certs) | ~2-5s | CertView API |
-| `investigate` (CVE, quick) | ~10s | KB + basic asset check |
-| `investigate` (CVE, standard) | ~15-20s | KB + CSAM + threat intel |
-| `investigate` (CVE, deep) | ~30-45s | All sources + summary |
-| `plan_remediation` | ~3-8s | PM + CSAM parallel |
+| `investigate` (CVE) | ~33s | KB + CSAM + threat intel, no timeout |
+| `plan_remediation` (patches) | ~2.6s | PM + CSAM parallel |
 | `reports` (list) | ~2-5s | Report API |
 | `cache_status` | <1ms | Memory lookup |
 
-All tool responses complete under 15 seconds for standard depth.
-Deep investigations may take up to 45 seconds when querying all sources.
+All standard-depth responses complete under 15 seconds. CVE investigations run ~33s
+due to comprehensive KB, asset, and threat intelligence lookups. The KB semaphore
+fix (#214, #215) ensures CVE investigations no longer time out.
 
 ---
 
 ## Architecture Performance
+
+### Async Tools
+
+MCP tool handlers are `async` functions using `asyncio.to_thread` to dispatch blocking
+workflow calls. This prevents event loop blocking and enables multiple concurrent tool
+invocations without stalling the MCP server.
 
 ### Caching
 
@@ -44,8 +49,13 @@ Tiered in-memory cache eliminates redundant API calls:
 ### Concurrency
 
 `ThreadPoolExecutor(max_workers=8)` runs independent aggregator calls in parallel.
-Cloud providers (AWS, Azure, GCP) are fetched concurrently rather than sequentially.
+Cloud providers (AWS, Azure, GCP, OCI) are fetched concurrently rather than sequentially.
 Typical parallel dispatch: 3-8 aggregator calls per workflow invocation.
+
+### KB Semaphore
+
+A semaphore serializes concurrent KnowledgeBase requests, preventing 409 Conflict
+errors that previously caused CVE investigation timeouts. Fixed in v0.1.x (#214, #215).
 
 ### Cache Warmup
 
@@ -71,9 +81,12 @@ Typical single-request latencies to Qualys APIs:
 | ETM report list/detail | 0.5-3s |
 | WAS findings | 5-30s |
 | Container images | 1-3s |
-| TotalCloud connectors | 0.5-2s per provider |
+| TotalCloud connectors (AWS/Azure/GCP/OCI) | 0.5-2s per provider |
 | CDR findings | 1-5s |
 | PM jobs | 1-3s |
 | Scanner appliance list | 1-3s |
 | FIM/EDR events | 1-5s |
 | CertView certificates | 1-5s |
+| TotalAI detections | 0.5-2s |
+| Policy Audit library | 0.5-2s |
+| SaaSDR controls | 0.5-2s |

@@ -35,7 +35,7 @@
         </div>
 
         <h1>Performance</h1>
-        <p class="lead">Measured benchmarks for the 7 workflow tools, API latency baselines, and caching strategy. Tested against a Qualys tenant with 89K assets and 282 test cases.</p>
+        <p class="lead">Measured benchmarks for the 7 async workflow tools, API latency baselines, and caching strategy. Tested against a Qualys tenant with 89K assets and 295 test cases.</p>
 
         <h2 id="tool-benchmarks">Tool Benchmarks</h2>
         <p>Typical latencies measured against a production Qualys environment:</p>
@@ -47,16 +47,14 @@
             <tbody>
               <tr><td><code>security_overview</code> (quick)</td><td>~1.7s</td><td>CSAM-heavy, cached</td></tr>
               <tr><td><code>security_overview</code> (full)</td><td>~8-10s</td><td>All sources, parallel</td></tr>
-              <tr><td><code>check_compliance</code> (cached)</td><td>~2ms</td><td>Cached compliance data</td></tr>
-              <tr><td><code>check_compliance</code> (cold)</td><td>~5-12s</td><td>PC API + CSAM</td></tr>
-              <tr><td><code>assess_risk</code> (containers)</td><td>~3s</td><td>Container image scan</td></tr>
-              <tr><td><code>assess_risk</code> (all)</td><td>~5-10s</td><td>All domains in parallel</td></tr>
-              <tr><td><code>assess_risk</code> (cloud)</td><td>~5-8s</td><td>Parallel AWS/Azure/GCP</td></tr>
+              <tr><td><code>check_compliance</code> (cached)</td><td>&lt;1ms</td><td>Cached compliance data</td></tr>
+              <tr><td><code>check_compliance</code> (cold)</td><td>~5-12s</td><td>PC API + CSAM + policy audit</td></tr>
+              <tr><td><code>assess_risk</code> (cloud)</td><td>~1.3s</td><td>Parallel AWS/Azure/GCP/OCI</td></tr>
+              <tr><td><code>assess_risk</code> (containers)</td><td>~3.1s</td><td>Container image scan</td></tr>
+              <tr><td><code>assess_risk</code> (all)</td><td>~4.9s</td><td>All domains in parallel</td></tr>
               <tr><td><code>assess_risk</code> (certs)</td><td>~2-5s</td><td>CertView API</td></tr>
-              <tr><td><code>investigate</code> (CVE, quick)</td><td>~10s</td><td>KB + basic asset check</td></tr>
-              <tr><td><code>investigate</code> (CVE, standard)</td><td>~15-20s</td><td>KB + CSAM + threat intel</td></tr>
-              <tr><td><code>investigate</code> (CVE, deep)</td><td>~30-45s</td><td>All sources + summary</td></tr>
-              <tr><td><code>plan_remediation</code></td><td>~3-8s</td><td>PM + CSAM parallel</td></tr>
+              <tr><td><code>investigate</code> (CVE)</td><td>~33s</td><td>KB + CSAM + threat intel, no timeout</td></tr>
+              <tr><td><code>plan_remediation</code> (patches)</td><td>~2.6s</td><td>PM + CSAM parallel</td></tr>
               <tr><td><code>reports</code> (list)</td><td>~2-5s</td><td>Report API</td></tr>
               <tr><td><code>cache_status</code></td><td>&lt;1ms</td><td>Memory lookup</td></tr>
             </tbody>
@@ -83,7 +81,7 @@
         </div>
 
         <h2 id="concurrency">Concurrency</h2>
-        <p><code>ThreadPoolExecutor(max_workers=8)</code> runs independent aggregator calls in parallel within each workflow invocation. Cloud providers (AWS, Azure, GCP) are fetched concurrently. Typical parallel dispatch: 3-8 aggregator calls per workflow invocation.</p>
+        <p>MCP tools are <code>async</code> and use <code>asyncio.to_thread</code> to prevent event loop blocking. Within workflows, <code>ThreadPoolExecutor(max_workers=8)</code> runs independent aggregator calls in parallel. Cloud providers (AWS, Azure, GCP, OCI) are fetched concurrently. A KB semaphore prevents 409 conflicts from concurrent KnowledgeBase requests. Typical parallel dispatch: 3-8 aggregator calls per workflow invocation.</p>
 
         <h2 id="cache-warmup">Cache Warmup</h2>
         <p>On startup, <code>_warmup_vmdr_cache()</code> runs in a background thread to pre-populate the VMDR detection cache. This ensures the first real query hits warm caches rather than waiting for cold API calls.</p>

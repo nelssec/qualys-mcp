@@ -35,14 +35,14 @@
         </div>
 
         <h1>Tools Overview</h1>
-        <p class="lead">7 workflow tools covering investigation, risk assessment, compliance, remediation, security overview, reporting, and cache management. Consolidated from 53 individual tools into intent-based workflows backed by 42 aggregator functions.</p>
+        <p class="lead">7 async workflow tools covering investigation, risk assessment, compliance, remediation, security overview, reporting, and cache management. Consolidated from 53 individual tools into intent-based workflows backed by 42 aggregator functions. New in v0.1.6: TotalAI detections (374 models), Policy Audit library (1,247 policies), SaaS Detection &amp; Response (230 controls), and OCI cloud resources.</p>
 
         <h2 id="workflow-tools">The 7 Workflow Tools</h2>
 
         <!-- investigate -->
         <h3 id="investigate"><code>investigate</code> &mdash; Investigation</h3>
-        <p>Deep-dive investigation on any security topic: CVEs, threat actors, assets, endpoint events, vulnerability intelligence.</p>
-        <p><strong>Use when:</strong> "tell me about CVE-2024-3400", "are we exposed to Lazarus Group?", "investigate this IP", "what ransomware vulns exist?", "what's happening on 10.0.0.1?"</p>
+        <p>Deep-dive investigation on any security topic: CVEs, threat actors, assets, endpoint events, vulnerability intelligence, TotalAI model detections, and KB search.</p>
+        <p><strong>Use when:</strong> "tell me about CVE-2024-3400", "are we exposed to Lazarus Group?", "investigate this IP", "what ransomware vulns exist?", "what's happening on 10.0.0.1?", "are our AI models being jailbroken?"</p>
         <table>
           <thead><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
           <tbody>
@@ -63,8 +63,8 @@
 
         <!-- assess_risk -->
         <h3 id="assess_risk"><code>assess_risk</code> &mdash; Risk Assessment</h3>
-        <p>Cross-domain risk assessment covering VMs, cloud (AWS/Azure/GCP/OCI), containers, web apps, certificates, and assets.</p>
-        <p><strong>Use when:</strong> "what's our risk?", "show me cloud risk in AWS", "top risky assets", "container vulnerabilities", "expiring certificates", "EOL systems", "risk by business unit"</p>
+        <p>Cross-domain risk assessment covering VMs, cloud (AWS/Azure/GCP/OCI), containers, web apps, certificates, SaaS DR, and assets.</p>
+        <p><strong>Use when:</strong> "what's our risk?", "show me cloud risk in AWS", "top risky assets", "container vulnerabilities", "expiring certificates", "EOL systems", "risk by business unit", "OCI cloud posture", "SaaS security controls"</p>
         <table>
           <thead><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
           <tbody>
@@ -99,8 +99,8 @@
 
         <!-- check_compliance -->
         <h3 id="check_compliance"><code>check_compliance</code> &mdash; Compliance</h3>
-        <p>Compliance posture assessment: framework pass/fail rates, failing controls, risk acceptances.</p>
-        <p><strong>Use when:</strong> "are we PCI compliant?", "compliance gaps", "show failing controls", "risk acceptances expiring", "HIPAA posture", "CIS benchmark results"</p>
+        <p>Compliance posture assessment: framework pass/fail rates, failing controls, risk acceptances, and policy audit library (1,247 CIS/DISA STIG policies).</p>
+        <p><strong>Use when:</strong> "are we PCI compliant?", "compliance gaps", "show failing controls", "risk acceptances expiring", "HIPAA posture", "CIS benchmark results", "search compliance policies", "DISA STIG controls"</p>
         <table>
           <thead><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
           <tbody>

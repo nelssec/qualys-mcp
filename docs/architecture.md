@@ -1,14 +1,14 @@
-# Qualys MCP v0.1.0 -- Architecture
+# Qualys MCP v0.1.6 -- Architecture
 
 ## Layered Design
 
 ```
 AI Assistant (Claude, etc.)
     |
-    v  MCP tool call (one of 7 workflow tools)
+    v  MCP tool call (one of 7 async workflow tools)
 FastMCP Server (qualys_mcp.py)
     |
-    +-- 7 @mcp.tool() wrappers
+    +-- 7 async @mcp.tool() wrappers (asyncio.to_thread)
     |     investigate, assess_risk, check_compliance,
     |     plan_remediation, security_overview, reports, cache_status
     |
@@ -19,15 +19,23 @@ FastMCP Server (qualys_mcp.py)
     +-- qualys/aggregators.py (42 aggregator functions)
     |     Each aggregator calls one or more Qualys APIs,
     |     normalizes the data, and returns structured results.
+    |     New: TotalAI, Policy Audit, SaaSDR, OCI aggregators
     |
     +-- qualys/api.py (HTTP + caching layer)
           api_get(), csam_search(), csam_count(), etm_api()
           ThreadPoolExecutor(max_workers=8) via _run_concurrent()
+          KB semaphore -- prevents 409 conflicts
           In-memory caches with tiered TTLs
           Request deduplication via _get_or_fetch()
 ```
 
 ## Key Design Decisions
+
+### Async tools with asyncio.to_thread
+
+MCP tool handlers are `async` functions. All blocking workflow calls are dispatched
+via `asyncio.to_thread()`, preventing event loop blocking. This enables multiple
+concurrent tool invocations without stalling the MCP server (#213).
 
 ### 53 tools consolidated to 7
 
@@ -52,10 +60,18 @@ The 42 aggregator functions in `qualys/aggregators.py` are the building blocks. 
 wraps one or more Qualys API calls and returns normalized data. Examples:
 
 - `cve_investigate_agg()` -- KB lookup + asset search + threat intel for a CVE
-- `cloud_risk_agg()` -- AWS/Azure/GCP connector + evaluation data
+- `cloud_risk_agg()` -- AWS/Azure/GCP/OCI connector + evaluation data
 - `compliance_posture_agg()` -- PC policy pass/fail rates
 - `patch_priorities_agg()` -- outstanding patches ranked by risk
 - `scanner_health_agg()` -- scanner appliance status
+- `totalai_detections_agg()` -- 374 TotalAI model detections (jailbreaks, OWASP LLM Top 10)
+- `policy_audit_agg()` -- 1,247 CIS/DISA STIG policies from /pcas/v1/library/
+- `saasdr_controls_agg()` -- 230 SaaS security controls via /sdr/api/controls/
+
+### KB Semaphore
+
+A semaphore in `qualys/api.py` serializes concurrent KnowledgeBase requests,
+preventing 409 Conflict errors that previously caused CVE investigation timeouts (#214, #215).
 
 ### Caching
 
@@ -77,10 +93,19 @@ aggregators request the same underlying data concurrently.
 ### Concurrency
 
 `ThreadPoolExecutor(max_workers=8)` via `_run_concurrent()`. Workflow modules dispatch
-multiple aggregator calls in parallel. Cloud provider fetches (AWS, Azure, GCP) run
+multiple aggregator calls in parallel. Cloud provider fetches (AWS, Azure, GCP, OCI) run
 concurrently rather than sequentially.
 
 ### Cache warmup
 
 On startup, a background thread pre-warms the VMDR detection cache so the first real
 query is fast. See `_warmup_vmdr_cache()` in `qualys/api.py`.
+
+## New Modules in v0.1.x
+
+| Module | API Endpoint | Coverage |
+|--------|-------------|---------|
+| TotalAI | `/tai/api/1.0/` | 374 model detections — jailbreaks, OWASP LLM Top 10 |
+| Policy Audit | `/pcas/v1/library/` | 1,247 compliance policies — CIS, DISA STIG |
+| SaaS Detection & Response | `/sdr/api/controls/` | 230 SaaS security controls |
+| OCI Cloud Resources | TotalCloud v2 API | OCI alongside AWS/Azure/GCP |

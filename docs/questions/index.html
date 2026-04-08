@@ -35,7 +35,7 @@
         </div>
 
         <h1>Example Questions</h1>
-        <p class="lead">Example security questions organized by workflow tool, showing how each question maps to the 7 tools in Qualys MCP v0.1.0.</p>
+        <p class="lead">Example security questions organized by workflow tool, showing how each question maps to the 7 tools in Qualys MCP v0.1.6.</p>
 
         <h2 id="investigate-questions">Investigation Questions</h2>
         <div class="question-item" data-status="covered" data-category="investigation">
@@ -79,11 +79,38 @@
           <code>investigate(target="CISA KEV", threat_type="Cisa_Known_Exploited_Vulns")</code>
         </div>
 
+        <h2 id="ai-security-questions">AI Security Questions (TotalAI)</h2>
+        <div class="question-item" data-status="covered" data-category="investigation">
+          <span class="question-num">9a.</span>
+          <span class="question-text">Are our AI models being jailbroken?</span>
+          <code>investigate(target="AI jailbreak detections")</code>
+        </div>
+        <div class="question-item" data-status="covered" data-category="investigation">
+          <span class="question-num">9b.</span>
+          <span class="question-text">Show OWASP LLM Top 10 detections</span>
+          <code>investigate(target="OWASP LLM", scope="all")</code>
+        </div>
+        <div class="question-item" data-status="covered" data-category="investigation">
+          <span class="question-num">9c.</span>
+          <span class="question-text">TotalAI model security status</span>
+          <code>investigate(target="TotalAI detections")</code>
+        </div>
+
         <h2 id="risk-questions">Risk Assessment Questions</h2>
         <div class="question-item" data-status="covered" data-category="risk">
           <span class="question-num">9.</span>
           <span class="question-text">What's our overall risk?</span>
           <code>assess_risk()</code>
+        </div>
+        <div class="question-item" data-status="covered" data-category="risk">
+          <span class="question-num">10a.</span>
+          <span class="question-text">OCI cloud posture</span>
+          <code>assess_risk(scope="cloud", provider="oci")</code>
+        </div>
+        <div class="question-item" data-status="covered" data-category="risk">
+          <span class="question-num">10b.</span>
+          <span class="question-text">SaaS security controls status</span>
+          <code>assess_risk(scope="all")</code>
         </div>
         <div class="question-item" data-status="covered" data-category="risk">
           <span class="question-num">10.</span>
@@ -141,6 +168,16 @@
           <span class="question-num">20.</span>
           <span class="question-text">Risk acceptances expiring soon</span>
           <code>check_compliance(include_exceptions=True, days_to_expiry=30)</code>
+        </div>
+        <div class="question-item" data-status="covered" data-category="compliance">
+          <span class="question-num">20a.</span>
+          <span class="question-text">DISA STIG policy library</span>
+          <code>check_compliance(framework="CIS")</code>
+        </div>
+        <div class="question-item" data-status="covered" data-category="compliance">
+          <span class="question-num">20b.</span>
+          <span class="question-text">How many compliance policies do we have?</span>
+          <code>check_compliance()</code>
         </div>
 
         <h2 id="remediation-questions">Remediation Questions</h2>
@@ -224,8 +261,9 @@
         <div class="toc-title">On this page</div>
         <ul>
           <li><a href="#investigate-questions">Investigation</a></li>
+          <li><a href="#ai-security-questions">AI Security (TotalAI)</a></li>
           <li><a href="#risk-questions">Risk Assessment</a></li>
-          <li><a href="#compliance-questions">Compliance</a></li>
+          <li><a href="#compliance-questions">Compliance &amp; Policy Audit</a></li>
           <li><a href="#remediation-questions">Remediation</a></li>
           <li><a href="#overview-questions">Security Overview</a></li>
           <li><a href="#report-questions">Reports &amp; Admin</a></li>

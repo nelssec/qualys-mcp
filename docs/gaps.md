@@ -1,9 +1,12 @@
-# Qualys MCP v0.1.0 -- Known Gaps & Limitations
+# Qualys MCP v0.1.6 -- Known Gaps & Limitations
 
 ## Current State
 
-v0.1.0 ships 7 workflow tools backed by 42 aggregator functions covering 9+ Qualys modules.
-282 tests pass. Tested against a tenant with 89K assets.
+v0.1.6 ships 7 async workflow tools backed by 42 aggregator functions covering 13+ Qualys modules.
+295 tests pass. Tested against a tenant with 89K assets.
+
+New in v0.1.x: TotalAI (374 model detections), Policy Audit (1,247 policies), SaaSDR (230 controls), OCI cloud.
+Fixed in v0.1.x: async tools prevent event loop blocking, KB semaphore prevents 409 conflicts, CVE investigate no longer times out.
 
 ---
 
@@ -53,7 +56,7 @@ v0.1.0 ships 7 workflow tools backed by 42 aggregator functions covering 9+ Qual
 
 **What's missing:** Creating remediation tickets, scheduling scans, modifying asset tags, accepting risks.
 
-**Why:** v0.1.0 is read-only by design. Write operations require careful access control and confirmation flows.
+**Why:** v0.1.6 is read-only by design. Write operations require careful access control and confirmation flows.
 
 **Status:** Under consideration for future releases.
 
@@ -67,7 +70,7 @@ v0.1.0 ships 7 workflow tools backed by 42 aggregator functions covering 9+ Qual
 | ETM (enterprise trurisk) | High | `investigate`, `security_overview` |
 | CSAM (asset management) | High | `assess_risk`, `security_overview` |
 | KB (knowledge base) | High | `investigate` |
-| TotalCloud (cloud security) | Medium | `assess_risk(scope="cloud")` |
+| TotalCloud (AWS/Azure/GCP/OCI) | Medium | `assess_risk(scope="cloud")` |
 | Container Security | Medium | `assess_risk(scope="containers")` |
 | WAS (web app scanning) | Medium | `assess_risk(scope="web")` |
 | CertView (certificates) | Medium | `assess_risk(scope="certs")` |
@@ -76,3 +79,6 @@ v0.1.0 ships 7 workflow tools backed by 42 aggregator functions covering 9+ Qual
 | FIM (file integrity) | Medium | `investigate(scope="fim")` |
 | PC (policy compliance) | Medium | `check_compliance` |
 | CDR (cloud detection) | Medium | `assess_risk(scope="cloud")` |
+| TotalAI (AI model security) | Medium | `investigate` |
+| Policy Audit / PCAS | Medium | `check_compliance` |
+| SaaS Detection & Response | Medium | `assess_risk` |

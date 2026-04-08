@@ -35,16 +35,16 @@
         </div>
 
         <h1>Architecture</h1>
-        <p class="lead">Internal architecture of Qualys MCP Server v0.1.0 &mdash; layered workflow design, caching, concurrency, and request deduplication.</p>
+        <p class="lead">Internal architecture of Qualys MCP Server v0.1.6 &mdash; async tools, layered workflow design, KB semaphore, caching, concurrency, and request deduplication.</p>
 
         <h2 id="system-overview">System Overview</h2>
-        <p>Qualys MCP v0.1.0 uses a four-layer architecture: 7 MCP tool wrappers dispatch to 5 workflow modules, which orchestrate 42 aggregator functions, which call the Qualys APIs through a shared HTTP + caching layer.</p>
+        <p>Qualys MCP v0.1.6 uses a four-layer architecture: 7 async MCP tool wrappers dispatch to 5 workflow modules via <code>asyncio.to_thread</code>, which orchestrate 42 aggregator functions, which call the Qualys APIs through a shared HTTP + caching layer.</p>
 <pre><code>AI Assistant (Claude, etc.)
     |
-    v  MCP tool call (one of 7 tools)
+    v  MCP tool call (one of 7 async tools)
 FastMCP Server (qualys_mcp.py)
     |
-    +-- 7 @mcp.tool() wrappers
+    +-- 7 async @mcp.tool() wrappers (asyncio.to_thread)
     |     investigate, assess_risk, check_compliance,
     |     plan_remediation, security_overview, reports, cache_status
     |
@@ -54,10 +54,12 @@ FastMCP Server (qualys_mcp.py)
     |
     +-- qualys/aggregators.py (42 aggregator functions)
     |     Each aggregator wraps one or more Qualys API calls
+    |     New: TotalAI, Policy Audit, SaaSDR, OCI aggregators
     |
     +-- qualys/api.py (HTTP + caching)
           _run_concurrent() -- ThreadPoolExecutor(max_workers=8)
           _get_or_fetch() -- request deduplication
+          KB semaphore -- prevents 409 conflicts
           Tiered in-memory caches</code></pre>
 
         <h2 id="workflow-layer">Workflow Layer</h2>
@@ -75,16 +77,16 @@ FastMCP Server (qualys_mcp.py)
             <tr><th>Module</th><th>MCP Tool</th><th>Scope</th></tr>
           </thead>
           <tbody>
-            <tr><td><code>workflows/investigate.py</code></td><td><code>investigate</code></td><td>CVE deep-dive, threat actors, asset investigation, EDR/FIM events, KB search</td></tr>
-            <tr><td><code>workflows/assess_risk.py</code></td><td><code>assess_risk</code></td><td>VMs, cloud, containers, web apps, certificates, assets</td></tr>
-            <tr><td><code>workflows/compliance.py</code></td><td><code>check_compliance</code></td><td>Framework posture, failing controls, risk acceptances</td></tr>
+            <tr><td><code>workflows/investigate.py</code></td><td><code>investigate</code></td><td>CVE deep-dive, threat actors, TotalAI detections, asset investigation, EDR/FIM events, KB search</td></tr>
+            <tr><td><code>workflows/assess_risk.py</code></td><td><code>assess_risk</code></td><td>VMs, cloud (AWS/Azure/GCP/OCI), containers, web apps, certificates, SaaS DR, assets</td></tr>
+            <tr><td><code>workflows/compliance.py</code></td><td><code>check_compliance</code></td><td>Framework posture, failing controls, policy audit library (1,247 policies), risk acceptances</td></tr>
             <tr><td><code>workflows/remediation.py</code></td><td><code>plan_remediation</code></td><td>Patch priorities, deployment status, mitigation coverage</td></tr>
             <tr><td><code>workflows/overview.py</code></td><td><code>security_overview</code></td><td>Daily/weekly/monthly briefing, scanner health, ETM findings</td></tr>
           </tbody>
         </table>
 
         <h2 id="aggregator-layer">Aggregator Layer</h2>
-        <p>The 42 aggregator functions in <code>qualys/aggregators.py</code> are the building blocks of every workflow. Each aggregator wraps one or more Qualys API calls, normalizes the response data, and returns a structured dict. Aggregators are stateless and composable &mdash; any workflow can call any aggregator.</p>
+        <p>The 42 aggregator functions in <code>qualys/aggregators.py</code> are the building blocks of every workflow. Each aggregator wraps one or more Qualys API calls, normalizes the response data, and returns a structured dict. Aggregators are stateless and composable &mdash; any workflow can call any aggregator. New aggregators added in v0.1.x include TotalAI model detections (<code>/tai/api/1.0/</code>), Policy Audit library (<code>/pcas/v1/library/</code>), SaaS Detection &amp; Response controls (<code>/sdr/api/controls/</code>), and OCI cloud resources via TotalCloud v2.</p>
 
         <h2 id="cache-architecture">Cache Architecture</h2>
         <p>Tiered in-memory cache with TTLs matched to data volatility:</p>
@@ -124,20 +126,22 @@ FastMCP Server (qualys_mcp.py)
         return data</code></pre>
 
         <h2 id="concurrency-model">Concurrency Model</h2>
-        <p><code>ThreadPoolExecutor(max_workers=8)</code> via <code>_run_concurrent()</code> parallelizes independent API calls within a single workflow invocation. Each workflow dispatches its aggregator calls concurrently, and cloud provider fetches (AWS, Azure, GCP) run in parallel rather than sequentially.</p>
+        <p>MCP tool handlers are <code>async</code> functions that use <code>asyncio.to_thread</code> to dispatch blocking workflow calls, preventing event loop blocking. Within each workflow, <code>ThreadPoolExecutor(max_workers=8)</code> via <code>_run_concurrent()</code> parallelizes independent aggregator calls. Cloud provider fetches (AWS, Azure, GCP, OCI) run in parallel rather than sequentially. A KB semaphore prevents 409 conflicts from concurrent KnowledgeBase requests.</p>
 
         <h2 id="performance-budget">Performance Budget</h2>
-        <p>Target: all tool responses under 15 seconds. Measured performance:</p>
+        <p>Target: all tool responses under 15 seconds (89K asset environment). Measured performance:</p>
         <table>
           <thead>
             <tr><th>Tool</th><th>Typical Latency</th><th>Notes</th></tr>
           </thead>
           <tbody>
-            <tr><td><code>security_overview</code> (quick)</td><td>~1.7s</td><td>CSAM-heavy, all cached</td></tr>
-            <tr><td><code>check_compliance</code> (cached)</td><td>~2ms</td><td>Cached compliance data</td></tr>
-            <tr><td><code>assess_risk</code> (containers)</td><td>~3s</td><td>Container image scan</td></tr>
-            <tr><td><code>investigate</code> (CVE, standard)</td><td>~8-15s</td><td>KB + CSAM + threat intel</td></tr>
-            <tr><td><code>investigate</code> (CVE, deep)</td><td>~15-45s</td><td>All sources + summary</td></tr>
+            <tr><td><code>security_overview</code> (quick)</td><td>~1.7s</td><td>CSAM-heavy, cached</td></tr>
+            <tr><td><code>assess_risk</code> (cloud)</td><td>~1.3s</td><td>Parallel cloud providers</td></tr>
+            <tr><td><code>assess_risk</code> (containers)</td><td>~3.1s</td><td>Container image scan</td></tr>
+            <tr><td><code>check_compliance</code> (cached)</td><td>&lt;1ms</td><td>Cached compliance data</td></tr>
+            <tr><td><code>plan_remediation</code> (patches)</td><td>~2.6s</td><td>PM + CSAM parallel</td></tr>
+            <tr><td><code>assess_risk</code> (all)</td><td>~4.9s</td><td>All domains in parallel</td></tr>
+            <tr><td><code>investigate</code> (CVE)</td><td>~33s</td><td>KB + CSAM + threat intel, no longer times out</td></tr>
           </tbody>
         </table>
 
