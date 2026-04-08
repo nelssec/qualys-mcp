@@ -28,7 +28,7 @@ jobs:
         run: python -m py_compile qualys_mcp.py && echo "Syntax OK"
 
       - name: Import check
-        run: python -c "import qualys_mcp; print(f'Import OK — {len(qualys_mcp.mcp._tool_manager._tools)} tools')"
+        run: python -c "import qualys_mcp; print('Import OK')"
         env:
           QUALYS_USERNAME: dummy
           QUALYS_PASSWORD: dummy
