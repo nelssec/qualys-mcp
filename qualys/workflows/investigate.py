@@ -346,8 +346,11 @@ def _summarize(data: dict) -> str:
             risk = "low"
 
     threat_actor = data.get("threat_actor") or {}
-    if isinstance(threat_actor, dict) and threat_actor.get("activeInEnvironment", 0) > 0:
-        risk = "high" if risk == "unknown" else risk
+    if isinstance(threat_actor, dict):
+        if threat_actor.get("activeInEnvironment", 0) > 0:
+            risk = "high" if risk == "unknown" else risk
+        elif threat_actor.get("totalInKB", -1) == 0:
+            risk = "low" if risk == "unknown" else risk
 
     totalai = data.get("totalai") or {}
     if isinstance(totalai, dict) and totalai.get("totalDetections", 0) > 0:
