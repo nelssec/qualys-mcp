@@ -25,6 +25,44 @@ fix (#214, #215) ensures CVE investigations no longer time out.
 
 ---
 
+## Cold Start Behavior
+
+The first query after launching the MCP server will be slower than subsequent queries.
+
+| Phase | Time | What happens |
+|-------|------|-------------|
+| Import & init | ~50ms | Python modules load, POD URLs resolve |
+| Bearer token | ~300ms | First API authentication call |
+| First query | 2-10s | No cache — all API calls hit Qualys cold |
+| Subsequent queries | <2s typical | In-memory + disk cache populated |
+
+### What warms up automatically
+
+On startup, a background thread pre-fetches VMDR detections (severity 3-5) to warm the
+disk cache. This runs silently and takes 30-60 seconds on large environments. Once warm,
+detection-based queries (ETM findings, investigate) are significantly faster.
+
+### Cache TTLs
+
+| Cache | TTL | Scope |
+|-------|-----|-------|
+| Bearer token | 3.5 hours | Authentication |
+| CSAM counts | 5 minutes | Asset counts |
+| CSAM search | 5 minutes | Asset search results |
+| VMDR detections | 30 minutes (memory), 4 hours (disk) | Vulnerability detections |
+| Compliance posture | 6 hours (disk) | Compliance data |
+| WAS findings | 10 minutes | Web app vulnerabilities |
+| Cloud evaluations | 4 hours (disk) | Cloud posture |
+
+### Tips for faster responses
+
+- **Ask a quick overview first** — `security_overview(quick=True)` warms CSAM caches in ~1.5s
+- **Compliance is slow on first call** (~2 minutes) but near-instant after (disk cached for 6 hours)
+- **CVE investigations** always take ~30s due to KB + detection cross-reference — this is API-bound, not cache-bound
+- **Scoped queries are faster** — `assess_risk(scope="cloud")` is faster than `assess_risk(scope="all")`
+
+---
+
 ## Architecture Performance
 
 ### Async Tools

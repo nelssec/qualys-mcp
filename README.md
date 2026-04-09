@@ -156,8 +156,10 @@ Tested on an 89,000-asset environment (US2 POD):
 | `assess_risk(scope="containers")` | 3.1s |
 | `check_compliance()` | <1ms (cached) |
 | `plan_remediation(scope="patches")` | 2.6s |
-| `investigate(target="CVE-2024-3400")` | 12.8s |
+| `investigate(target="CVE-2024-3400")` | ~33s |
 | `assess_risk(scope="all")` | 4.9s |
+
+> **Cold start:** The first query after launching takes 2-10s longer while the bearer token is acquired and caches warm up. A background thread pre-fetches VMDR detections on startup. After the first query, responses are significantly faster. Ask `security_overview(quick=True)` first to warm caches.
 
 ## Eval Harness
 
