@@ -3053,6 +3053,22 @@ def cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7, per
         result['message'] = 'No cloud connectors configured. Connect AWS, Azure, GCP, or OCI accounts in Qualys TotalCloud to see cloud risk data.'
         return compact(result)
 
+    resource_type_map = {'aws': 'EC2_INSTANCE', 'azure': 'VIRTUAL_MACHINE', 'gcp': 'VM_INSTANCE', 'oci': 'INSTANCE'}
+    resource_tasks = {
+        f"res_{p}": (lambda p=p, rt=resource_type_map.get(p, 'INSTANCE'): get_cloud_resources_v2(p, rt, 1))
+        for p in set(a['provider'] for a in all_accounts) if a.get('provider') in resource_type_map
+    }
+    if resource_tasks:
+        resource_results = _run_concurrent(**resource_tasks)
+        resource_counts = {}
+        for p in resource_type_map:
+            r_data = resource_results.get(f"res_{p}")
+            if r_data and isinstance(r_data, dict):
+                resource_counts[p.upper()] = r_data.get('totalHits', 0)
+        if resource_counts:
+            result['cloudResources'] = resource_counts
+            result['totalCloudResources'] = sum(resource_counts.values())
+
     # Per-account summary: fast counts via pageSize=1 for ALL accounts
     if per_account and all_accounts:
         count_tasks = {
@@ -4331,9 +4347,12 @@ def fim_events(days: int = 1, severity: str = "", host: str = "", path: str = ""
         reverse=True,
     )[:10]
 
+    fim_total = get_fim_event_count() if total < limit else total
+
     _r = {
         'summary': {
             'total': total,
+            'totalAllTime': fim_total,
             'critical': sev_counts['CRITICAL'],
             'high': sev_counts['HIGH'],
             'affectedHosts': len(affected_hosts),
