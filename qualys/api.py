@@ -1869,3 +1869,198 @@ def _warmup_vmdr_cache():
         except Exception as e:
             _log(f"Cache warm-up: severity {sev} failed: {e}")
     _log("Cache warm-up: complete")
+
+
+# ---------------------------------------------------------------------------
+# FIM v2 API (dedicated File Integrity Monitoring endpoints)
+# ---------------------------------------------------------------------------
+
+
+def get_fim_events_v2(page_size=50, filters=None):
+    """Search FIM events via dedicated FIM v2 API (faster than /ioc/events)."""
+    url = f"{GATEWAY_URL}/fim/v2/events/search"
+    body = {"pageSize": page_size}
+    if filters:
+        body["filters"] = filters
+    return _gateway_post(url, body)
+
+
+def get_fim_event_count(filters=None):
+    """Get FIM event count via dedicated API."""
+    url = f"{GATEWAY_URL}/fim/v2/events/count"
+    body = {"filters": filters} if filters else {}
+    result = _gateway_post(url, body)
+    return result.get('count', 0) if result else 0
+
+
+def get_fim_incidents(page_size=50, filters=None):
+    """Search FIM incidents."""
+    url = f"{GATEWAY_URL}/fim/v3/incidents/search"
+    body = {"pageSize": page_size}
+    if filters:
+        body["filters"] = filters
+    return _gateway_post(url, body)
+
+
+def get_fim_assets(page_size=50, filters=None):
+    """Search FIM-monitored assets."""
+    url = f"{GATEWAY_URL}/fim/v3/assets/search"
+    body = {"pageSize": page_size}
+    if filters:
+        body["filters"] = filters
+    return _gateway_post(url, body)
+
+
+# ---------------------------------------------------------------------------
+# EDR searchAfter (paginated event search with user info)
+# ---------------------------------------------------------------------------
+
+
+def get_edr_events_v2(page_size=50, filters=None):
+    """Search EDR events via searchAfter API (includes user info)."""
+    url = f"{GATEWAY_URL}/ioc/asset/searchAfter?pageSize={page_size}"
+    if filters:
+        url += f"&filter={filters}"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return {'data': [], 'totalElements': 0}
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return {'data': [], 'totalElements': 0}
+
+
+# ---------------------------------------------------------------------------
+# Container Security detail endpoints
+# ---------------------------------------------------------------------------
+
+
+def get_container_detail(container_sha):
+    """Get single container details by SHA."""
+    url = f"{GATEWAY_URL}/csapi/v1.3/containers/{container_sha}"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return {}
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+
+
+def get_image_detail(image_sha):
+    """Get single image details by SHA."""
+    url = f"{GATEWAY_URL}/csapi/v1.3/images/{image_sha}"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return {}
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+
+
+def get_image_software(image_sha, page_size=50):
+    """Get software inventory for a container image."""
+    url = f"{GATEWAY_URL}/csapi/v1.3/images/{image_sha}/software?pageSize={page_size}"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return []
+    try:
+        parsed = json.loads(data)
+        return parsed.get('data', parsed) if isinstance(parsed, dict) else parsed
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+
+def get_cs_vulnerabilities(page_size=50, page_number=1):
+    """Get container security vulnerabilities."""
+    url = f"{GATEWAY_URL}/csapi/v1.3/vulnerability?pageSize={page_size}&pageNumber={page_number}"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return {'data': [], 'count': 0}
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return {'data': [], 'count': 0}
+
+
+# ---------------------------------------------------------------------------
+# TotalCloud v2 resource endpoints (all providers, better pagination)
+# ---------------------------------------------------------------------------
+
+
+def get_cloud_resources_v2(provider, resource_type, page_size=50):
+    """Get cloud resources via v2 API — supports all providers, no 10K limit."""
+    url = f"{GATEWAY_URL}/cloudview-api/rest/v2/resource/{resource_type}/{provider}?pageSize={page_size}"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return {'content': [], 'totalHits': 0}
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return {'content': [], 'totalHits': 0}
+
+
+def get_cloud_eval_resources(provider, page_size=50):
+    """Get cloud evaluation resources via v1 API."""
+    url = f"{GATEWAY_URL}/cloudview-api/rest/v1/{provider}/evaluations/resources?pageSize={page_size}"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return {'content': []}
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return {'content': []}
+
+
+# ---------------------------------------------------------------------------
+# Patch Management — patch catalog + scan schedule
+# ---------------------------------------------------------------------------
+
+
+def get_patch_catalog(page_size=50):
+    """Get full patch catalog from PM."""
+    url = f"{GATEWAY_URL}/pm/v1/patchcatalog/patches?pageSize={page_size}"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return []
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+
+# ---------------------------------------------------------------------------
+# CSAM asset components
+# ---------------------------------------------------------------------------
+
+
+def get_asset_components(filters=None, page_size=50):
+    """Get asset software/hardware components via CSAM."""
+    url = f"{GATEWAY_URL}/rest/2.0/am/asset/component"
+    body = {"filters": filters or [], "preferences": {"limitResults": page_size}}
+    return _gateway_post(url, body)
+
+
+# ---------------------------------------------------------------------------
+# Helper for gateway POST endpoints
+# ---------------------------------------------------------------------------
+
+
+def _gateway_post(url, body_dict, timeout=15):
+    """POST to a gateway API endpoint with bearer auth. Returns parsed JSON or None."""
+    token = get_bearer_token()
+    req = Request(url, data=json.dumps(body_dict).encode(), method='POST')
+    req.add_header('Authorization', f'Bearer {token}' if token else f'Basic {BASIC_AUTH}')
+    req.add_header('Content-Type', 'application/json')
+    req.add_header('Accept', 'application/json')
+    req.add_header('X-Requested-With', 'qualys-mcp')
+    try:
+        with _open(req, timeout=timeout) as resp:
+            return json.loads(resp.read())
+    except HTTPError as e:
+        _log(f"Gateway POST {e.code}: {url.split('?')[0]}")
+        return None
+    except Exception as e:
+        _log(f"Gateway POST error: {e}")
+        return None

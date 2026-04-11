@@ -19,6 +19,14 @@ eval_results/
 !eval_results/.gitkeep
 benchmark_results.json
 
+# Node
+node_modules/
+package-lock.json
+package.json
+
 # Dev/internal
 devclaw/
 discovery/
+*.yaml
+*.yml
+!.github/**/*.yml
