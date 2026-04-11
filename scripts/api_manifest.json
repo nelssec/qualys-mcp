@@ -9,164 +9,594 @@
       "baseUrl": "GATEWAY/rest/2.0",
       "auth": "bearer",
       "endpoints": [
-        {"method": "POST", "path": "/rest/2.0/count/am/asset", "status": "implemented", "description": "Asset count with filters"},
-        {"method": "POST", "path": "/rest/2.0/search/am/asset", "status": "implemented", "description": "Asset search with filters"},
-        {"method": "GET", "path": "/rest/2.0/get/am/asset/{id}", "status": "implemented", "description": "Single asset by ID"},
-        {"method": "POST", "path": "/rest/2.0/am/asset/component", "status": "implemented", "description": "Asset software/hardware components"},
-        {"method": "POST", "path": "/rest/2.0/am/report", "status": "not_needed", "description": "Asset report generation"},
-        {"method": "POST", "path": "/rest/2.0/am/connector/asset/data/sync", "status": "not_needed", "description": "Third-party asset import"}
+        {
+          "method": "POST",
+          "path": "/rest/2.0/count/am/asset",
+          "status": "implemented",
+          "description": "Asset count with filters"
+        },
+        {
+          "method": "POST",
+          "path": "/rest/2.0/search/am/asset",
+          "status": "implemented",
+          "description": "Asset search with filters"
+        },
+        {
+          "method": "GET",
+          "path": "/rest/2.0/get/am/asset/{id}",
+          "status": "implemented",
+          "description": "Single asset by ID"
+        },
+        {
+          "method": "POST",
+          "path": "/rest/2.0/am/asset/component",
+          "status": "implemented",
+          "description": "Asset software/hardware components"
+        },
+        {
+          "method": "POST",
+          "path": "/rest/2.0/am/report",
+          "status": "not_needed",
+          "description": "Asset report generation"
+        },
+        {
+          "method": "POST",
+          "path": "/rest/2.0/am/connector/asset/data/sync",
+          "status": "not_needed",
+          "description": "Third-party asset import"
+        }
       ]
     },
     "VMDR": {
       "baseUrl": "BASE/api/2.0/fo",
       "auth": "basic",
       "endpoints": [
-        {"method": "GET", "path": "/api/2.0/fo/asset/host/vm/detection/", "status": "implemented", "description": "Host vulnerability detections"},
-        {"method": "GET", "path": "/api/2.0/fo/knowledge_base/vuln/", "status": "implemented", "description": "Knowledge Base query"},
-        {"method": "GET", "path": "/api/2.0/fo/scan/", "status": "implemented", "description": "Scan list"},
-        {"method": "GET", "path": "/api/2.0/fo/appliance/", "status": "implemented", "description": "Scanner appliance list"},
-        {"method": "GET", "path": "/api/2.0/fo/session/", "status": "not_needed", "description": "Session management"},
-        {"method": "GET", "path": "/api/2.0/fo/compliance/posture/info/", "status": "implemented", "description": "Compliance posture"},
-        {"method": "GET", "path": "/api/2.0/fo/compliance/control/", "status": "implemented", "description": "Compliance controls"},
-        {"method": "GET", "path": "/api/4.0/fo/compliance/policy/", "status": "implemented", "description": "Policy list v4"},
-        {"method": "GET", "path": "/api/2.0/fo/exception/vuln/", "status": "implemented", "description": "Vulnerability exceptions"},
-        {"method": "GET", "path": "/api/5.0/fo/schedule/scan/", "status": "gap", "description": "Scan scheduling v5"}
+        {
+          "method": "GET",
+          "path": "/api/2.0/fo/asset/host/vm/detection/",
+          "status": "implemented",
+          "description": "Host vulnerability detections"
+        },
+        {
+          "method": "GET",
+          "path": "/api/2.0/fo/knowledge_base/vuln/",
+          "status": "implemented",
+          "description": "Knowledge Base query"
+        },
+        {
+          "method": "GET",
+          "path": "/api/2.0/fo/scan/",
+          "status": "implemented",
+          "description": "Scan list"
+        },
+        {
+          "method": "GET",
+          "path": "/api/2.0/fo/appliance/",
+          "status": "implemented",
+          "description": "Scanner appliance list"
+        },
+        {
+          "method": "GET",
+          "path": "/api/2.0/fo/session/",
+          "status": "not_needed",
+          "description": "Session management"
+        },
+        {
+          "method": "GET",
+          "path": "/api/2.0/fo/compliance/posture/info/",
+          "status": "implemented",
+          "description": "Compliance posture"
+        },
+        {
+          "method": "GET",
+          "path": "/api/2.0/fo/compliance/control/",
+          "status": "implemented",
+          "description": "Compliance controls"
+        },
+        {
+          "method": "GET",
+          "path": "/api/4.0/fo/compliance/policy/",
+          "status": "implemented",
+          "description": "Policy list v4"
+        },
+        {
+          "method": "GET",
+          "path": "/api/2.0/fo/exception/vuln/",
+          "status": "implemented",
+          "description": "Vulnerability exceptions"
+        },
+        {
+          "method": "GET",
+          "path": "/api/5.0/fo/schedule/scan/",
+          "status": "gap",
+          "description": "Scan scheduling v5"
+        }
       ]
     },
     "ETM": {
       "baseUrl": "GATEWAY/etm",
       "auth": "bearer",
       "endpoints": [
-        {"method": "POST", "path": "/etm/api/rest/v1/", "status": "implemented", "description": "ETM generic API"},
-        {"method": "GET", "path": "/etm/api/rest/v1/reports/{id}/download", "status": "implemented", "description": "ETM report download"},
-        {"method": "GET", "path": "/etm/api/rest/v1/mitigations", "status": "gap", "description": "ETM mitigations list (404 on US2)"}
+        {
+          "method": "POST",
+          "path": "/etm/api/rest/v1/",
+          "status": "implemented",
+          "description": "ETM generic API"
+        },
+        {
+          "method": "GET",
+          "path": "/etm/api/rest/v1/reports/{id}/download",
+          "status": "implemented",
+          "description": "ETM report download"
+        },
+        {
+          "method": "GET",
+          "path": "/etm/api/rest/v1/mitigations",
+          "status": "gap",
+          "description": "ETM mitigations list (404 on US2)"
+        }
       ]
     },
     "TotalCloud": {
       "baseUrl": "GATEWAY/cloudview-api",
       "auth": "bearer",
       "endpoints": [
-        {"method": "GET", "path": "/cloudview-api/rest/v1/{provider}/connectors", "status": "implemented", "description": "Cloud connectors (AWS/Azure/GCP)"},
-        {"method": "GET", "path": "/cloudview-api/rest/v1/{provider}/evaluations/{accountId}", "status": "implemented", "description": "Evaluations per account"},
-        {"method": "GET", "path": "/cloudview-api/rest/v1/{provider}/evaluations/{accountId}/count", "status": "implemented", "description": "Evaluation counts"},
-        {"method": "GET", "path": "/cloudview-api/rest/v1/{provider}/evaluations/resources", "status": "implemented", "description": "Evaluation resources v1"},
-        {"method": "GET", "path": "/cloudview-api/rest/v2/resource/{resourceType}/{provider}", "status": "implemented", "description": "Cloud resources v2 (no 10K limit)"},
-        {"method": "GET", "path": "/cloudview-api/rest/v2/{provider}/evaluations/{accountId}/resources/{controlId}", "status": "gap", "description": "Per-control resource evaluations v2"},
-        {"method": "GET", "path": "/cdr-api/rest/v1/findings/", "status": "implemented", "description": "CDR threat findings"},
-        {"method": "GET", "path": "/cloudview-api/rest/v1/remediation/actions", "status": "gap", "description": "Cloud remediation actions"},
-        {"method": "GET", "path": "/cloudview-api/rest/v1/reports", "status": "gap", "description": "Cloud assessment reports"},
-        {"method": "GET", "path": "/cloudview-api/rest/v1/controls", "status": "gap", "description": "Control metadata"},
-        {"method": "GET", "path": "/cloudview-api/rest/v1/alerts", "status": "gap", "description": "Alerting/response rules"},
-        {"method": "GET", "path": "/cloudview-api/rest/v1/exceptions", "status": "gap", "description": "Exception management"}
+        {
+          "method": "GET",
+          "path": "/cloudview-api/rest/v1/{provider}/connectors",
+          "status": "implemented",
+          "description": "Cloud connectors (AWS/Azure/GCP)"
+        },
+        {
+          "method": "GET",
+          "path": "/cloudview-api/rest/v1/{provider}/evaluations/{accountId}",
+          "status": "implemented",
+          "description": "Evaluations per account"
+        },
+        {
+          "method": "GET",
+          "path": "/cloudview-api/rest/v1/{provider}/evaluations/{accountId}/count",
+          "status": "implemented",
+          "description": "Evaluation counts"
+        },
+        {
+          "method": "GET",
+          "path": "/cloudview-api/rest/v1/{provider}/evaluations/resources",
+          "status": "implemented",
+          "description": "Evaluation resources v1"
+        },
+        {
+          "method": "GET",
+          "path": "/cloudview-api/rest/v2/resource/{resourceType}/{provider}",
+          "status": "implemented",
+          "description": "Cloud resources v2 (no 10K limit)"
+        },
+        {
+          "method": "GET",
+          "path": "/cloudview-api/rest/v2/{provider}/evaluations/{accountId}/resources/{controlId}",
+          "status": "gap",
+          "description": "Per-control resource evaluations v2"
+        },
+        {
+          "method": "GET",
+          "path": "/cdr-api/rest/v1/findings/",
+          "status": "implemented",
+          "description": "CDR threat findings"
+        },
+        {
+          "method": "GET",
+          "path": "/cloudview-api/rest/v1/remediation/actions",
+          "status": "gap",
+          "description": "Cloud remediation actions"
+        },
+        {
+          "method": "GET",
+          "path": "/cloudview-api/rest/v1/reports",
+          "status": "gap",
+          "description": "Cloud assessment reports"
+        },
+        {
+          "method": "GET",
+          "path": "/cloudview-api/rest/v1/controls",
+          "status": "gap",
+          "description": "Control metadata"
+        },
+        {
+          "method": "GET",
+          "path": "/cloudview-api/rest/v1/alerts",
+          "status": "gap",
+          "description": "Alerting/response rules"
+        },
+        {
+          "method": "GET",
+          "path": "/cloudview-api/rest/v1/exceptions",
+          "status": "gap",
+          "description": "Exception management"
+        }
       ]
     },
     "ContainerSecurity": {
       "baseUrl": "GATEWAY/csapi/v1.3",
       "auth": "bearer",
       "endpoints": [
-        {"method": "GET", "path": "/csapi/v1.3/images", "status": "implemented", "description": "Container images"},
-        {"method": "GET", "path": "/csapi/v1.3/images/list", "status": "implemented", "description": "Bulk image list"},
-        {"method": "GET", "path": "/csapi/v1.3/images/{imageSha}", "status": "implemented", "description": "Single image detail"},
-        {"method": "GET", "path": "/csapi/v1.3/images/{imageSha}/software", "status": "implemented", "description": "Image software inventory"},
-        {"method": "GET", "path": "/csapi/v1.3/images/{imageSha}/vuln", "status": "gap", "description": "Image vulnerabilities detail"},
-        {"method": "GET", "path": "/csapi/v1.3/images/{imageSha}/vuln/count", "status": "gap", "description": "Image vulnerability count"},
-        {"method": "GET", "path": "/csapi/v1.3/containers", "status": "implemented", "description": "Container list"},
-        {"method": "GET", "path": "/csapi/v1.3/containers/list", "status": "implemented", "description": "Bulk container list"},
-        {"method": "GET", "path": "/csapi/v1.3/containers/{containerSha}", "status": "implemented", "description": "Single container detail"},
-        {"method": "GET", "path": "/csapi/v1.3/vulnerability", "status": "implemented", "description": "CS vulnerabilities"},
-        {"method": "GET", "path": "/csapi/v1.3/reports", "status": "gap", "description": "CS reports"},
-        {"method": "GET", "path": "/csapi/v1.3/registry", "status": "gap", "description": "Registry list"},
-        {"method": "GET", "path": "/csapi/v1.3/sensorProfile", "status": "gap", "description": "Sensor profiles"},
-        {"method": "GET", "path": "/csapi/v1.3/centralizedPolicy", "status": "gap", "description": "Centralized policies"}
+        {
+          "method": "GET",
+          "path": "/csapi/v1.3/images",
+          "status": "implemented",
+          "description": "Container images"
+        },
+        {
+          "method": "GET",
+          "path": "/csapi/v1.3/images/list",
+          "status": "implemented",
+          "description": "Bulk image list"
+        },
+        {
+          "method": "GET",
+          "path": "/csapi/v1.3/images/{imageSha}",
+          "status": "implemented",
+          "description": "Single image detail"
+        },
+        {
+          "method": "GET",
+          "path": "/csapi/v1.3/images/{imageSha}/software",
+          "status": "implemented",
+          "description": "Image software inventory"
+        },
+        {
+          "method": "GET",
+          "path": "/csapi/v1.3/images/{imageSha}/vuln",
+          "status": "gap",
+          "description": "Image vulnerabilities detail"
+        },
+        {
+          "method": "GET",
+          "path": "/csapi/v1.3/images/{imageSha}/vuln/count",
+          "status": "gap",
+          "description": "Image vulnerability count"
+        },
+        {
+          "method": "GET",
+          "path": "/csapi/v1.3/containers",
+          "status": "implemented",
+          "description": "Container list"
+        },
+        {
+          "method": "GET",
+          "path": "/csapi/v1.3/containers/list",
+          "status": "implemented",
+          "description": "Bulk container list"
+        },
+        {
+          "method": "GET",
+          "path": "/csapi/v1.3/containers/{containerSha}",
+          "status": "implemented",
+          "description": "Single container detail"
+        },
+        {
+          "method": "GET",
+          "path": "/csapi/v1.3/vulnerability",
+          "status": "implemented",
+          "description": "CS vulnerabilities"
+        },
+        {
+          "method": "GET",
+          "path": "/csapi/v1.3/reports",
+          "status": "gap",
+          "description": "CS reports"
+        },
+        {
+          "method": "GET",
+          "path": "/csapi/v1.3/registry",
+          "status": "gap",
+          "description": "Registry list"
+        },
+        {
+          "method": "GET",
+          "path": "/csapi/v1.3/sensorProfile",
+          "status": "gap",
+          "description": "Sensor profiles"
+        },
+        {
+          "method": "GET",
+          "path": "/csapi/v1.3/centralizedPolicy",
+          "status": "gap",
+          "description": "Centralized policies"
+        }
       ]
     },
     "WAS": {
       "baseUrl": "BASE/qps/rest/3.0",
       "auth": "basic",
       "endpoints": [
-        {"method": "POST", "path": "/qps/rest/3.0/search/was/finding", "status": "implemented", "description": "WAS findings search"},
-        {"method": "POST", "path": "/qps/rest/3.0/count/was/finding", "status": "implemented", "description": "WAS findings count"},
-        {"method": "POST", "path": "/qps/rest/3.0/count/was/webapp", "status": "implemented", "description": "WAS webapp count"}
+        {
+          "method": "POST",
+          "path": "/qps/rest/3.0/search/was/finding",
+          "status": "implemented",
+          "description": "WAS findings search"
+        },
+        {
+          "method": "POST",
+          "path": "/qps/rest/3.0/count/was/finding",
+          "status": "implemented",
+          "description": "WAS findings count"
+        },
+        {
+          "method": "POST",
+          "path": "/qps/rest/3.0/count/was/webapp",
+          "status": "implemented",
+          "description": "WAS webapp count"
+        }
       ]
     },
     "PatchManagement": {
       "baseUrl": "GATEWAY/pm",
       "auth": "bearer",
       "endpoints": [
-        {"method": "GET", "path": "/pm/v1/patches", "status": "implemented", "description": "Patch list"},
-        {"method": "GET", "path": "/pm/v1/patches/count", "status": "implemented", "description": "Patch counts"},
-        {"method": "GET", "path": "/pm/v1/assets", "status": "implemented", "description": "PM-managed assets"},
-        {"method": "GET", "path": "/pm/v1/jobs", "status": "implemented", "description": "PM jobs"},
-        {"method": "GET", "path": "/pm/v1/patchcatalog/patches", "status": "implemented", "description": "Full patch catalog"},
-        {"method": "GET", "path": "/pm/v1/deploymentjob/{id}/deploymentjobresult/summary", "status": "gap", "description": "Deployment job result summary"},
-        {"method": "POST", "path": "/mtg/v1/deploymentjob", "status": "not_needed", "description": "Create MTG deployment job (write)"},
-        {"method": "GET", "path": "/mtg/v1/deploymentjob/{id}", "status": "gap", "description": "MTG job detail"},
-        {"method": "GET", "path": "/mtg/v1/jobs", "status": "implemented", "description": "MTG jobs list"}
+        {
+          "method": "GET",
+          "path": "/pm/v1/patches",
+          "status": "implemented",
+          "description": "Patch list"
+        },
+        {
+          "method": "GET",
+          "path": "/pm/v1/patches/count",
+          "status": "implemented",
+          "description": "Patch counts"
+        },
+        {
+          "method": "GET",
+          "path": "/pm/v1/assets",
+          "status": "implemented",
+          "description": "PM-managed assets"
+        },
+        {
+          "method": "GET",
+          "path": "/pm/v1/jobs",
+          "status": "implemented",
+          "description": "PM jobs"
+        },
+        {
+          "method": "GET",
+          "path": "/pm/v1/patchcatalog/patches",
+          "status": "implemented",
+          "description": "Full patch catalog"
+        },
+        {
+          "method": "GET",
+          "path": "/pm/v1/deploymentjob/{id}/deploymentjobresult/summary",
+          "status": "gap",
+          "description": "Deployment job result summary"
+        },
+        {
+          "method": "POST",
+          "path": "/mtg/v1/deploymentjob",
+          "status": "not_needed",
+          "description": "Create MTG deployment job (write)"
+        },
+        {
+          "method": "GET",
+          "path": "/mtg/v1/deploymentjob/{id}",
+          "status": "gap",
+          "description": "MTG job detail"
+        },
+        {
+          "method": "GET",
+          "path": "/mtg/v1/jobs",
+          "status": "implemented",
+          "description": "MTG jobs list"
+        }
       ]
     },
     "EDR": {
       "baseUrl": "GATEWAY/ioc",
       "auth": "bearer",
       "endpoints": [
-        {"method": "POST", "path": "/ioc/events", "status": "implemented", "description": "IOC events (EDR + FIM)"},
-        {"method": "GET", "path": "/ioc/asset/searchAfter", "status": "implemented", "description": "Paginated event search with user info"},
-        {"method": "GET", "path": "/ioc/events/count/time-buckets", "status": "gap", "description": "Event trend by time bucket (500 on US2)"}
+        {
+          "method": "POST",
+          "path": "/ioc/events",
+          "status": "implemented",
+          "description": "IOC events (EDR + FIM)"
+        },
+        {
+          "method": "GET",
+          "path": "/ioc/asset/searchAfter",
+          "status": "implemented",
+          "description": "Paginated event search with user info"
+        },
+        {
+          "method": "GET",
+          "path": "/ioc/events/count/time-buckets",
+          "status": "gap",
+          "description": "Event trend by time bucket (500 on US2)"
+        }
       ]
     },
     "FIM": {
       "baseUrl": "GATEWAY/fim",
       "auth": "bearer",
       "endpoints": [
-        {"method": "POST", "path": "/fim/v2/events/search", "status": "implemented", "description": "FIM event search"},
-        {"method": "POST", "path": "/fim/v2/events/count", "status": "implemented", "description": "FIM event count"},
-        {"method": "GET", "path": "/fim/v2/events/{eventId}", "status": "gap", "description": "Single FIM event detail"},
-        {"method": "POST", "path": "/fim/v3/incidents/search", "status": "implemented", "description": "FIM incidents"},
-        {"method": "POST", "path": "/fim/v3/assets/search", "status": "implemented", "description": "FIM-monitored assets"},
-        {"method": "POST", "path": "/fim/v3/assets/count", "status": "gap", "description": "FIM asset count"},
-        {"method": "POST", "path": "/fim/v3/profiles/search", "status": "gap", "description": "FIM monitoring profiles"},
-        {"method": "POST", "path": "/fim/v3/categories/search", "status": "gap", "description": "FIM event categories"},
-        {"method": "POST", "path": "/fim/v3/alert/rules/search", "status": "gap", "description": "FIM alert rules"},
-        {"method": "POST", "path": "/fim/v3/alert/activities/search", "status": "gap", "description": "FIM alert activities"}
+        {
+          "method": "POST",
+          "path": "/fim/v2/events/search",
+          "status": "implemented",
+          "description": "FIM event search"
+        },
+        {
+          "method": "POST",
+          "path": "/fim/v2/events/count",
+          "status": "implemented",
+          "description": "FIM event count"
+        },
+        {
+          "method": "GET",
+          "path": "/fim/v2/events/{eventId}",
+          "status": "gap",
+          "description": "Single FIM event detail"
+        },
+        {
+          "method": "POST",
+          "path": "/fim/v3/incidents/search",
+          "status": "implemented",
+          "description": "FIM incidents"
+        },
+        {
+          "method": "POST",
+          "path": "/fim/v3/assets/search",
+          "status": "implemented",
+          "description": "FIM-monitored assets"
+        },
+        {
+          "method": "POST",
+          "path": "/fim/v3/assets/count",
+          "status": "gap",
+          "description": "FIM asset count"
+        },
+        {
+          "method": "POST",
+          "path": "/fim/v3/profiles/search",
+          "status": "gap",
+          "description": "FIM monitoring profiles"
+        },
+        {
+          "method": "POST",
+          "path": "/fim/v3/categories/search",
+          "status": "gap",
+          "description": "FIM event categories"
+        },
+        {
+          "method": "POST",
+          "path": "/fim/v3/alert/rules/search",
+          "status": "gap",
+          "description": "FIM alert rules"
+        },
+        {
+          "method": "POST",
+          "path": "/fim/v3/alert/activities/search",
+          "status": "gap",
+          "description": "FIM alert activities"
+        }
       ]
     },
     "CertView": {
       "baseUrl": "GATEWAY/certview",
       "auth": "bearer",
       "endpoints": [
-        {"method": "GET", "path": "/certview/v1/certificates", "status": "implemented", "description": "Certificate list v1"},
-        {"method": "GET", "path": "/certview/v2/certificates", "status": "implemented", "description": "Certificate list v2"},
-        {"method": "POST", "path": "/certview/v2.3/certificates", "status": "gap", "description": "Certificate list v2.3 with PQC filter"}
+        {
+          "method": "GET",
+          "path": "/certview/v1/certificates",
+          "status": "implemented",
+          "description": "Certificate list v1"
+        },
+        {
+          "method": "GET",
+          "path": "/certview/v2/certificates",
+          "status": "implemented",
+          "description": "Certificate list v2"
+        },
+        {
+          "method": "POST",
+          "path": "/certview/v2.3/certificates",
+          "status": "gap",
+          "description": "Certificate list v2.3 with PQC filter"
+        }
       ]
     },
     "TotalAI": {
       "baseUrl": "GATEWAY/tai",
       "auth": "bearer",
       "endpoints": [
-        {"method": "POST", "path": "/tai/api/1.0/detection/count", "status": "implemented", "description": "Model detection count"},
-        {"method": "POST", "path": "/tai/api/1.0/detection/search", "status": "implemented", "description": "Model detection search"},
-        {"method": "POST", "path": "/tai/api/1.0/scan/launch", "status": "not_needed", "description": "Launch AI scan (write)"},
-        {"method": "GET", "path": "/tai/api/1.0/scan/{id}", "status": "gap", "description": "Scan details by ID"}
+        {
+          "method": "POST",
+          "path": "/tai/api/1.0/detection/count",
+          "status": "implemented",
+          "description": "Model detection count"
+        },
+        {
+          "method": "POST",
+          "path": "/tai/api/1.0/detection/search",
+          "status": "implemented",
+          "description": "Model detection search"
+        },
+        {
+          "method": "POST",
+          "path": "/tai/api/1.0/scan/launch",
+          "status": "not_needed",
+          "description": "Launch AI scan (write)"
+        },
+        {
+          "method": "GET",
+          "path": "/tai/api/1.0/scan/{id}",
+          "status": "gap",
+          "description": "Scan details by ID"
+        }
       ]
     },
     "PolicyAudit": {
       "baseUrl": "GATEWAY/pcas",
       "auth": "bearer",
       "endpoints": [
-        {"method": "GET", "path": "/pcas/v1/library/label", "status": "implemented", "description": "Policy library labels"},
-        {"method": "GET", "path": "/pcas/v1/library/technology", "status": "implemented", "description": "Technologies by label"},
-        {"method": "GET", "path": "/pcas/v1/library/policy/list", "status": "implemented", "description": "Library policy list"},
-        {"method": "GET", "path": "/pcas/v1/library/policy", "status": "implemented", "description": "Policy detail"},
-        {"method": "POST", "path": "/pcas/v1/library/policy/import", "status": "not_needed", "description": "Import policy (write)"}
+        {
+          "method": "GET",
+          "path": "/pcas/v1/library/label",
+          "status": "implemented",
+          "description": "Policy library labels"
+        },
+        {
+          "method": "GET",
+          "path": "/pcas/v1/library/technology",
+          "status": "implemented",
+          "description": "Technologies by label"
+        },
+        {
+          "method": "GET",
+          "path": "/pcas/v1/library/policy/list",
+          "status": "implemented",
+          "description": "Library policy list"
+        },
+        {
+          "method": "GET",
+          "path": "/pcas/v1/library/policy",
+          "status": "implemented",
+          "description": "Policy detail"
+        },
+        {
+          "method": "POST",
+          "path": "/pcas/v1/library/policy/import",
+          "status": "not_needed",
+          "description": "Import policy (write)"
+        }
       ]
     },
     "SaaSDR": {
       "baseUrl": "GATEWAY/sdr",
       "auth": "bearer",
       "endpoints": [
-        {"method": "GET", "path": "/sdr/api/controls/list", "status": "implemented", "description": "SaaS security controls list"},
-        {"method": "GET", "path": "/sdr/api/custom/controls/get/{cID}", "status": "implemented", "description": "Single control detail"},
-        {"method": "POST", "path": "/sdr/api/custom/controls/create", "status": "not_needed", "description": "Create custom control (write)"},
-        {"method": "PUT", "path": "/sdr/api/custom/controls/update/{cID}", "status": "not_needed", "description": "Update control (write)"}
+        {
+          "method": "GET",
+          "path": "/sdr/api/controls/list",
+          "status": "implemented",
+          "description": "SaaS security controls list"
+        },
+        {
+          "method": "GET",
+          "path": "/sdr/api/custom/controls/get/{cID}",
+          "status": "implemented",
+          "description": "Single control detail"
+        },
+        {
+          "method": "POST",
+          "path": "/sdr/api/custom/controls/create",
+          "status": "not_needed",
+          "description": "Create custom control (write)"
+        },
+        {
+          "method": "PUT",
+          "path": "/sdr/api/custom/controls/update/{cID}",
+          "status": "not_needed",
+          "description": "Update control (write)"
+        }
       ]
     }
   }
