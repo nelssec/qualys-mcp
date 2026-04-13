@@ -1,0 +1,488 @@
+{
+  "single_turn": [
+    {
+      "id": 81,
+      "question": "Top vulns to patch",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 82,
+      "question": "What QIDs are critical?",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 83,
+      "question": "Show me severity 5 detections",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 84,
+      "question": "Unpatched vulnerabilities",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 85,
+      "question": "CVE-2024-6387 details",
+      "expected_workflow": "investigate",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 86,
+      "question": "How many vulnerabilities do we have?",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 87,
+      "question": "Show me critical and high vulns",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 88,
+      "question": "What's our vulnerability posture?",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 89,
+      "question": "List all sev 5 QIDs",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 90,
+      "question": "top 10 vulnerabilities by count",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 91,
+      "question": "what vulns do we have?",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 92,
+      "question": "Show me confirmed vulnerabilities",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 93,
+      "question": "How many unpatched CVEs are there?",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 94,
+      "question": "vulnerability summary",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 95,
+      "question": "QID 38913 details",
+      "expected_workflow": "investigate",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 96,
+      "question": "List exploitable vulnerabilities",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 97,
+      "question": "Which vulnerabilities have active exploits?",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 98,
+      "question": "Show vunlerabilities",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 99,
+      "question": "vuln count by severity",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 100,
+      "question": "What are the most common vulnerabilities?",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 101,
+      "question": "Age of unpatched vulnerabilities",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 102,
+      "question": "Vulnerabilities older than 90 days",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 103,
+      "question": "New vulnerabilities this week",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 104,
+      "question": "Show me zero-day vulnerabilities",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 105,
+      "question": "How many vulns were found in the last scan?",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 106,
+      "question": "top QIDs",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 107,
+      "question": "Vulnerability breakdown by type",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 108,
+      "question": "Remote code execution vulns",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 109,
+      "question": "Show privilege escalation vulnerabilities",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 110,
+      "question": "vulns with CVSS above 9",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 111,
+      "question": "What's the CVSS distribution?",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 112,
+      "question": "List vulnerabilities with patches available",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 113,
+      "question": "Show me vulnerabilities without patches",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 114,
+      "question": "Vulnerability trending data",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 115,
+      "question": "Are we finding more or fewer vulns?",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 116,
+      "question": "CVE-2021-44228 status",
+      "expected_workflow": "investigate",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 117,
+      "question": "How many Log4j vulns remain?",
+      "expected_workflow": "investigate",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 118,
+      "question": "Show me all detections for QID 730000",
+      "expected_workflow": "investigate",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 119,
+      "question": "vulnerability aging report",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 120,
+      "question": "Confirmed vs potential vulnerabilities",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 121,
+      "question": "What's the vuln density per asset?",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 122,
+      "question": "Vulnerability count on production systems",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 123,
+      "question": "OpenSSL vulnerabilities",
+      "expected_workflow": "investigate",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 124,
+      "question": "Apache vulnerabilities in our environment",
+      "expected_workflow": "investigate",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 125,
+      "question": "Show me Microsoft vulnerabilities",
+      "expected_workflow": "investigate",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 126,
+      "question": "Kernel vulnerabilities",
+      "expected_workflow": "investigate",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 127,
+      "question": "What QIDs are associated with CVE-2024-3400?",
+      "expected_workflow": "investigate",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 128,
+      "question": "Palo Alto vulnerability status",
+      "expected_workflow": "investigate",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 129,
+      "question": "Show me network-exploitable vulns",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 130,
+      "question": "Vulnerabilities on externally-facing assets",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 131,
+      "question": "vuln stats",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 132,
+      "question": "give me the vulnerability picture",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 133,
+      "question": "How many sev 4 and 5 vulns total?",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 134,
+      "question": "What percentage of vulns are critical?",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 135,
+      "question": "mean time to remediate vulnerabilities",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 136,
+      "question": "top 20 QIDs by risk",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 137,
+      "question": "Show all active detections",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 138,
+      "question": "vulnerability report for management",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 139,
+      "question": "new CVEs affecting our environment",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 140,
+      "question": "Show me vulns on Windows Server 2019",
+      "expected_workflow": "investigate",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 141,
+      "question": "Linux kernel vulns",
+      "expected_workflow": "investigate",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 142,
+      "question": "Database server vulnerabilities",
+      "expected_workflow": "investigate",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 143,
+      "question": "Web server vulnerabilities",
+      "expected_workflow": "investigate",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 144,
+      "question": "VMware vulnerabilities",
+      "expected_workflow": "investigate",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 145,
+      "question": "Citrix vulnerabilities in our environment",
+      "expected_workflow": "investigate",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 146,
+      "question": "What QIDs map to CISA KEV?",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 147,
+      "question": "CISA Known Exploited Vulnerabilities in our env",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 148,
+      "question": "Exploited in the wild vulns",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 149,
+      "question": "How many unique QIDs across all assets?",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 150,
+      "question": "Which QIDs contribute most to TruRisk?",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 151,
+      "question": "top vulns by TruRisk contribution",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 152,
+      "question": "What are the most impactful vulnerabilities?",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 153,
+      "question": "Show me vulns with public exploits",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 154,
+      "question": "High EPSS score vulnerabilities",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 155,
+      "question": "weaponized vulnerabilities",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 156,
+      "question": "Vulnerabilities with ransomware association",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 157,
+      "question": "What vulns need immediate attention?",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 158,
+      "question": "urgent vulnerability list",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 159,
+      "question": "assets with the most vulnerabilities",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    },
+    {
+      "id": 160,
+      "question": "vulnerability count trend",
+      "expected_workflow": "assess_risk",
+      "category": "vulnerability_mgmt"
+    }
+  ],
+  "metadata": {
+    "total": 80
+  },
+  "conversations": []
+}

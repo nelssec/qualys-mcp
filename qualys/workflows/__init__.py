@@ -330,6 +330,46 @@ def _error_explanation(aggregator_name):
 # ---------------------------------------------------------------------------
 
 
+def _envelope_to_markdown(envelope):
+    """Convert a workflow envelope to compact markdown for token efficiency."""
+    lines = []
+    s = envelope.get("summary", {})
+    wf = envelope.get("workflow", "")
+    lines.append(f"# {wf.replace('_', ' ').title()}")
+    lines.append(f"**Risk Level:** {s.get('risk_level', 'unknown')}")
+    headline = s.get("headline", "")
+    if headline:
+        lines.append(f"**Summary:** {headline}")
+    findings = s.get("key_findings", [])
+    if findings:
+        lines.append("\n## Key Findings")
+        for f in findings:
+            lines.append(f"- {f}")
+    stats = s.get("stats", {})
+    if stats:
+        lines.append("\n## Stats")
+        for k, v in stats.items():
+            lines.append(f"- **{k}:** {v}")
+    actions = envelope.get("actions", [])
+    if actions:
+        lines.append("\n## Recommended Actions")
+        for a in actions:
+            p = a.get("priority", "?")
+            lines.append(f"- **[P{p}]** {a.get('action', '')}")
+            if a.get("module"):
+                lines.append(f"  Module: {a['module']}")
+    correlations = envelope.get("correlations", [])
+    if correlations:
+        lines.append("\n## Correlations")
+        for c in correlations:
+            lines.append(f"- **{c.get('type', '')}:** {c.get('finding', c.get('description', ''))}")
+    errors = envelope.get("_errors", [])
+    if errors:
+        lines.append(f"\n_Note: {len(errors)} data source(s) unavailable: {', '.join(errors)}_")
+    lines.append(f"\n_Execution: {envelope.get('execution_time_ms', 0)}ms | Sources: {len(envelope.get('aggregators_called', []))}_")
+    return "\n".join(lines)
+
+
 def _apply_detail(envelope, detail):
     """Filter envelope fields according to requested detail level.
 

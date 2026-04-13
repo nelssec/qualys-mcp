@@ -11,6 +11,7 @@ from qualys.workflows.compliance import check_compliance as check_compliance_wf
 from qualys.workflows.remediation import plan_remediation as plan_remediation_wf
 from qualys.workflows.overview import security_overview as security_overview_wf
 from qualys.aggregators import reports_agg, cache_status_agg
+from qualys.workflows import _envelope_to_markdown
 
 mcp = FastMCP("qualys-mcp")
 
@@ -40,12 +41,12 @@ async def investigate(target: str, depth: str = "standard", scope: str = "all",
         prior_context: summary from a previous investigation for chaining
         audience: "technical" | "management" | "executive" (for deep investigation summaries)
 
-    Returns: unified envelope with summary (headline, risk_level, key_findings), data (per-source results),
-    correlations (cross-source insights), actions (prioritized next steps with tool_hints)."""
-    return await asyncio.to_thread(investigate_wf, target=target, depth=depth, scope=scope, tag=tag,
+    Returns: markdown-formatted findings with risk level, key findings, stats, and recommended actions."""
+    result = await asyncio.to_thread(investigate_wf, target=target, depth=depth, scope=scope, tag=tag,
                           asset_group=asset_group, threat_type=threat_type,
                           software=software, days=days, limit=limit,
                           detail=detail, prior_context=prior_context, audience=audience)
+    return _envelope_to_markdown(result) if isinstance(result, dict) and "summary" in result else result
 
 
 @mcp.tool()
@@ -93,8 +94,8 @@ async def assess_risk(scope: str = "all", tag: str = "", asset_group: str = "",
         sort_by: "trurisk" | "severity"
         breakdown_by: "tag" | "none"
 
-    Returns: unified envelope with summary, data (per-domain results), correlations, actions."""
-    return await asyncio.to_thread(assess_risk_wf, scope=scope, tag=tag, asset_group=asset_group,
+    Returns: markdown-formatted risk assessment with findings, stats, and recommended actions."""
+    result = await asyncio.to_thread(assess_risk_wf, scope=scope, tag=tag, asset_group=asset_group,
                           asset_id=asset_id, os=os, query=query,
                           days_since_seen=days_since_seen, days_since_scan=days_since_scan,
                           eol_only=eol_only, provider=provider, service=service,
@@ -104,6 +105,7 @@ async def assess_risk(scope: str = "all", tag: str = "", asset_group: str = "",
                           weak_only=weak_only, insecure_renegotiation=insecure_renegotiation,
                           include_expired=include_expired, days=days, limit=limit,
                           detail=detail, sort_by=sort_by, breakdown_by=breakdown_by)
+    return _envelope_to_markdown(result) if isinstance(result, dict) and "summary" in result else result
 
 
 @mcp.tool()
@@ -129,11 +131,12 @@ async def check_compliance(framework: str = "", platform: str = "", tag: str = "
         limit: max results (default 20)
         detail: "summary" | "standard" | "detailed"
 
-    Returns: unified envelope with summary, data (posture + exceptions), correlations, actions."""
-    return await asyncio.to_thread(check_compliance_wf, framework=framework, platform=platform, tag=tag,
+    Returns: markdown-formatted compliance assessment with pass rates, failing controls, and actions."""
+    result = await asyncio.to_thread(check_compliance_wf, framework=framework, platform=platform, tag=tag,
                                asset_group=asset_group, include_exceptions=include_exceptions,
                                exception_status=exception_status, vuln_type=vuln_type,
                                days_to_expiry=days_to_expiry, limit=limit, detail=detail)
+    return _envelope_to_markdown(result) if isinstance(result, dict) and "summary" in result else result
 
 
 @mcp.tool()
@@ -158,10 +161,11 @@ async def plan_remediation(scope: str = "all", tag: str = "", asset_group: str =
         limit: max results (default 20)
         detail: "summary" | "standard" | "detailed"
 
-    Returns: unified envelope with summary, data (patches + mitigations + program), correlations, actions."""
-    return await asyncio.to_thread(plan_remediation_wf, scope=scope, tag=tag, asset_group=asset_group,
+    Returns: markdown-formatted remediation plan with patch priorities and deployment status."""
+    result = await asyncio.to_thread(plan_remediation_wf, scope=scope, tag=tag, asset_group=asset_group,
                                platform=platform, severity=severity, status=status,
                                qids=qids, cves=cves, limit=limit, detail=detail)
+    return _envelope_to_markdown(result) if isinstance(result, dict) and "summary" in result else result
 
 
 @mcp.tool()
@@ -186,11 +190,12 @@ async def security_overview(period: str = "today", scope: str = "all", quick: bo
         limit: max results (default 50)
         detail: "summary" | "standard" | "detailed"
 
-    Returns: unified envelope with summary, data (briefing + infrastructure + findings), correlations, actions."""
-    return await asyncio.to_thread(security_overview_wf, period=period, scope=scope, quick=quick,
+    Returns: markdown-formatted security briefing with scanner health, findings, and risk trends."""
+    result = await asyncio.to_thread(security_overview_wf, period=period, scope=scope, quick=quick,
                                 tag=tag, asset_group=asset_group, qql=qql,
                                 severity=severity, scan_state=scan_state,
                                 limit=limit, detail=detail)
+    return _envelope_to_markdown(result) if isinstance(result, dict) and "summary" in result else result
 
 
 @mcp.tool()

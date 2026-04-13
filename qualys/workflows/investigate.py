@@ -570,7 +570,8 @@ def investigate(
     aggregators_called = list(plan.keys())
 
     # --- Dispatch ---
-    results, elapsed_ms = _dispatch(plan)
+    inv_timeout = 30 if depth == "quick" else 60 if depth == "standard" else 120
+    results, elapsed_ms = _dispatch(plan, timeout=inv_timeout)
     results["_target"] = target
 
     # --- Deep mode: add narrative summary via summarize_investigation_agg ---
