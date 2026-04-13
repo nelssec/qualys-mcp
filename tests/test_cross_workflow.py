@@ -519,10 +519,11 @@ class TestOverviewSynthesisWithMockData:
         result = _summarize({"scan_status": self.SCAN_STATUS})
         assert result["stats"]["scan_errors"] == 2
 
-    def test_summarize_findings_count(self):
+    def test_summarize_scheduled_scans(self):
         from qualys.workflows.overview import _summarize
-        result = _summarize({"etm_findings": self.ETM_FINDINGS})
-        assert result["stats"]["findings_count"] == 42
+        result = _summarize({"scheduled_scans": {"totalScheduled": 10, "active": 4}})
+        assert result["stats"]["scheduled_scans"] == 10
+        assert result["stats"]["active_scheduled"] == 4
 
     def test_correlate_offline_scanner_with_errors(self):
         from qualys.workflows.overview import _correlate

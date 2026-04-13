@@ -386,7 +386,7 @@ class TestAssessRiskDispatchPlan:
 
     def test_scope_containers_only(self):
         plan = self._get_plan(scope="containers")
-        assert "container_vuln_summary" in plan
+        assert "container_security_posture" in plan
         assert "running_containers" in plan
         assert "trurisk_score" not in plan
 
@@ -613,24 +613,22 @@ class TestOverviewBuildPlan:
         assert "scanner_health" in keys
         assert "scan_status" in keys
 
-    def test_scope_all_includes_findings(self):
+    def test_scope_all_includes_scheduled_scans(self):
         keys = self._keys(self._call(scope="all"))
-        assert "etm_findings" in keys
+        assert "scheduled_scans" in keys
 
-    def test_scope_infrastructure_no_findings(self):
+    def test_scope_infrastructure_includes_scanners(self):
         keys = self._keys(self._call(scope="infrastructure"))
         assert "scanner_health" in keys
         assert "scan_status" in keys
-        assert "etm_findings" not in keys
 
     def test_scope_findings_no_scanner(self):
         keys = self._keys(self._call(scope="findings"))
-        assert "etm_findings" in keys
         assert "scanner_health" not in keys
 
-    def test_qql_adds_findings_even_on_infrastructure_scope(self):
-        keys = self._keys(self._call(scope="infrastructure", qql="severity:5"))
-        assert "etm_findings" in keys
+    def test_quick_mode_no_scheduled_scans(self):
+        keys = self._keys(self._call(scope="all", quick=True))
+        assert "scheduled_scans" not in keys
 
     def test_plan_is_list_of_dicts_with_key_and_fn(self):
         plan = self._call(scope="all")

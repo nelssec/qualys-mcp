@@ -1,12 +1,12 @@
 """Security overview workflow — orchestrates morning_report, scanner_health,
-scan_status, and etm_findings into a single consolidated response.
+scan_status, and scheduled_scans into a single consolidated response.
 """
 
 from qualys.aggregators import (
-    etm_findings,
     morning_report,
     scan_status,
     scanner_health,
+    scheduled_scans_agg,
 )
 from qualys.workflows import _apply_detail, _build_envelope, _dispatch
 
@@ -45,9 +45,8 @@ def _build_plan(
         plan["scan_status"] = lambda s=scan_state, dy=days, lm=limit, d=detail: scan_status(
             state=s, days=dy, limit=lm, detail=d
         )
-
-    if (scope in ("all", "findings") or qql) and not quick:
-        plan["etm_findings"] = lambda q=qql, d=detail: etm_findings(qql=q, detail=d)
+        if not quick:
+            plan["scheduled_scans"] = lambda lm=limit, d=detail: scheduled_scans_agg(limit=lm, detail=d)
 
     return plan
 
@@ -93,18 +92,13 @@ def _summarize(data):
             stats["scan_errors"] = errors
             findings.append(f"{errors} scan errors")
 
-    ef = data.get("etm_findings") or {}
-    if isinstance(ef, dict) and "error" not in ef:
-        ef_findings = ef.get("findings") or []
-        count = ef.get("total", len(ef_findings))
-        if count:
-            stats["findings_count"] = count
-            sev5 = sum(1 for f in ef_findings if f.get("severity") == 5 or f.get("severity") == "5")
-            sev4 = sum(1 for f in ef_findings if f.get("severity") == 4 or f.get("severity") == "4")
-            if sev5 or sev4:
-                findings.append(f"{count} vulnerability findings detected — {sev5} critical (sev 5), {sev4} high (sev 4)")
-            else:
-                findings.append(f"{count} vulnerability findings detected")
+    sched = data.get("scheduled_scans") or {}
+    if isinstance(sched, dict) and "error" not in sched:
+        sched_total = sched.get("totalScheduled", 0)
+        active = sched.get("active", 0)
+        if sched_total:
+            stats["scheduled_scans"] = sched_total
+            stats["active_scheduled"] = active
 
     if not findings:
         findings.append("No notable security events found for this period. All scanners operational and no new critical findings.")
@@ -113,8 +107,6 @@ def _summarize(data):
     risk = "unknown"
     if stats.get("scanners_offline", 0) > 0 or stats.get("scan_errors", 0) > 0:
         risk = "medium"
-    if stats.get("findings_count", 0) > 50:
-        risk = "high"
 
     return {
         "headline": headline,

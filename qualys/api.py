@@ -2064,3 +2064,230 @@ def _gateway_post(url, body_dict, timeout=15):
     except Exception as e:
         _log(f"Gateway POST error: {e}")
         return None
+
+
+# ---------------------------------------------------------------------------
+# TotalCloud — control metadata, reports, exceptions, IaC
+# ---------------------------------------------------------------------------
+
+
+def get_cloud_control_metadata(page_size=50, filters=None):
+    """Get cloud control metadata (CIS benchmarks, custom controls).
+    Note: /cloudview-api/rest/v1/controls returns 404 on US2.
+    This endpoint is currently unavailable."""
+    return {'content': [], '_note': 'Cloud control metadata API not available on this pod'}
+
+
+def get_cloud_reports(page_size=50):
+    """Get TotalCloud report configurations."""
+    url = f"{GATEWAY_URL}/cloudview-api/rest/v1/reports?pageSize={page_size}"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return []
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+
+def get_cloud_mandates():
+    """Get all supported compliance mandates for cloud reports."""
+    data = api_get(f"{GATEWAY_URL}/cloudview-api/rest/v1/reports/mandates", gateway=True, not_found_ok=True)
+    if data is None:
+        return []
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+
+def get_cloud_exceptions(page_size=50):
+    """Get cloud security exceptions.
+    Note: /cloudview-api/rest/v1/exceptions returns 404 on US2.
+    This endpoint is currently unavailable."""
+    return {'content': [], '_note': 'Cloud exceptions API not available on this pod'}
+
+
+def get_iac_scans(page_size=50):
+    """Get Infrastructure as Code scan list."""
+    url = f"{GATEWAY_URL}/cloudview-api/rest/v1/iac/getScanList?pageSize={page_size}"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return {'content': []}
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return {'content': []}
+
+
+def get_cloud_eval_resources_v2(provider, account_id, control_id, page_size=50):
+    """Get per-control resource evaluations via v2 API."""
+    url = f"{GATEWAY_URL}/cloudview-api/rest/v2/{provider}/evaluations/{account_id}/resources/{control_id}?pageSize={page_size}"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return {'content': []}
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return {'content': []}
+
+
+# ---------------------------------------------------------------------------
+# Container Security — registry, reports
+# ---------------------------------------------------------------------------
+
+
+def get_cs_registries(page_size=50):
+    """Get container registries."""
+    url = f"{GATEWAY_URL}/csapi/v1.3/registry?pageSize={page_size}&pageNumber=1"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return {'data': []}
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return {'data': []}
+
+
+def get_cs_reports(page_size=50):
+    """Get container security reports."""
+    url = f"{GATEWAY_URL}/csapi/v1.3/reports?pageSize={page_size}&pageNumber=1"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return {'data': []}
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return {'data': []}
+
+
+# ---------------------------------------------------------------------------
+# FIM v3 — profiles, categories, alert rules
+# ---------------------------------------------------------------------------
+
+
+def get_fim_profiles(page_size=50):
+    """Get FIM monitoring profiles."""
+    return _gateway_post(f"{GATEWAY_URL}/fim/v3/profiles/search", {"pageSize": page_size})
+
+
+def get_fim_categories():
+    """Get FIM event categories."""
+    return _gateway_post(f"{GATEWAY_URL}/fim/v3/categories/search", {"pageSize": 100})
+
+
+def get_fim_alert_rules(page_size=50):
+    """Get FIM alert rules."""
+    return _gateway_post(f"{GATEWAY_URL}/fim/v3/alert/rules/search", {"pageSize": page_size})
+
+
+def get_fim_alert_activities(page_size=50):
+    """Get FIM alert activities."""
+    return _gateway_post(f"{GATEWAY_URL}/fim/v3/alert/activities/search", {"pageSize": page_size})
+
+
+def get_fim_asset_count():
+    """Get count of FIM-monitored assets."""
+    result = _gateway_post(f"{GATEWAY_URL}/fim/v3/assets/count", {})
+    return result.get('count', 0) if result else 0
+
+
+def get_fim_event_detail(event_id):
+    """Get a single FIM event by ID."""
+    url = f"{GATEWAY_URL}/fim/v2/events/{event_id}"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if not data:
+        return None
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return None
+
+
+def get_edr_event_count(filter_str=None, from_date=None, to_date=None, group_by=None, interval=None):
+    """Get EDR event count using /ioc/events/count endpoint.
+    Supports groupBy + interval for time-series bucketing."""
+    params = {}
+    if filter_str:
+        params['filter'] = filter_str
+    if from_date:
+        params['fromDate'] = str(from_date)
+    if to_date:
+        params['toDate'] = str(to_date)
+    if group_by:
+        params['groupBy'] = group_by
+    if interval:
+        params['interval'] = interval
+    qs = '&'.join(f"{k}={quote(str(v))}" for k, v in params.items())
+    url = f"{GATEWAY_URL}/ioc/events/count"
+    if qs:
+        url += f"?{qs}"
+    data = api_get(url, gateway=True, timeout=30, not_found_ok=True)
+    if not data:
+        return {'count': 0}
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return {'count': 0}
+
+
+def get_cs_sensor_profiles(page_size=50):
+    """Get container security sensor profiles."""
+    url = f"{GATEWAY_URL}/csapi/v1.3/sensorProfile?pageSize={page_size}&pageNumber=1"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if not data:
+        return {'data': []}
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return {'data': []}
+
+
+def get_cs_centralized_policies(page_size=50):
+    """Get container security centralized policies."""
+    url = f"{GATEWAY_URL}/csapi/v1.3/centralizedPolicy?pageSize={page_size}&pageNumber=1"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if not data:
+        return {'data': []}
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return {'data': []}
+
+
+def get_image_vuln_count(image_id):
+    """Get vulnerability count breakdown for a container image."""
+    url = f"{GATEWAY_URL}/csapi/v1.3/images/{image_id}/vuln/count"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if not data:
+        return {}
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+
+
+def get_scheduled_scans(state=None, limit=50):
+    """Get scheduled scan list from VMDR v5 API."""
+    url = f"{BASE_URL}/api/5.0/fo/schedule/scan/?action=list"
+    if state:
+        url += f"&status={state}"
+    data = api_get(url, timeout=30)
+    if not data:
+        return []
+    try:
+        root = ET.fromstring(data)
+        scans = []
+        for scan_el in root.findall('.//SCAN_SCHEDULE') or root.findall('.//SCAN'):
+            scan = {
+                'id': scan_el.findtext('ID', ''),
+                'title': scan_el.findtext('TITLE', ''),
+                'active': scan_el.findtext('ACTIVE', '') == '1',
+                'targetNetwork': scan_el.findtext('TARGET_NETWORK_ID', ''),
+            }
+            scans.append(scan)
+            if len(scans) >= limit:
+                break
+        return scans
+    except ET.ParseError:
+        return []

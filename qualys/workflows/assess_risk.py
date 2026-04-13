@@ -12,6 +12,7 @@ from qualys.aggregators import (
     cloud_account_summary,
     cloud_controls,
     container_vuln_summary,
+    container_security_posture,
     image_vulns,
     running_containers,
     webapp_vulns,
@@ -22,6 +23,10 @@ from qualys.aggregators import (
     asset_detail,
     saasdr_controls_agg,
     totalai_summary,
+    fim_posture,
+    edr_posture,
+    cloud_reports_agg,
+    scheduled_scans_agg,
 )
 from qualys.workflows import _dispatch, _build_envelope, _apply_detail
 
@@ -267,6 +272,50 @@ def _summarize(data):
         total_assets = ai.get("total") or ai.get("totalAssets") or 0
         if total_assets:
             stats["assetsInScope"] = total_assets
+
+    # Container security posture (enriched)
+    csp_data = data.get("container_security_posture")
+    if isinstance(csp_data, dict):
+        reg_count = csp_data.get("registryCount", 0)
+        pol_count = csp_data.get("policyCount", 0)
+        prof_count = csp_data.get("sensorProfileCount", 0)
+        if reg_count:
+            stats["containerRegistries"] = reg_count
+        if pol_count:
+            stats["containerPolicies"] = pol_count
+        if prof_count:
+            stats["sensorProfiles"] = prof_count
+        vuln_data = csp_data.get("vulnerabilities", {})
+        if isinstance(vuln_data, dict):
+            total_imgs = vuln_data.get("totalImages", 0)
+            if total_imgs:
+                stats["totalContainerImages"] = total_imgs
+                findings.append(f"Container posture: {total_imgs} images, {reg_count} registries, {pol_count} policies")
+
+    # FIM posture
+    fim = data.get("fim_posture")
+    if isinstance(fim, dict):
+        mon_assets = fim.get("monitoredAssets", 0)
+        if mon_assets:
+            stats["fimMonitoredAssets"] = mon_assets
+            findings.append(f"{mon_assets} FIM-monitored assets, {fim.get('profileCount', 0)} profiles, {fim.get('alertRuleCount', 0)} alert rules")
+
+    # EDR posture
+    edr = data.get("edr_posture")
+    if isinstance(edr, dict):
+        edr_total = edr.get("totalAllTimeEvents", 0)
+        if edr_total:
+            stats["edrTotalEvents"] = edr_total
+            findings.append(f"{edr_total} total EDR events tracked")
+
+    # Scheduled scans
+    ss = data.get("scheduled_scans")
+    if isinstance(ss, dict):
+        sched_total = ss.get("totalScheduled", 0)
+        active = ss.get("active", 0)
+        if sched_total:
+            stats["scheduledScans"] = sched_total
+            stats["activeScans"] = active
 
     if not headline_parts:
         scope_parts = []
@@ -697,10 +746,16 @@ def assess_risk(
     # Containers (scope "all" or "containers", or image_id set)
     # ------------------------------------------------------------------
     if scope_all or scope == "containers" or image_id:
-        plan["container_vuln_summary"] = lambda: container_vuln_summary(
-            limit=limit,
-            detail=detail,
-        )
+        if scope == "containers":
+            plan["container_security_posture"] = lambda: container_security_posture(
+                limit=limit,
+                detail=detail,
+            )
+        else:
+            plan["container_vuln_summary"] = lambda: container_vuln_summary(
+                limit=limit,
+                detail=detail,
+            )
         plan["running_containers"] = lambda: running_containers(
             limit=limit,
             detail=detail,
@@ -741,6 +796,20 @@ def assess_risk(
             insecure_renegotiation=insecure_renegotiation,
             limit=limit,
         )
+
+    # ------------------------------------------------------------------
+    # FIM / EDR (scope "all" or specific)
+    # ------------------------------------------------------------------
+    if scope == "fim":
+        plan["fim_posture"] = lambda: fim_posture(days=days, limit=limit, detail=detail)
+    if scope == "edr":
+        plan["edr_posture"] = lambda: edr_posture(days=days, limit=limit, detail=detail)
+
+    # ------------------------------------------------------------------
+    # Scheduled scans (scope "all" or "infrastructure")
+    # ------------------------------------------------------------------
+    if scope_all or scope == "infrastructure":
+        plan["scheduled_scans"] = lambda: scheduled_scans_agg(limit=limit, detail=detail)
 
     # ------------------------------------------------------------------
     # Tech debt / asset inventory (eol_only or staleness params set)
