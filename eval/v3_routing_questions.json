@@ -2098,5 +2098,145 @@
     "expected_workflow": "security_overview",
     "category": "Monthly Summary",
     "params_hint": {"target": "board presentation overview"}
+  },
+  {
+    "id": 301,
+    "question": "Are any of our FortiClient EMS servers exposed to CVE-2026-35616? It just got added to CISA KEV",
+    "expected_workflow": "investigate",
+    "category": "CVE Triage",
+    "params_hint": {"target": "CVE-2026-35616"}
+  },
+  {
+    "id": 302,
+    "question": "What's our exposure to the Ivanti EPMM zero-days CVE-2026-1281 and CVE-2026-1340?",
+    "expected_workflow": "investigate",
+    "category": "CVE Triage",
+    "params_hint": {"target": "CVE-2026-1281 CVE-2026-1340"}
+  },
+  {
+    "id": 303,
+    "question": "We use Marimo notebooks in our data science team — are we affected by CVE-2026-39987?",
+    "expected_workflow": "investigate",
+    "category": "CVE Triage",
+    "params_hint": {"target": "CVE-2026-39987"}
+  },
+  {
+    "id": 304,
+    "question": "Check if we have any exposure from the Trivy supply chain attack CVE-2026-33634 — did any of our CI/CD pipelines pull the compromised scanner versions?",
+    "expected_workflow": "investigate",
+    "category": "CVE Triage",
+    "params_hint": {"target": "CVE-2026-33634"}
+  },
+  {
+    "id": 305,
+    "question": "What TTPs does Storm-1175 use and do we have any vulnerabilities they could exploit for Medusa ransomware delivery?",
+    "expected_workflow": "investigate",
+    "category": "Threat Actor Attribution",
+    "params_hint": {"target": "Storm-1175"}
+  },
+  {
+    "id": 306,
+    "question": "Are we exposed to the Qilin ransomware BYOVD technique that's being used to kill EDR tools before encryption?",
+    "expected_workflow": "investigate",
+    "category": "Threat Actor Attribution",
+    "params_hint": {"target": "Qilin BYOVD"}
+  },
+  {
+    "id": 307,
+    "question": "Do we have any BeyondTrust Remote Support instances that could be hit by CVE-2026-1731?",
+    "expected_workflow": "investigate",
+    "category": "CVE Triage",
+    "params_hint": {"target": "CVE-2026-1731"}
+  },
+  {
+    "id": 308,
+    "question": "How exposed are we to the TeamPCP supply chain attack that hit Trivy, Checkmarx KICS, and dozens of npm packages?",
+    "expected_workflow": "assess_risk",
+    "category": "Container Security",
+    "params_hint": {"target": "TeamPCP supply chain"}
+  },
+  {
+    "id": 309,
+    "question": "What's our risk posture against AI-enhanced device code phishing campaigns that bypass MFA?",
+    "expected_workflow": "assess_risk",
+    "category": "Threat Actor Attribution",
+    "params_hint": {"target": "device code phishing MFA bypass"}
+  },
+  {
+    "id": 310,
+    "question": "Show me our exposure to the Medusa ransomware attack chain — we're a healthcare org and Storm-1175 is targeting us specifically",
+    "expected_workflow": "assess_risk",
+    "category": "Threat Actor Attribution",
+    "params_hint": {"target": "Medusa ransomware healthcare"}
+  },
+  {
+    "id": 311,
+    "question": "Are there any long-term IAM keys or cloud credentials in our CI/CD pipelines that could have been exfiltrated by the TeamPCP CanisterWorm?",
+    "expected_workflow": "assess_risk",
+    "category": "Cloud Security",
+    "params_hint": {"target": "CI/CD credential exposure TeamPCP"}
+  },
+  {
+    "id": 312,
+    "question": "Are we compliant with CISA BOD 25-01 cloud security requirements? We need to validate our cloud config controls",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {"target": "CISA BOD 25-01"}
+  },
+  {
+    "id": 313,
+    "question": "What do we need to do to meet EU AI Act security requirements for our internal LLM deployments?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {"target": "EU AI Act LLM compliance"}
+  },
+  {
+    "id": 314,
+    "question": "Do our CI/CD pipeline security controls meet hardening standards after the Trivy/TeamPCP supply chain compromise wave?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {"target": "CI/CD pipeline hardening compliance"}
+  },
+  {
+    "id": 315,
+    "question": "Are our FortiClient EMS deployments compliant with Fortinet's latest security hardening guidance following CVE-2026-35616?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {"target": "FortiClient EMS hardening compliance"}
+  },
+  {
+    "id": 316,
+    "question": "What's the remediation plan for the Ivanti EPMM CVE-2026-1281 and CVE-2026-1340 zero-days — how many systems need patching and how fast can we move?",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {"target": "CVE-2026-1281 CVE-2026-1340 remediation"}
+  },
+  {
+    "id": 317,
+    "question": "How do we patch or mitigate CVE-2026-35616 on FortiClient EMS? Show me all affected assets and a deployment plan",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {"target": "CVE-2026-35616 remediation"}
+  },
+  {
+    "id": 318,
+    "question": "Help me plan remediation for any systems touched by the Trivy CVE-2026-33634 supply chain compromise — what secrets need to be rotated?",
+    "expected_workflow": "plan_remediation",
+    "category": "Mitigation Coverage",
+    "params_hint": {"target": "CVE-2026-33634 remediation secrets rotation"}
+  },
+  {
+    "id": 319,
+    "question": "What compensating controls can we put in place for Marimo CVE-2026-39987 on our data science systems until we can update?",
+    "expected_workflow": "plan_remediation",
+    "category": "Mitigation Coverage",
+    "params_hint": {"target": "CVE-2026-39987 compensating controls"}
+  },
+  {
+    "id": 320,
+    "question": "Give me a threat intel briefing — what new CVEs, ransomware campaigns, and active exploits should I know about this week?",
+    "expected_workflow": "security_overview",
+    "category": "Daily Briefing",
+    "params_hint": {"target": "weekly threat intel briefing"}
   }
 ]
