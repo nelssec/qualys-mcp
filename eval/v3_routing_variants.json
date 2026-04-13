@@ -4198,5 +4198,285 @@
       "Please produce a high-level security overview document suitable for presentation to the board of directors.",
       "board-level security overview"
     ]
+  },
+  {
+    "id": 301,
+    "base_question": "Are any of our FortiClient EMS servers exposed to CVE-2026-35616? It just got added to CISA KEV",
+    "expected_workflow": "investigate",
+    "category": "CVE Triage",
+    "params_hint": {
+      "target": "CVE-2026-35616"
+    },
+    "variants": [
+      "hey CVE-2026-35616 just dropped into CISA KEV — do we have any FortiClient EMS boxes exposed?",
+      "Please investigate our organizational exposure to CVE-2026-35616, the FortiClient EMS improper access control vulnerability recently added to the CISA Known Exploited Vulnerabilities catalog.",
+      "CVE-2026-35616 FortiClient EMS — exposed?"
+    ]
+  },
+  {
+    "id": 302,
+    "base_question": "What's our exposure to the Ivanti EPMM zero-days CVE-2026-1281 and CVE-2026-1340?",
+    "expected_workflow": "investigate",
+    "category": "CVE Triage",
+    "params_hint": {
+      "target": "CVE-2026-1281 CVE-2026-1340"
+    },
+    "variants": [
+      "the Ivanti EPMM zero-days are being mass exploited — CVE-2026-1281 and CVE-2026-1340 — are we hit?",
+      "Please provide a comprehensive investigation of our exposure to CVE-2026-1281 and CVE-2026-1340, the Ivanti Endpoint Manager Mobile unauthenticated RCE zero-day vulnerabilities currently being actively exploited.",
+      "CVE-2026-1281 CVE-2026-1340 Ivanti EPMM exposure check"
+    ]
+  },
+  {
+    "id": 303,
+    "base_question": "We use Marimo notebooks in our data science team — are we affected by CVE-2026-39987?",
+    "expected_workflow": "investigate",
+    "category": "CVE Triage",
+    "params_hint": {
+      "target": "CVE-2026-39987"
+    },
+    "variants": [
+      "our data science folks use Marimo notebooks — are we vulnerable to CVE-2026-39987? it was exploited in under 10 hours",
+      "Please investigate whether our environment contains any instances of Marimo notebooks vulnerable to CVE-2026-39987, the unauthenticated RCE via the terminal WebSocket endpoint.",
+      "CVE-2026-39987 Marimo RCE — do we have affected instances?"
+    ]
+  },
+  {
+    "id": 304,
+    "base_question": "Check if we have any exposure from the Trivy supply chain attack CVE-2026-33634 — did any of our CI/CD pipelines pull the compromised scanner versions?",
+    "expected_workflow": "investigate",
+    "category": "CVE Triage",
+    "params_hint": {
+      "target": "CVE-2026-33634"
+    },
+    "variants": [
+      "the Trivy scanner got supply chain attacked — CVE-2026-33634 — did any of our pipelines pull the bad versions?",
+      "Please investigate whether any of our CI/CD pipelines or container scanning workflows consumed compromised Trivy releases associated with CVE-2026-33634, the TeamPCP supply chain compromise.",
+      "CVE-2026-33634 Trivy supply chain — pipeline exposure?"
+    ]
+  },
+  {
+    "id": 305,
+    "base_question": "What TTPs does Storm-1175 use and do we have any vulnerabilities they could exploit for Medusa ransomware delivery?",
+    "expected_workflow": "investigate",
+    "category": "Threat Actor Attribution",
+    "params_hint": {
+      "target": "Storm-1175"
+    },
+    "variants": [
+      "Storm-1175 is dropping Medusa ransomware on healthcare orgs — what's our exposure to their attack chain?",
+      "Please investigate our environment's exposure to the TTPs used by Storm-1175, the threat actor conducting high-velocity Medusa ransomware operations targeting healthcare, education, and finance sectors.",
+      "Storm-1175 Medusa ransomware — are we exposed to their initial access vectors?"
+    ]
+  },
+  {
+    "id": 306,
+    "base_question": "Are we exposed to the Qilin ransomware BYOVD technique that's being used to kill EDR tools before encryption?",
+    "expected_workflow": "investigate",
+    "category": "Threat Actor Attribution",
+    "params_hint": {
+      "target": "Qilin BYOVD"
+    },
+    "variants": [
+      "Qilin is using BYOVD to kill 300+ security tools before encrypting — are we exposed to that?",
+      "Please assess our environment's vulnerability to the bring-your-own-vulnerable-driver technique being employed by Qilin ransomware operators to disable endpoint detection and response tooling.",
+      "Qilin BYOVD EDR evasion — our exposure?"
+    ]
+  },
+  {
+    "id": 307,
+    "base_question": "Do we have any BeyondTrust Remote Support instances that could be hit by CVE-2026-1731?",
+    "expected_workflow": "investigate",
+    "category": "CVE Triage",
+    "params_hint": {
+      "target": "CVE-2026-1731"
+    },
+    "variants": [
+      "Storm-1175 is using CVE-2026-1731 in BeyondTrust — do we run that product and are we patched?",
+      "Please investigate whether our organization has deployed BeyondTrust Remote Support and whether any instances are vulnerable to CVE-2026-1731, a critical RCE flaw actively exploited by Storm-1175.",
+      "CVE-2026-1731 BeyondTrust Remote Support — do we have vulnerable instances?"
+    ]
+  },
+  {
+    "id": 308,
+    "base_question": "How exposed are we to the TeamPCP supply chain attack that hit Trivy, Checkmarx KICS, and dozens of npm packages?",
+    "expected_workflow": "assess_risk",
+    "category": "Container Security",
+    "params_hint": {
+      "target": "TeamPCP supply chain"
+    },
+    "variants": [
+      "TeamPCP hit Trivy and spread a worm through npm — what's our blast radius from that supply chain attack?",
+      "Please provide a risk assessment of our organizational exposure to the TeamPCP supply chain attack campaign, which compromised the Trivy vulnerability scanner, Checkmarx KICS, LiteLLM, and propagated CanisterWorm across npm packages.",
+      "TeamPCP supply chain attack blast radius — how exposed are we?"
+    ]
+  },
+  {
+    "id": 309,
+    "base_question": "What's our risk posture against AI-enhanced device code phishing campaigns that bypass MFA?",
+    "expected_workflow": "assess_risk",
+    "category": "Threat Actor Attribution",
+    "params_hint": {
+      "target": "device code phishing MFA bypass"
+    },
+    "variants": [
+      "there's a campaign using AI to craft device code phishing that bypasses MFA — what's our exposure look like?",
+      "Please assess our organization's risk posture against large-scale AI-enhanced device code phishing campaigns that abuse the OAuth device authorization flow to compromise accounts and bypass multi-factor authentication.",
+      "AI device code phishing MFA bypass — risk assessment"
+    ]
+  },
+  {
+    "id": 310,
+    "base_question": "Show me our exposure to the Medusa ransomware attack chain — we're a healthcare org and Storm-1175 is targeting us specifically",
+    "expected_workflow": "assess_risk",
+    "category": "Threat Actor Attribution",
+    "params_hint": {
+      "target": "Medusa ransomware healthcare"}
+    ,
+    "variants": [
+      "we're healthcare and Medusa/Storm-1175 is targeting healthcare hard right now — how exposed are we?",
+      "Please provide a comprehensive risk assessment of our healthcare organization's exposure to the Medusa ransomware attack chain operated by Storm-1175, which is currently conducting high-velocity campaigns against healthcare entities in the US, UK, and Australia.",
+      "Medusa ransomware Storm-1175 healthcare targeting — our risk level?"
+    ]
+  },
+  {
+    "id": 311,
+    "base_question": "Are there any long-term IAM keys or cloud credentials in our CI/CD pipelines that could have been exfiltrated by the TeamPCP CanisterWorm?",
+    "expected_workflow": "assess_risk",
+    "category": "Cloud Security",
+    "params_hint": {
+      "target": "CI/CD credential exposure TeamPCP"
+    },
+    "variants": [
+      "CanisterWorm from TeamPCP steals cloud creds from CI/CD — do we have any long-lived keys sitting in pipelines that might be at risk?",
+      "Please assess whether our CI/CD environments contain long-lived IAM access keys, cloud credentials, or secrets that may have been exposed to the TeamPCP CanisterWorm, which specifically targets AWS, GCP, Azure credentials and SSH keys.",
+      "CI/CD IAM key exposure — CanisterWorm risk assessment"
+    ]
+  },
+  {
+    "id": 312,
+    "base_question": "Are we compliant with CISA BOD 25-01 cloud security requirements? We need to validate our cloud config controls",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "CISA BOD 25-01"
+    },
+    "variants": [
+      "CISA BOD 25-01 mandates cloud security controls — are we meeting those requirements?",
+      "Please provide a compliance assessment against CISA Binding Operational Directive 25-01, which mandates federal agencies secure cloud environments through specific configuration controls to prevent misconfiguration-related breaches.",
+      "BOD 25-01 cloud security compliance status"
+    ]
+  },
+  {
+    "id": 313,
+    "base_question": "What do we need to do to meet EU AI Act security requirements for our internal LLM deployments?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "EU AI Act LLM compliance"
+    },
+    "variants": [
+      "EU AI Act enforcement is coming — what security controls do we need for our LLM deployments to be compliant?",
+      "Please provide a compliance gap analysis identifying what security requirements our internal large language model deployments must meet to comply with the EU AI Act, including prompt injection defenses and output controls.",
+      "EU AI Act LLM security requirements — our compliance gaps"
+    ]
+  },
+  {
+    "id": 314,
+    "base_question": "Do our CI/CD pipeline security controls meet hardening standards after the Trivy/TeamPCP supply chain compromise wave?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "CI/CD pipeline hardening compliance"
+    },
+    "variants": [
+      "after the TeamPCP Trivy attack, do our CI/CD pipelines have the security controls to detect or prevent supply chain compromises?",
+      "Please assess whether our CI/CD pipeline security controls conform to established hardening standards in the wake of the Trivy/TeamPCP supply chain compromise, including credential scoping, pinned dependencies, and token rotation practices.",
+      "CI/CD supply chain hardening compliance — post-TeamPCP assessment"
+    ]
+  },
+  {
+    "id": 315,
+    "base_question": "Are our FortiClient EMS deployments compliant with Fortinet's latest security hardening guidance following CVE-2026-35616?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "target": "FortiClient EMS hardening compliance"
+    },
+    "variants": [
+      "with CVE-2026-35616 being actively exploited in FortiClient EMS, are we following Fortinet's hardening guidance?",
+      "Please verify whether our FortiClient EMS deployments comply with Fortinet's current security hardening recommendations issued in response to CVE-2026-35616 active exploitation.",
+      "FortiClient EMS hardening compliance — CVE-2026-35616 guidance"
+    ]
+  },
+  {
+    "id": 316,
+    "base_question": "What's the remediation plan for the Ivanti EPMM CVE-2026-1281 and CVE-2026-1340 zero-days — how many systems need patching and how fast can we move?",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "CVE-2026-1281 CVE-2026-1340 remediation"
+    },
+    "variants": [
+      "Ivanti EPMM zero-days CVE-2026-1281 and CVE-2026-1340 are being mass exploited — give me a patching plan asap",
+      "Please generate a remediation plan for CVE-2026-1281 and CVE-2026-1340 on our Ivanti EPMM infrastructure, including affected asset count, patch availability, and recommended deployment sequence.",
+      "CVE-2026-1281 / CVE-2026-1340 Ivanti EPMM patch plan"
+    ]
+  },
+  {
+    "id": 317,
+    "base_question": "How do we patch or mitigate CVE-2026-35616 on FortiClient EMS? Show me all affected assets and a deployment plan",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "CVE-2026-35616 remediation"
+    },
+    "variants": [
+      "CVE-2026-35616 in FortiClient EMS is being actively exploited — what's our patching plan and which systems are affected?",
+      "Please provide a comprehensive remediation plan for CVE-2026-35616 across our FortiClient EMS deployment, identifying all affected assets and prioritizing by exposure.",
+      "CVE-2026-35616 FortiClient EMS — patch plan and affected assets"
+    ]
+  },
+  {
+    "id": 318,
+    "base_question": "Help me plan remediation for any systems touched by the Trivy CVE-2026-33634 supply chain compromise — what secrets need to be rotated?",
+    "expected_workflow": "plan_remediation",
+    "category": "Mitigation Coverage",
+    "params_hint": {
+      "target": "CVE-2026-33634 remediation secrets rotation"
+    },
+    "variants": [
+      "the Trivy supply chain attack (CVE-2026-33634) may have exfiltrated our cloud creds — help me figure out what to rotate and what systems to remediate",
+      "Please develop a remediation plan for systems potentially impacted by the CVE-2026-33634 Trivy supply chain compromise, including identification of credentials requiring rotation and recommended remediation sequencing.",
+      "CVE-2026-33634 Trivy compromise — secrets rotation and remediation plan"
+    ]
+  },
+  {
+    "id": 319,
+    "base_question": "What compensating controls can we put in place for Marimo CVE-2026-39987 on our data science systems until we can update?",
+    "expected_workflow": "plan_remediation",
+    "category": "Mitigation Coverage",
+    "params_hint": {
+      "target": "CVE-2026-39987 compensating controls"
+    },
+    "variants": [
+      "we can't patch Marimo right away — what can we do to mitigate CVE-2026-39987 in the meantime?",
+      "Please identify available compensating controls and mitigations for CVE-2026-39987 in Marimo notebook deployments where immediate patching is not feasible.",
+      "CVE-2026-39987 Marimo — interim mitigations before patching"
+    ]
+  },
+  {
+    "id": 320,
+    "base_question": "Give me a threat intel briefing — what new CVEs, ransomware campaigns, and active exploits should I know about this week?",
+    "expected_workflow": "security_overview",
+    "category": "Daily Briefing",
+    "params_hint": {
+      "target": "weekly threat intel briefing"
+    },
+    "variants": [
+      "what's the threat landscape looking like this week? new CVEs, active campaigns, anything hot I should know?",
+      "Please provide a current threat intelligence briefing summarizing newly disclosed CVEs with active exploitation, emerging ransomware campaigns, and active threat actor activity relevant to our environment.",
+      "weekly threat intel briefing — CVEs, campaigns, active exploits"
+    ]
   }
 ]
