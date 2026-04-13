@@ -2,7 +2,7 @@
   "_meta": {
     "description": "Complete inventory of known Qualys API endpoints. Used for gap analysis against api.py.",
     "lastUpdated": "2026-04-11",
-    "sources": "Qualys docs crawl + manual verification + release notes"
+    "sources": "Qualys docs crawl + manual verification + release notes + US2 live testing"
   },
   "modules": {
     "CSAM": {
@@ -108,7 +108,7 @@
         {
           "method": "GET",
           "path": "/api/5.0/fo/schedule/scan/",
-          "status": "gap",
+          "status": "implemented",
           "description": "Scan scheduling v5"
         }
       ]
@@ -116,6 +116,7 @@
     "ETM": {
       "baseUrl": "GATEWAY/etm",
       "auth": "bearer",
+      "note": "ETM public APIs are primarily report generation — skipping until new read APIs are available",
       "endpoints": [
         {
           "method": "POST",
@@ -128,12 +129,6 @@
           "path": "/etm/api/rest/v1/reports/{id}/download",
           "status": "implemented",
           "description": "ETM report download"
-        },
-        {
-          "method": "GET",
-          "path": "/etm/api/rest/v1/mitigations",
-          "status": "gap",
-          "description": "ETM mitigations list (404 on US2)"
         }
       ]
     },
@@ -174,7 +169,7 @@
         {
           "method": "GET",
           "path": "/cloudview-api/rest/v2/{provider}/evaluations/{accountId}/resources/{controlId}",
-          "status": "gap",
+          "status": "implemented",
           "description": "Per-control resource evaluations v2"
         },
         {
@@ -185,33 +180,33 @@
         },
         {
           "method": "GET",
-          "path": "/cloudview-api/rest/v1/remediation/actions",
-          "status": "gap",
-          "description": "Cloud remediation actions"
-        },
-        {
-          "method": "GET",
           "path": "/cloudview-api/rest/v1/reports",
-          "status": "gap",
+          "status": "implemented",
           "description": "Cloud assessment reports"
         },
         {
           "method": "GET",
+          "path": "/cloudview-api/rest/v1/remediation/actions",
+          "status": "not_available",
+          "description": "Cloud remediation actions (404 on US2 — endpoint does not exist)"
+        },
+        {
+          "method": "GET",
           "path": "/cloudview-api/rest/v1/controls",
-          "status": "gap",
-          "description": "Control metadata"
+          "status": "not_available",
+          "description": "Control metadata (404 on US2 — endpoint does not exist)"
         },
         {
           "method": "GET",
           "path": "/cloudview-api/rest/v1/alerts",
-          "status": "gap",
-          "description": "Alerting/response rules"
+          "status": "not_available",
+          "description": "Alerting/response rules (404 on US2 — endpoint does not exist)"
         },
         {
           "method": "GET",
           "path": "/cloudview-api/rest/v1/exceptions",
-          "status": "gap",
-          "description": "Exception management"
+          "status": "not_available",
+          "description": "Exception management (404 on US2 — endpoint does not exist)"
         }
       ]
     },
@@ -246,13 +241,13 @@
         {
           "method": "GET",
           "path": "/csapi/v1.3/images/{imageSha}/vuln",
-          "status": "gap",
+          "status": "implemented",
           "description": "Image vulnerabilities detail"
         },
         {
           "method": "GET",
           "path": "/csapi/v1.3/images/{imageSha}/vuln/count",
-          "status": "gap",
+          "status": "implemented",
           "description": "Image vulnerability count"
         },
         {
@@ -282,25 +277,25 @@
         {
           "method": "GET",
           "path": "/csapi/v1.3/reports",
-          "status": "gap",
+          "status": "implemented",
           "description": "CS reports"
         },
         {
           "method": "GET",
           "path": "/csapi/v1.3/registry",
-          "status": "gap",
+          "status": "implemented",
           "description": "Registry list"
         },
         {
           "method": "GET",
           "path": "/csapi/v1.3/sensorProfile",
-          "status": "gap",
+          "status": "implemented",
           "description": "Sensor profiles"
         },
         {
           "method": "GET",
           "path": "/csapi/v1.3/centralizedPolicy",
-          "status": "gap",
+          "status": "implemented",
           "description": "Centralized policies"
         }
       ]
@@ -366,8 +361,8 @@
         {
           "method": "GET",
           "path": "/pm/v1/deploymentjob/{id}/deploymentjobresult/summary",
-          "status": "gap",
-          "description": "Deployment job result summary"
+          "status": "not_available",
+          "description": "Deployment job result summary (404 on US2 gateway)"
         },
         {
           "method": "POST",
@@ -378,8 +373,8 @@
         {
           "method": "GET",
           "path": "/mtg/v1/deploymentjob/{id}",
-          "status": "gap",
-          "description": "MTG job detail"
+          "status": "not_available",
+          "description": "MTG job detail (404 on US2 gateway)"
         },
         {
           "method": "GET",
@@ -407,9 +402,15 @@
         },
         {
           "method": "GET",
-          "path": "/ioc/events/count/time-buckets",
-          "status": "gap",
-          "description": "Event trend by time bucket (500 on US2)"
+          "path": "/ioc/events/count",
+          "status": "implemented",
+          "description": "Event count with groupBy/interval for time bucketing"
+        },
+        {
+          "method": "GET",
+          "path": "/ioc/v1/events/count",
+          "status": "implemented",
+          "description": "Event count v1"
         }
       ]
     },
@@ -432,7 +433,7 @@
         {
           "method": "GET",
           "path": "/fim/v2/events/{eventId}",
-          "status": "gap",
+          "status": "implemented",
           "description": "Single FIM event detail"
         },
         {
@@ -450,31 +451,31 @@
         {
           "method": "POST",
           "path": "/fim/v3/assets/count",
-          "status": "gap",
+          "status": "implemented",
           "description": "FIM asset count"
         },
         {
           "method": "POST",
           "path": "/fim/v3/profiles/search",
-          "status": "gap",
+          "status": "implemented",
           "description": "FIM monitoring profiles"
         },
         {
           "method": "POST",
           "path": "/fim/v3/categories/search",
-          "status": "gap",
+          "status": "implemented",
           "description": "FIM event categories"
         },
         {
           "method": "POST",
           "path": "/fim/v3/alert/rules/search",
-          "status": "gap",
+          "status": "implemented",
           "description": "FIM alert rules"
         },
         {
           "method": "POST",
           "path": "/fim/v3/alert/activities/search",
-          "status": "gap",
+          "status": "implemented",
           "description": "FIM alert activities"
         }
       ]
@@ -498,8 +499,8 @@
         {
           "method": "POST",
           "path": "/certview/v2.3/certificates",
-          "status": "gap",
-          "description": "Certificate list v2.3 with PQC filter"
+          "status": "not_available",
+          "description": "Certificate list v2.3 with PQC filter (401 auth issue on US2)"
         }
       ]
     },
@@ -528,8 +529,8 @@
         {
           "method": "GET",
           "path": "/tai/api/1.0/scan/{id}",
-          "status": "gap",
-          "description": "Scan details by ID"
+          "status": "not_available",
+          "description": "Scan details by ID (500 on US2)"
         }
       ]
     },

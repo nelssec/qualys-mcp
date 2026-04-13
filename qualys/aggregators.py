@@ -940,18 +940,53 @@ def investigate_cve_agg(cve: str, detail: str = "standard") -> dict:
                 }
                 result['summary']['assetsWithSoftware'] = best_count
 
+    if qids:
+        primary_qid = qids[0]
+        try:
+            import xml.etree.ElementTree as _ET
+            det_url = f"{BASE_URL}/api/2.0/fo/asset/host/vm/detection/?action=list&qids={primary_qid}&status=New,Active,Re-Opened&truncation_limit=20&show_results=0"
+            det_data = api_get(det_url, timeout=45)
+            if det_data:
+                det_root = _ET.fromstring(det_data)
+                det_hosts = det_root.findall('.//HOST')
+                affected_list = []
+                for dh in det_hosts[:10]:
+                    affected_list.append({
+                        'hostId': dh.findtext('ID', ''),
+                        'ip': dh.findtext('IP', ''),
+                        'hostname': dh.findtext('DNS', '') or dh.findtext('DNS_DATA/HOSTNAME', '') or '',
+                        'os': dh.findtext('OS', ''),
+                    })
+                if affected_list:
+                    result['affectedAssets'] = affected_list
+                    result['detectionCount'] = len(det_hosts)
+                    result['summary']['confirmedAffected'] = len(det_hosts)
+                    result['confirmedHosts'] = {
+                        'searchedBy': f'QID {primary_qid} detections',
+                        'hostCount': len(det_hosts),
+                        'hosts': [{
+                            'hostId': a['hostId'],
+                            'ip': a['ip'],
+                            'hostname': a['hostname'],
+                            'os': a['os'],
+                        } for a in affected_list[:10]],
+                        'note': f'{len(det_hosts)} hosts have confirmed detections for QID {primary_qid} ({cve}).',
+                    }
+        except Exception:
+            pass
+
     followups = []
-    asset_count = result.get('summary', {}).get('assetsWithSoftware', 0)
+    asset_count = result.get('summary', {}).get('confirmedAffected', 0) or result.get('summary', {}).get('assetsWithSoftware', 0)
     if asset_count:
-        followups.append(f"You have {asset_count} assets potentially affected by {cve} \u2014 investigate patch status with get_patch_status()?")
+        followups.append(f"{asset_count} assets confirmed affected by {cve}")
     if result.get('ransomware'):
-        followups.append(f"{cve} is linked to ransomware \u2014 get_etm_findings(qql='threatName:ransomware') for full ransomware exposure?")
+        followups.append(f"{cve} is linked to ransomware — investigate('ransomware') for full ransomware exposure")
     if result.get('patchAvailable'):
-        followups.append(f"Patch available for {cve} \u2014 get_patch_status() to see deployment coverage?")
+        followups.append(f"Patch available for {cve} — plan_remediation(scope='patches') to see deployment coverage")
     elif result.get('qids'):
-        followups.append(f"No patch available for {cve} \u2014 get_vuln_exceptions() to check for compensating controls?")
+        followups.append(f"No patch available for {cve} — check_compliance(include_exceptions=True) for compensating controls")
     if result.get('has_exploit'):
-        followups.append(f"{cve} has a known exploit \u2014 get_etm_findings(qql='vulnerabilities.vulnerability.cveIds:{cve}') for confirmed findings?")
+        followups.append(f"{cve} has a known exploit — prioritize remediation immediately")
     result['_followups'] = followups
 
     result['_next'] = _build_next(result, 'investigate_cve')
@@ -1155,15 +1190,13 @@ def investigate_agg(topic: str, depth: str = "standard", prior_context: str = ""
             }
         else:
             tasks = {
-                'morning_report': lambda: _safe_call('get_morning_report', lambda: morning_report()),
+                'morning_report': lambda: _safe_call('get_morning_report', lambda: morning_report(quick=True)),
                 'weekly_priorities': lambda: _safe_call('get_weekly_priorities', lambda: weekly_priorities()),
+                'search_vulns': lambda: _safe_call('search_vulns', lambda: search_vulns_agg(days=7, limit=20)),
             }
         results = _run_concurrent(**tasks)
         for k, v in results.items():
             findings[k] = v
-
-        if depth in ('standard', 'deep'):
-            findings['search_vulns'] = _safe_call('search_vulns', lambda: search_vulns_agg())
 
         if depth == 'deep':
             deep_tasks = {
@@ -1870,24 +1903,33 @@ def outstanding_patches(platform: str = "", severity: str = "", top_n: int = 20,
 
     sev_filter = severity.strip().capitalize() if severity else ""
 
-    # Fetch patches for each platform in parallel
     tasks = {}
     for p in platforms:
         tasks[p.lower()] = lambda _p=p: get_pm_patches(_p, status='Missing', page_size=50)
+        tasks[f"{p.lower()}_count"] = lambda _p=p: get_pm_patches_count(_p, status='Missing')
     concurrent = _run_concurrent(**tasks)
 
     all_patches = []
+    real_total = 0
     for p in platforms:
         patches = concurrent.get(p.lower()) or []
         if isinstance(patches, dict):
-            # API may return {data: [...]} or flat list
             patches = patches.get('data', patches.get('patches', []))
         if isinstance(patches, list):
             for patch in patches:
                 patch['_platform'] = p
                 all_patches.append(patch)
+        count_data = concurrent.get(f"{p.lower()}_count") or {}
+        if isinstance(count_data, dict):
+            nested = count_data.get('patches', count_data)
+            if isinstance(nested, dict):
+                real_total += nested.get('count', nested.get('total', 0))
+            else:
+                real_total += count_data.get('count', count_data.get('total', 0))
+        elif isinstance(count_data, int):
+            real_total += count_data
 
-    if not all_patches:
+    if not all_patches and real_total == 0:
         return _with_meta({
             'totalOutstanding': 0,
             'patches': [],
@@ -1923,7 +1965,7 @@ def outstanding_patches(platform: str = "", severity: str = "", top_n: int = 20,
             'kb': p.get('kb', ''),
         })
 
-    total = len(all_patches)
+    total = real_total if real_total > len(all_patches) else len(all_patches)
     total_missing = sum(p.get('missingCount', 0) for p in all_patches)
     lines = [
         f"{total} outstanding patches ({total_missing} total missing installations)",
@@ -3054,9 +3096,10 @@ def cloud_risk(limit: int = 20, include_threats: bool = True, days: int = 7, per
         return compact(result)
 
     resource_type_map = {'aws': 'EC2_INSTANCE', 'azure': 'VIRTUAL_MACHINE', 'gcp': 'VM_INSTANCE', 'oci': 'INSTANCE'}
+    unique_providers = set(a['provider'] for a in all_accounts)
     resource_tasks = {
         f"res_{p}": (lambda p=p, rt=resource_type_map.get(p, 'INSTANCE'): get_cloud_resources_v2(p, rt, 1))
-        for p in set(a['provider'] for a in all_accounts) if a.get('provider') in resource_type_map
+        for p in unique_providers if p in resource_type_map
     }
     if resource_tasks:
         resource_results = _run_concurrent(**resource_tasks)
@@ -5025,7 +5068,7 @@ def compliance_posture(framework: str = "", platform: str = "", limit: int = 20,
     policy_list_url = f"{BASE_URL}/api/4.0/fo/compliance/policy/?action=list"
     if framework:
         policy_list_url += f"&search_keyword={framework}"
-    policy_data = api_get(policy_list_url, timeout=120)
+    policy_data = api_get(policy_list_url, timeout=45)
     policy_ids = []
     if policy_data:
         try:
@@ -5041,16 +5084,16 @@ def compliance_posture(framework: str = "", platform: str = "", limit: int = 20,
             _log("Compliance posture: policy list returned non-XML")
 
     if policy_ids:
-        _log(f"Compliance posture: found {len(policy_ids)} policies, fetching posture (max 5) in parallel...")
+        _log(f"Compliance posture: found {len(policy_ids)} policies, fetching posture (max 3) in parallel...")
         policy_tasks = {
             f"policy_{pid}": (lambda p=pid: api_get(
                 f"{BASE_URL}/api/2.0/fo/compliance/posture/info/?action=list&policy_id={p}",
-                timeout=120
+                timeout=45
             ))
-            for pid in policy_ids[:5]
+            for pid in policy_ids[:3]
         }
         policy_results = _run_concurrent(**policy_tasks)
-        for pid in policy_ids[:5]:
+        for pid in policy_ids[:3]:
             posture_data = policy_results.get(f"policy_{pid}")
             if posture_data:
                 try:
@@ -5830,3 +5873,219 @@ def totalai_summary(limit: int = 20, detail: str = "standard") -> dict:
     result['summary'] = '. '.join(parts) + '.'
 
     return _apply_detail_level(_with_meta(result, 'detections', total_detections), detail, list_keys=['detections'])
+
+
+# ---------------------------------------------------------------------------
+# Container Security posture (enriched with registries, sensor profiles, policies)
+# ---------------------------------------------------------------------------
+
+def container_security_posture(limit: int = 20, detail: str = "standard") -> dict:
+    """Full container security posture — images, registries, sensor profiles, policies."""
+    concurrent = _run_concurrent(
+        vuln_summary=lambda: container_vuln_summary(limit=limit, detail=detail),
+        registries=lambda: get_cs_registries(page_size=50),
+        sensor_profiles=lambda: get_cs_sensor_profiles(page_size=50),
+        policies=lambda: get_cs_centralized_policies(page_size=50),
+        reports=lambda: get_cs_reports(page_size=20),
+    )
+
+    vuln = concurrent.get('vuln_summary') or {}
+
+    reg_data = concurrent.get('registries') or {}
+    registries = reg_data.get('data', []) if isinstance(reg_data, dict) else []
+
+    sp_data = concurrent.get('sensor_profiles') or {}
+    profiles = sp_data.get('data', []) if isinstance(sp_data, dict) else []
+
+    pol_data = concurrent.get('policies') or {}
+    policies = pol_data.get('data', []) if isinstance(pol_data, dict) else []
+
+    rep_data = concurrent.get('reports') or {}
+    reports = rep_data.get('data', []) if isinstance(rep_data, dict) else []
+
+    result = {
+        'vulnerabilities': vuln,
+        'registries': [{
+            'uuid': r.get('uuid', ''),
+            'name': r.get('name', '') or r.get('registryUri', ''),
+            'type': r.get('registryType', ''),
+            'lastScan': r.get('lastScanDate', ''),
+        } for r in registries[:limit]],
+        'registryCount': len(registries),
+        'sensorProfiles': [{
+            'id': p.get('profileId', ''),
+            'name': p.get('profileName', ''),
+            'type': p.get('profileType', ''),
+            'sensors': p.get('associatedSensorsCount', 0),
+        } for p in profiles[:limit]],
+        'sensorProfileCount': len(profiles),
+        'policies': [{
+            'uuid': p.get('uuid', ''),
+            'name': p.get('policyName', ''),
+            'mode': p.get('policyMode', ''),
+            'type': p.get('policyType', ''),
+        } for p in policies[:limit]],
+        'policyCount': len(policies),
+        'reportCount': len(reports),
+    }
+
+    parts = []
+    if vuln.get('totalImages'):
+        parts.append(f"{vuln['totalImages']} images scanned")
+    parts.append(f"{len(registries)} registries")
+    parts.append(f"{len(profiles)} sensor profiles")
+    parts.append(f"{len(policies)} centralized policies")
+    if reports:
+        parts.append(f"{len(reports)} reports")
+    result['summary'] = ', '.join(parts)
+
+    return _apply_detail_level(_with_meta(result, 'registries'), detail,
+                               list_keys=['registries', 'sensorProfiles', 'policies'])
+
+
+# ---------------------------------------------------------------------------
+# FIM posture (enriched with profiles, categories, alert rules, asset count)
+# ---------------------------------------------------------------------------
+
+def fim_posture(days: int = 7, limit: int = 50, detail: str = "standard") -> dict:
+    """Full FIM posture — event summary, profiles, categories, alert rules, monitored assets."""
+    concurrent = _run_concurrent(
+        events=lambda: fim_events(days=days, limit=limit, detail=detail),
+        asset_count=lambda: get_fim_asset_count(),
+        profiles=lambda: get_fim_profiles(page_size=50),
+        categories=lambda: get_fim_categories(),
+        alert_rules=lambda: get_fim_alert_rules(page_size=50),
+        alert_activities=lambda: get_fim_alert_activities(page_size=20),
+    )
+
+    events_data = concurrent.get('events') or {}
+    asset_count = concurrent.get('asset_count') or 0
+
+    raw_profiles = concurrent.get('profiles') or {}
+    profiles = raw_profiles if isinstance(raw_profiles, list) else raw_profiles.get('data', []) if isinstance(raw_profiles, dict) else []
+
+    raw_categories = concurrent.get('categories') or {}
+    categories = raw_categories if isinstance(raw_categories, list) else raw_categories.get('data', []) if isinstance(raw_categories, dict) else []
+
+    raw_rules = concurrent.get('alert_rules') or {}
+    alert_rules = raw_rules if isinstance(raw_rules, list) else raw_rules.get('data', []) if isinstance(raw_rules, dict) else []
+
+    raw_activities = concurrent.get('alert_activities') or {}
+    alert_activities = raw_activities if isinstance(raw_activities, list) else raw_activities.get('data', []) if isinstance(raw_activities, dict) else []
+
+    result = {
+        'events': events_data,
+        'monitoredAssets': asset_count,
+        'profiles': [{
+            'id': p.get('id', ''),
+            'name': p.get('name', ''),
+            'type': p.get('type', ''),
+            'platform': p.get('platform', ''),
+        } for p in (profiles if isinstance(profiles, list) else [])[:limit]],
+        'profileCount': len(profiles) if isinstance(profiles, list) else 0,
+        'categories': [{
+            'id': c.get('id', ''),
+            'name': c.get('name', ''),
+            'system': c.get('system', False),
+        } for c in (categories if isinstance(categories, list) else [])[:limit]],
+        'categoryCount': len(categories) if isinstance(categories, list) else 0,
+        'alertRules': [{
+            'id': r.get('id', ''),
+            'name': r.get('name', ''),
+            'datasource': r.get('datasource', ''),
+        } for r in (alert_rules if isinstance(alert_rules, list) else [])[:limit]],
+        'alertRuleCount': len(alert_rules) if isinstance(alert_rules, list) else 0,
+        'recentAlerts': len(alert_activities) if isinstance(alert_activities, list) else 0,
+    }
+
+    ev_summary = events_data.get('summary', {}) if isinstance(events_data, dict) else {}
+    ev_total = ev_summary.get('total', 0) if isinstance(ev_summary, dict) else 0
+    parts = [f"{asset_count} monitored assets", f"{ev_total} events in {days}d"]
+    prof_count = len(profiles) if isinstance(profiles, list) else 0
+    if prof_count:
+        parts.append(f"{prof_count} profiles")
+    rule_count = len(alert_rules) if isinstance(alert_rules, list) else 0
+    if rule_count:
+        parts.append(f"{rule_count} alert rules")
+    result['summary'] = ', '.join(parts)
+
+    return _apply_detail_level(_with_meta(result, 'profiles'), detail,
+                               list_keys=['profiles', 'categories', 'alertRules'])
+
+
+# ---------------------------------------------------------------------------
+# EDR posture (enriched with event count API)
+# ---------------------------------------------------------------------------
+
+def edr_posture(days: int = 7, limit: int = 50, detail: str = "standard") -> dict:
+    """EDR security posture — event summary with count API for totals."""
+    concurrent = _run_concurrent(
+        events=lambda: edr_events(days=days, limit=limit, detail=detail),
+        total_count=lambda: get_edr_event_count(),
+    )
+
+    events_data = concurrent.get('events') or {}
+    count_data = concurrent.get('total_count') or {}
+    total_all_time = count_data.get('count', 0) if isinstance(count_data, dict) else 0
+
+    result = events_data.copy() if isinstance(events_data, dict) else {}
+    result['totalAllTimeEvents'] = total_all_time
+
+    ev_summary = result.get('summary', {}) if isinstance(result, dict) else {}
+    period_total = ev_summary.get('total', 0) if isinstance(ev_summary, dict) else 0
+    result['headline'] = f"{period_total} EDR events in {days}d ({total_all_time} all-time)"
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Cloud assessment reports aggregator
+# ---------------------------------------------------------------------------
+
+def cloud_reports_agg(limit: int = 20, detail: str = "standard") -> dict:
+    """List TotalCloud assessment reports."""
+    reports = get_cloud_reports(page_size=limit)
+
+    if not reports:
+        return {'reports': [], 'summary': 'No cloud assessment reports found', '_meta': {'returned': 0, 'total': 0, 'truncated': False}}
+
+    report_list = reports if isinstance(reports, list) else reports.get('content', []) if isinstance(reports, dict) else []
+
+    result = {
+        'reports': [{
+            'id': r.get('id', ''),
+            'title': r.get('title', ''),
+            'type': r.get('type', ''),
+            'format': r.get('format', ''),
+            'status': r.get('status', ''),
+        } for r in report_list[:limit]],
+        'totalReports': len(report_list),
+        'summary': f"{len(report_list)} cloud assessment reports available",
+    }
+
+    return _apply_detail_level(_with_meta(result, 'reports', len(report_list)), detail, list_keys=['reports'])
+
+
+# ---------------------------------------------------------------------------
+# Scheduled scans aggregator
+# ---------------------------------------------------------------------------
+
+def scheduled_scans_agg(limit: int = 50, detail: str = "standard") -> dict:
+    """List scheduled vulnerability scans from VMDR v5 API."""
+    scans = get_scheduled_scans(limit=limit)
+
+    if not scans:
+        return {'scans': [], 'summary': 'No scheduled scans found or scan scheduling not available', '_meta': {'returned': 0, 'total': 0, 'truncated': False}}
+
+    active = sum(1 for s in scans if s.get('active'))
+    inactive = len(scans) - active
+
+    result = {
+        'scans': scans[:limit],
+        'totalScheduled': len(scans),
+        'active': active,
+        'inactive': inactive,
+        'summary': f"{len(scans)} scheduled scans ({active} active, {inactive} inactive)",
+    }
+
+    return _apply_detail_level(_with_meta(result, 'scans', len(scans)), detail, list_keys=['scans'])
