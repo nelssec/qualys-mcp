@@ -100,10 +100,11 @@ def _resolve_actor_tags(key: str) -> list[str] | None:
 
 _CVE_PATTERN = re.compile(r"^CVE-\d{4}-\d{4,}$", re.IGNORECASE)
 _IP_PATTERN = re.compile(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
+_UUID_PATTERN = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
 
 
 def _detect_target_type(target: str) -> str:
-    """Return one of: 'cve', 'ip', 'hostname', 'threat_actor', 'general'."""
+    """Return one of: 'cve', 'ip', 'hostname', 'threat_actor', 'cs_vuln_uuid', 'general'."""
     t = target.strip()
 
     # CVE pattern — must be CVE-YYYY-NNNNN with numeric year and ID
@@ -120,6 +121,10 @@ def _detect_target_type(target: str) -> str:
     # Explicit asset/hostname prefix
     if t.lower().startswith("asset:"):
         return "hostname"
+
+    # Container security vulnerability UUID (e.g., from get_cs_vulnerabilities output)
+    if _UUID_PATTERN.match(t):
+        return "cs_vuln_uuid"
 
     # Threat actor / nation / industry
     if _resolve_actor_tags(t) is not None:
@@ -158,6 +163,7 @@ def _build_plan(
         edr_events,
         fim_events,
         totalai_summary,
+        cs_vulnerability_detail_agg,
     )
 
     AI_KEYWORDS = {"ai", "llm", "gpt", "totalai", "jailbreak", "owasp llm", "model detection", "ai security", "ai risk", "ai vulnerability"}
@@ -170,6 +176,9 @@ def _build_plan(
 
     if target_type == "cve":
         plan["cve_deep"] = lambda: investigate_cve_agg(target, detail=detail)
+
+    elif target_type == "cs_vuln_uuid":
+        plan["cs_vuln_detail"] = lambda: cs_vulnerability_detail_agg(target, detail=detail)
 
     elif target_type == "threat_actor":
         actor_tags = _resolve_actor_tags(target) or []

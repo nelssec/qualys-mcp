@@ -1,7 +1,7 @@
 {
   "_meta": {
     "description": "Complete inventory of known Qualys API endpoints. Used for gap analysis against api.py.",
-    "lastUpdated": "2026-04-11",
+    "lastUpdated": "2026-04-14",
     "sources": "Qualys docs crawl + manual verification + release notes + US2 live testing"
   },
   "modules": {
@@ -186,6 +186,48 @@
         },
         {
           "method": "GET",
+          "path": "/connectors/v1.0/aws/org/connector",
+          "status": "implemented",
+          "description": "List AWS Organization connectors (TotalCloud 2.22.0)"
+        },
+        {
+          "method": "GET",
+          "path": "/connectors/v1.0/aws/org/{id}",
+          "status": "implemented",
+          "description": "AWS Organization connector detail by ID"
+        },
+        {
+          "method": "GET",
+          "path": "/connectors/v1.0/aws/org/{id}/job/summary/latest",
+          "status": "implemented",
+          "description": "Latest sync job summary for AWS Org connector"
+        },
+        {
+          "method": "POST",
+          "path": "/connectors/v1.0/aws/org/connector/create",
+          "status": "not_needed",
+          "description": "Create AWS Organization connector (write)"
+        },
+        {
+          "method": "POST",
+          "path": "/connectors/v1.0/aws/org/test",
+          "status": "not_needed",
+          "description": "Test AWS Organization connector connection (write)"
+        },
+        {
+          "method": "PUT",
+          "path": "/connectors/v1.0/aws/org/update/{id}",
+          "status": "not_needed",
+          "description": "Update AWS Organization connector (write)"
+        },
+        {
+          "method": "DELETE",
+          "path": "/connectors/v1.0/aws/org/connector/{id}",
+          "status": "not_needed",
+          "description": "Delete AWS Organization connector (write)"
+        },
+        {
+          "method": "GET",
           "path": "/cloudview-api/rest/v1/remediation/actions",
           "status": "not_available",
           "description": "Cloud remediation actions (404 on US2 — endpoint does not exist)"
@@ -273,6 +315,18 @@
           "path": "/csapi/v1.3/vulnerability",
           "status": "implemented",
           "description": "CS vulnerabilities"
+        },
+        {
+          "method": "GET",
+          "path": "/csapi/v1.3/vulnerability/{vulnerabilityUuid}",
+          "status": "implemented",
+          "description": "Single CS vulnerability detail by UUID (CS release 1.42)"
+        },
+        {
+          "method": "PUT",
+          "path": "/csapi/v1.3/sensorProfile/updateDefault",
+          "status": "not_needed",
+          "description": "Update default sensor profile (write)"
         },
         {
           "method": "GET",
@@ -375,6 +429,12 @@
           "path": "/mtg/v1/deploymentjob/{id}",
           "status": "not_available",
           "description": "MTG job detail (404 on US2 gateway)"
+        },
+        {
+          "method": "GET",
+          "path": "/pm/v1/report/columns",
+          "status": "not_available",
+          "description": "Patch report column definitions (400 on US2 — PM 3.13)"
         },
         {
           "method": "GET",
@@ -567,6 +627,18 @@
           "path": "/pcas/v1/library/policy/import",
           "status": "not_needed",
           "description": "Import policy (write)"
+        },
+        {
+          "method": "GET",
+          "path": "/pcas/v1/library/",
+          "status": "not_available",
+          "description": "Aggregate policy library endpoint (404 on US2 — PA release 1.9)"
+        },
+        {
+          "method": "POST",
+          "path": "/pcas/v1/library/",
+          "status": "not_needed",
+          "description": "Import library policies (write — PA release 1.9)"
         }
       ]
     },

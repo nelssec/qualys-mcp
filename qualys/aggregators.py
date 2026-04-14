@@ -6089,3 +6089,155 @@ def scheduled_scans_agg(limit: int = 50, detail: str = "standard") -> dict:
     }
 
     return _apply_detail_level(_with_meta(result, 'scans', len(scans)), detail, list_keys=['scans'])
+
+
+# ---------------------------------------------------------------------------
+# AWS Organization Connectors aggregator (TotalCloud 2.22.0)
+# ---------------------------------------------------------------------------
+
+def aws_org_connectors_agg(limit: int = 50, detail: str = "standard") -> dict:
+    """AWS Organization connectors — list, detail, and sync health.
+
+    Fetches all AWS Org connectors and enriches each with full detail
+    (sync schedule, state, attached member connectors, capabilities).
+    Useful for multi-account AWS Organizations posture visibility.
+    """
+    raw = get_aws_org_connectors(limit=limit)
+    connectors = raw.get('content', [])
+    total = raw.get('numberOfElements', len(connectors))
+
+    if not connectors:
+        return {
+            'connectors': [],
+            'total': 0,
+            'summary': 'No AWS Organization connectors found',
+            '_meta': {'returned': 0, 'total': 0, 'truncated': False},
+        }
+
+    enriched = []
+    for c in connectors[:limit]:
+        conn_id = c.get('id')
+        detail_data = {}
+        if conn_id:
+            detail_data = get_aws_org_connector_detail(conn_id) or {}
+
+        enriched.append({
+            'id': conn_id,
+            'name': c.get('name', ''),
+            'uuid': c.get('uuid', ''),
+            'state': c.get('state', ''),
+            'lastSynced': c.get('lastSynced', ''),
+            'attachedConnectors': c.get('numberOfConnectorsAttached', 0),
+            'capabilities': c.get('connectorCapabilities', []),
+            'nextSync': detail_data.get('nextSync', ''),
+            'orgRunFrequencyHours': (detail_data.get('orgRunFrequency') or {}).get('hours', ''),
+            'connectorPrefixName': detail_data.get('connectorPrefixName', ''),
+            'lastError': detail_data.get('lastError'),
+        })
+
+    healthy = sum(1 for c in enriched if c['state'] == 'FINISHED_SUCCESS')
+    errored = sum(1 for c in enriched if 'ERROR' in c.get('state', '') or 'FAIL' in c.get('state', ''))
+    total_accounts = sum(c['attachedConnectors'] for c in enriched)
+
+    result = {
+        'connectors': enriched,
+        'total': total,
+        'healthy': healthy,
+        'errored': errored,
+        'totalAttachedAccounts': total_accounts,
+        'summary': (
+            f"{total} AWS Org connector(s): {healthy} healthy, {errored} with errors. "
+            f"{total_accounts} member AWS accounts managed."
+        ),
+    }
+
+    if errored:
+        result['_followups'] = [
+            f"Check lastError field on failing connectors",
+            "Re-run connector sync to resolve transient errors",
+        ]
+
+    return _apply_detail_level(_with_meta(result, 'connectors', total), detail, list_keys=['connectors'])
+
+
+# ---------------------------------------------------------------------------
+# Container Security vulnerability detail aggregator (CS release 1.42)
+# ---------------------------------------------------------------------------
+
+def cs_vulnerability_detail_agg(vuln_uuid: str, detail: str = "standard") -> dict:
+    """Full detail for a single container security vulnerability by UUID.
+
+    Returns vulnerability description, CVEs, CVSS scores, remediation steps,
+    affected container images, and patch availability — sourced from
+    GET /csapi/v1.3/vulnerability/{uuid} (CS release 1.42).
+    """
+    if not vuln_uuid:
+        return {'error': 'vuln_uuid is required', 'summary': 'Provide a container vulnerability UUID'}
+
+    raw = get_cs_vulnerability_detail(vuln_uuid)
+
+    if not raw:
+        return {
+            'error': f'Vulnerability {vuln_uuid} not found',
+            'summary': f'No container vulnerability found with UUID {vuln_uuid}',
+        }
+
+    vuln_def = raw.get('vulnDef', {})
+    dto = raw.get('vulnerabilityDetailDTO', {})
+
+    # Extract CVEs
+    cves = [c.get('id', c) if isinstance(c, dict) else c
+            for c in (vuln_def.get('cveList') or dto.get('cveIds') or [])]
+
+    # Extract CVSS
+    cvss_v3 = vuln_def.get('cvssV3BaseScore') or dto.get('cvssV3BaseScore', '')
+    cvss_v2 = vuln_def.get('cvssV2BaseScore') or dto.get('cvssV2BaseScore', '')
+
+    # Description
+    desc_obj = vuln_def.get('description', {})
+    description = desc_obj.get('en', '') if isinstance(desc_obj, dict) else str(desc_obj)
+
+    # Severity
+    severity = dto.get('severity') or vuln_def.get('severity', '')
+    severity_label = {5: 'Critical', 4: 'High', 3: 'Medium', 2: 'Low', 1: 'Info'}.get(severity, str(severity))
+
+    # Patch/remediation
+    patch_available = dto.get('patchAvailable', vuln_def.get('patchAvailable', False))
+    solution = (vuln_def.get('solution') or {})
+    solution_text = solution.get('en', '') if isinstance(solution, dict) else str(solution)
+
+    result = {
+        'uuid': vuln_uuid,
+        'title': vuln_def.get('title', dto.get('title', '')),
+        'severity': severity,
+        'severityLabel': severity_label,
+        'cves': cves,
+        'cvssV3': cvss_v3,
+        'cvssV2': cvss_v2,
+        'patchAvailable': patch_available,
+        'description': description[:2000] if description else '',
+        'solution': solution_text[:1000] if solution_text else '',
+        'qid': dto.get('qid') or vuln_def.get('qid'),
+        'affectedImages': dto.get('imageCount', 0),
+        'affectedContainers': dto.get('containerCount', 0),
+        'firstFound': dto.get('firstFound', ''),
+        'lastFound': dto.get('lastFound', ''),
+        'summary': '',
+    }
+
+    parts = [f"Container vulnerability: {result['title'] or vuln_uuid}"]
+    parts.append(f"Severity: {severity_label}")
+    if cves:
+        parts.append(f"CVEs: {', '.join(cves[:5])}")
+    if patch_available:
+        parts.append("Patch available")
+    if result['affectedImages']:
+        parts.append(f"{result['affectedImages']} affected images")
+    result['summary'] = '. '.join(parts) + '.'
+
+    if patch_available and solution_text:
+        result['_followups'] = [f"Apply fix: {solution_text[:200]}"]
+    elif not patch_available:
+        result['_followups'] = ["No patch available — consider runtime mitigation or container isolation"]
+
+    return _apply_detail_level(_with_meta(result, None, 1), detail)

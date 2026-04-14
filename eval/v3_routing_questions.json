@@ -2238,5 +2238,47 @@
     "expected_workflow": "security_overview",
     "category": "Daily Briefing",
     "params_hint": {"target": "weekly threat intel briefing"}
+  },
+  {
+    "id": 321,
+    "question": "Give me full details on container vulnerability 733fe682-cc95-3fff-8261-bb8aa4d51855",
+    "expected_workflow": "investigate",
+    "category": "Container Security",
+    "params_hint": {"target": "733fe682-cc95-3fff-8261-bb8aa4d51855"}
+  },
+  {
+    "id": 322,
+    "question": "What are the remediation steps and affected images for container vuln UUID a1b2c3d4-e5f6-7890-abcd-ef1234567890?",
+    "expected_workflow": "investigate",
+    "category": "Container Security",
+    "params_hint": {"target": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"}
+  },
+  {
+    "id": 323,
+    "question": "Is there a patch available for container vulnerability 733fe682-cc95-3fff-8261-bb8aa4d51855?",
+    "expected_workflow": "investigate",
+    "category": "Container Security",
+    "params_hint": {"target": "733fe682-cc95-3fff-8261-bb8aa4d51855"}
+  },
+  {
+    "id": 324,
+    "question": "Show me all AWS Organization connectors and their sync status",
+    "expected_workflow": "aws_org_connectors",
+    "category": "Cloud Connectors",
+    "params_hint": {}
+  },
+  {
+    "id": 325,
+    "question": "Which AWS Org connectors have errors or are failing to sync?",
+    "expected_workflow": "aws_org_connectors",
+    "category": "Cloud Connectors",
+    "params_hint": {"detail": "detailed"}
+  },
+  {
+    "id": 326,
+    "question": "How many AWS accounts are managed through our AWS Organizations connectors?",
+    "expected_workflow": "aws_org_connectors",
+    "category": "Cloud Connectors",
+    "params_hint": {}
   }
 ]
