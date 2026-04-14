@@ -88,6 +88,10 @@ CDR_UNAVAILABLE_MSG = "CDR findings currently unavailable"
 # available (licensed + reachable). Workflows skip unavailable modules
 # instead of waiting for timeouts.
 
+CACHE_MODE = os.environ.get("QUALYS_CACHE_MODE", "lazy").lower()
+if CACHE_MODE not in ("lazy", "aggressive", "none"):
+    CACHE_MODE = "lazy"
+
 _MODULE_AVAILABLE = {}
 _MODULE_LOCK = Lock()
 
@@ -810,6 +814,51 @@ def get_detections(severity=5, limit=0, use_cache=True, days=30, qds_min=0, fetc
             id_min = max_host_id + 1
         if pages > 1:
             _log(f"VMDR detections: fetched {len(all_dets)} records across {pages} pages")
+        return all_dets
+
+    if not use_cache:
+        result = _fetch()
+        DETECTION_CACHE[cache_key] = result
+        DETECTION_CACHE_TIME[cache_key] = datetime.now(timezone.utc)
+        disk_cache.set(cache_key, result, DISK_TTL_VMDR)
+        return result[:limit] if limit > 0 else result
+
+    dets = _get_or_fetch(DETECTION_CACHE, DETECTION_CACHE_TIME, cache_key, _fetch, VMDR_CACHE_TTL, disk_ttl=DISK_TTL_VMDR)
+    return dets[:limit] if limit > 0 else dets
+
+
+def get_detections_by_qds(qds_min=70, days=30, limit=0, use_cache=True):
+    cache_key = f"detections_qds{qds_min}_{days}"
+
+    def _fetch():
+        after_date = (datetime.now(timezone.utc) - timedelta(days=days)).strftime('%Y-%m-%d')
+        url = (
+            f"{BASE_URL}/api/2.0/fo/asset/host/vm/detection/?action=list"
+            f"&status=Active&show_qds=1&filter_superseded_qids=1"
+            f"&qds_min={qds_min}"
+            f"&vm_processed_after={after_date}"
+        )
+        all_dets = []
+        id_min = 0
+        pages = 0
+        max_page_cap = MAX_PAGES if MAX_PAGES > 0 else 0
+        while True:
+            if max_page_cap > 0 and pages >= max_page_cap:
+                break
+            fetch_url = url
+            if id_min > 0:
+                fetch_url += f"&id_min={id_min}"
+            data = api_get(fetch_url, timeout=120)
+            if not data:
+                break
+            dets, is_truncated, max_host_id = _parse_detections_xml(data)
+            all_dets.extend(dets)
+            pages += 1
+            if not is_truncated or max_host_id == 0:
+                break
+            id_min = max_host_id + 1
+        if pages > 1:
+            _log(f"QDS detections (>={qds_min}): {len(all_dets)} records across {pages} pages")
         return all_dets
 
     if not use_cache:
@@ -2037,9 +2086,11 @@ def get_cloud_resources(provider='oci', resource_type='INSTANCE', limit=50):
 
 
 def _warmup_vmdr_cache():
-    """Background thread: pre-fetch VMDR detections for severity 3-5 to warm cache."""
+    if CACHE_MODE != "aggressive":
+        _log(f"Cache mode '{CACHE_MODE}' — skipping startup warmup")
+        return
     import time
-    time.sleep(2)  # brief delay to let server finish startup
+    time.sleep(2)
     for sev in (5, 4, 3):
         try:
             cache_key = f"detections_{sev}_30_0"
