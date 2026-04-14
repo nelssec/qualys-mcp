@@ -5706,6 +5706,8 @@ def cache_status_agg(clear: bool = False) -> dict:
         result['disk_cache_size_kb'] = 0
         result.pop('disk_age_s', None)
 
+    result['modules'] = module_status_summary()
+
     result['_meta'] = {'returned': 1, 'total': 1, 'truncated': False}
     return compact(result)
 
