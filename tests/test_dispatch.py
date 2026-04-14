@@ -249,6 +249,31 @@ class TestInvestigateBuildPlan:
         assert "vulns" in plan
 
 
+class TestInvestigateExposure:
+
+    def test_cve_plan_includes_exposure(self):
+        from qualys.workflows.investigate import _build_plan
+        agg_mock = MagicMock()
+        import sys
+        with patch.dict(sys.modules, {"qualys.aggregators": agg_mock}):
+            plan = _build_plan(
+                target="CVE-2024-6387",
+                target_type="cve",
+                depth="standard",
+                scope=[],
+                tag="",
+                asset_group="",
+                threat_type="",
+                software="",
+                days=7,
+                limit=20,
+                detail="standard",
+                prior_context="",
+            )
+        assert "exposure" in plan
+        assert "cve_deep" in plan
+
+
 # ===========================================================================
 # investigate._detect_target_type
 # ===========================================================================
