@@ -227,9 +227,10 @@ class TestQDSDetections:
         assert "days" in sig.parameters
         assert "limit" in sig.parameters
 
-    def test_get_detections_by_qds_returns_list(self):
+    @patch("qualys.api.api_get", return_value=None)
+    def test_get_detections_by_qds_returns_list(self, mock_api):
         from qualys.api import get_detections_by_qds
-        result = get_detections_by_qds(qds_min=90, days=7, limit=10)
+        result = get_detections_by_qds(qds_min=90, days=7, limit=10, use_cache=False)
         assert isinstance(result, list)
 
 
