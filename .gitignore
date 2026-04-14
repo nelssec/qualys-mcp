@@ -27,6 +27,7 @@ package.json
 # Dev/internal
 devclaw/
 discovery/
+docs/superpowers/
 *.yaml
 *.yml
 !.github/**/*.yml
