@@ -5674,6 +5674,7 @@ def cache_status_agg(clear: bool = False) -> dict:
         'disk_cache_path': str(DB_PATH),
         'disk_cache_size_kb': disk_cache.size_kb(),
     }
+    result['cacheMode'] = CACHE_MODE
 
     # Disk age per cached key
     disk_keys = disk_cache.keys()
