@@ -10,7 +10,7 @@ from qualys.workflows.assess_risk import assess_risk as assess_risk_wf
 from qualys.workflows.compliance import check_compliance as check_compliance_wf
 from qualys.workflows.remediation import plan_remediation as plan_remediation_wf
 from qualys.workflows.overview import security_overview as security_overview_wf
-from qualys.aggregators import reports_agg, cache_status_agg
+from qualys.aggregators import reports_agg, cache_status_agg, aws_org_connectors_agg
 from qualys.workflows import _envelope_to_markdown
 
 mcp = FastMCP("qualys-mcp")
@@ -226,6 +226,21 @@ async def cache_status(clear: bool = False) -> dict:
     return await asyncio.to_thread(cache_status_agg, clear=clear)
 
 
+@mcp.tool()
+async def aws_org_connectors(limit: int = 50, detail: str = "standard") -> dict:
+    """[Cloud] AWS Organization connectors — list and health status for multi-account AWS setups.
+
+    USE WHEN: "show AWS org connectors", "AWS Organizations status", "multi-account cloud connector health",
+    "which AWS accounts are connected", "AWS org sync status"
+
+    Parameters:
+        limit: max connectors to return (default 50)
+        detail: "summary" | "standard" | "detailed"
+
+    Returns: list of AWS Org connectors with sync state, attached account count, and capabilities."""
+    return await asyncio.to_thread(aws_org_connectors_agg, limit=limit, detail=detail)
+
+
 def main():
     if not BASE_URL:
         raise EnvironmentError(
@@ -237,7 +252,7 @@ def main():
         _log(f"qualys-mcp v0.2.1 — POD={_resolved_pod}  BASE_URL={BASE_URL}  GATEWAY_URL={GATEWAY_URL}")
     else:
         _log(f"qualys-mcp v0.2.1 — BASE_URL={BASE_URL}  GATEWAY_URL={GATEWAY_URL}")
-    _log("7 tools: investigate, assess_risk, check_compliance, plan_remediation, security_overview, reports, cache_status")
+    _log("8 tools: investigate, assess_risk, check_compliance, plan_remediation, security_overview, reports, cache_status, aws_org_connectors")
     warmup = Thread(target=_warmup_vmdr_cache, daemon=True, name="vmdr-cache-warmup")
     warmup.start()
     mcp.run()

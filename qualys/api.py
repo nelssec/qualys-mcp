@@ -1107,6 +1107,57 @@ def get_connectors(provider='aws', limit=50):
                           not_found_ok=True, page_start=0)
 
 
+def get_aws_org_connectors(limit=100):
+    """List AWS Organization connectors (TotalCloud 2.22.0).
+
+    Returns paginated list of org connectors with id, name, uuid, state,
+    lastSynced, numberOfConnectorsAttached, connectorCapabilities.
+    GET /connectors/v1.0/aws/org/connector
+    """
+    url = f"{GATEWAY_URL}/connectors/v1.0/aws/org/connector?pageSize={min(limit, 1000)}"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return {'content': [], 'numberOfElements': 0}
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return {'content': [], 'numberOfElements': 0}
+
+
+def get_aws_org_connector_detail(connector_id):
+    """Get full detail for an AWS Organization connector by numeric ID.
+
+    Returns connector metadata including sync schedule, state, attached member
+    connectors, and application-level details (CSA, AI, CI).
+    GET /connectors/v1.0/aws/org/{id}
+    """
+    url = f"{GATEWAY_URL}/connectors/v1.0/aws/org/{connector_id}"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return {}
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+
+
+def get_aws_org_connector_job_summary(connector_id):
+    """Get the latest sync job summary for an AWS Organization connector.
+
+    Returns job summary including sync status, accounts discovered,
+    resources processed, and error counts.
+    GET /connectors/v1.0/aws/org/{id}/job/summary/latest
+    """
+    url = f"{GATEWAY_URL}/connectors/v1.0/aws/org/{connector_id}/job/summary/latest"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return {'content': [], 'numberOfElements': 0}
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return {'content': [], 'numberOfElements': 0}
+
+
 def get_evaluations(account_id, provider='aws', limit=500):
     url = f"{GATEWAY_URL}/cloudview-api/rest/v1/{provider}/evaluations/{account_id}"
     return _paginate_json(url, limit, data_key='content', count_key='totalElements',
@@ -1982,6 +2033,23 @@ def get_cs_vulnerabilities(page_size=50, page_number=1):
         return json.loads(data)
     except (json.JSONDecodeError, TypeError):
         return {'data': [], 'count': 0}
+
+
+def get_cs_vulnerability_detail(vuln_uuid):
+    """Get full detail for a single container security vulnerability by UUID.
+
+    Returns dict with 'vulnDef' (description, remediation, CVEs) and
+    'vulnerabilityDetailDTO' (affected assets, severity, patch info).
+    CS release 1.42 — GET /csapi/v1.3/vulnerability/{uuid}
+    """
+    url = f"{GATEWAY_URL}/csapi/v1.3/vulnerability/{vuln_uuid}"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return {}
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return {}
 
 
 # ---------------------------------------------------------------------------
