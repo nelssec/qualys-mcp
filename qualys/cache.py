@@ -147,5 +147,26 @@ class DiskCache:
                 return []
 
 
-# Module-level singleton
-disk_cache = DiskCache()
+class NullCache:
+
+    def get(self, key):
+        return None
+
+    def set(self, key, value, ttl):
+        pass
+
+    def clear(self, key=None):
+        pass
+
+    def age(self, key):
+        return None
+
+    def size_kb(self):
+        return 0
+
+    def keys(self):
+        return []
+
+
+_cache_mode = os.environ.get("QUALYS_CACHE_MODE", "lazy").lower()
+disk_cache = NullCache() if _cache_mode == "none" else DiskCache()
