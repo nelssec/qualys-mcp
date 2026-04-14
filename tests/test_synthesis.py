@@ -146,3 +146,16 @@ class TestVulnIdentity:
         result = _vuln_identity(item)
         assert isinstance(result["qvs"], (int, float))
         assert isinstance(result["cvss"], (int, float))
+
+
+class TestCacheStatusMode:
+    def test_cache_status_includes_mode(self):
+        from qualys.aggregators import cache_status_agg
+        result = cache_status_agg()
+        assert "cacheMode" in result
+
+    def test_cache_mode_is_string(self):
+        from qualys.aggregators import cache_status_agg
+        result = cache_status_agg()
+        assert isinstance(result["cacheMode"], str)
+        assert result["cacheMode"] in ("lazy", "aggressive", "none")
