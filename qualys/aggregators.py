@@ -6300,19 +6300,29 @@ def assess_exposure(cve: str = "", qid: int = 0, software: str = "", detail: str
         clean_sol = re.sub(r'<[^>]+>', '', sol)
         result['kb']['solution'] = clean_sol[:300]
 
-    sw_keywords = _extract_software_keywords(best_kb.get('title', '') if best_kb else software) if best_kb or software else []
+    title = best_kb.get('title', '') if best_kb else ''
+    sw_keywords = _extract_software_keywords(title) if title else []
     if software and software not in sw_keywords:
         sw_keywords.append(software)
 
-    if not sw_keywords and not software:
-        title = best_kb.get('title', '') if best_kb else ''
-        title_lower = title.lower()
-        for candidate in ('OpenSSH', 'Apache', 'nginx', 'Windows', 'Linux', 'Chrome', 'Firefox',
-                          'Java', 'Python', 'Node', 'PHP', 'MySQL', 'PostgreSQL', 'Oracle',
-                          'VMware', 'Cisco', 'Fortinet', 'Palo Alto', 'F5'):
-            if candidate.lower() in title_lower:
-                sw_keywords.append(candidate)
-                break
+    title_lower = title.lower()
+    well_known = (
+        'OpenSSH', 'Apache', 'nginx', 'Windows', 'Linux', 'Chrome', 'Firefox',
+        'Java', 'Python', 'Node', 'PHP', 'MySQL', 'PostgreSQL', 'Oracle',
+        'VMware', 'Cisco', 'Fortinet', 'Palo Alto', 'F5', 'Microsoft',
+        'curl', 'OpenSSL', 'Tomcat', 'Jenkins', 'Docker', 'Kubernetes',
+        'Redis', 'MongoDB', 'Elasticsearch', 'Grafana', 'GitLab',
+    )
+    for candidate in well_known:
+        if candidate.lower() in title_lower and candidate not in sw_keywords:
+            sw_keywords.insert(0, candidate)
+            break
+
+    first_word = title.split()[0] if title else ''
+    if first_word and len(first_word) >= 3 and first_word not in sw_keywords and first_word.lower() not in (
+        'remote', 'multiple', 'the', 'a', 'an', 'critical', 'important',
+    ):
+        sw_keywords.insert(0, first_word)
 
     if sw_keywords:
         sw_tasks = {}
