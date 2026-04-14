@@ -165,13 +165,14 @@ def _build_plan(
         totalai_summary,
         cs_vulnerability_detail_agg,
     )
+    from qualys.api import module_available
 
     AI_KEYWORDS = {"ai", "llm", "gpt", "totalai", "jailbreak", "owasp llm", "model detection", "ai security", "ai risk", "ai vulnerability"}
 
     plan: dict[str, Any] = {}
     has_investigate_agg = False
 
-    if any(kw in target.lower() for kw in AI_KEYWORDS):
+    if any(kw in target.lower() for kw in AI_KEYWORDS) and module_available("totalai"):
         plan["totalai"] = lambda: totalai_summary(detail=detail)
 
     if target_type == "cve":
@@ -199,28 +200,29 @@ def _build_plan(
             detail=detail,
         )
         has_investigate_agg = True
+        if module_available("edr"):
+            plan["edr"] = lambda: edr_events(
+                days=days,
+                host=target,
+                limit=limit,
+                detail=detail,
+            )
+        if module_available("fim"):
+            plan["fim"] = lambda: fim_events(
+                days=days,
+                host=target,
+                limit=limit,
+                detail=detail,
+            )
+
+    if "edr" in scope and "edr" not in plan and module_available("edr"):
         plan["edr"] = lambda: edr_events(
             days=days,
-            host=target,
-            limit=limit,
-            detail=detail,
-        )
-        plan["fim"] = lambda: fim_events(
-            days=days,
-            host=target,
             limit=limit,
             detail=detail,
         )
 
-    # Scope-based additions (can layer on top of host/general)
-    if "edr" in scope and "edr" not in plan:
-        plan["edr"] = lambda: edr_events(
-            days=days,
-            limit=limit,
-            detail=detail,
-        )
-
-    if "fim" in scope and "fim" not in plan:
+    if "fim" in scope and "fim" not in plan and module_available("fim"):
         plan["fim"] = lambda: fim_events(
             days=days,
             limit=limit,

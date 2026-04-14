@@ -28,6 +28,7 @@ from qualys.aggregators import (
     cloud_reports_agg,
     scheduled_scans_agg,
 )
+from qualys.api import module_available
 from qualys.workflows import _dispatch, _build_envelope, _apply_detail
 
 
@@ -721,31 +722,33 @@ def assess_risk(
     # Cloud (scope "all" or "cloud", or cloud params set)
     # ------------------------------------------------------------------
     if scope_all or scope == "cloud" or cloud_params_set:
-        plan["cloud_risk"] = lambda: cloud_risk_agg(
-            limit=limit,
-            include_threats=True,
-            days=days,
-            per_account=per_account,
-            detail=detail,
-        )
-        plan["cloud_account_summary"] = lambda: cloud_account_summary(
-            provider=provider or "all",
-            detail=detail,
-        )
-        plan["cloud_controls"] = lambda: cloud_controls(
-            provider=provider or "all",
-            service=service,
-            result_filter="FAIL",
-            account_id=account_id,
-            limit=limit,
-            detail=detail,
-        )
-        plan["saasdr_controls"] = lambda: saasdr_controls_agg(limit=limit, detail=detail)
+        if module_available("totalcloud"):
+            plan["cloud_risk"] = lambda: cloud_risk_agg(
+                limit=limit,
+                include_threats=True,
+                days=days,
+                per_account=per_account,
+                detail=detail,
+            )
+            plan["cloud_account_summary"] = lambda: cloud_account_summary(
+                provider=provider or "all",
+                detail=detail,
+            )
+            plan["cloud_controls"] = lambda: cloud_controls(
+                provider=provider or "all",
+                service=service,
+                result_filter="FAIL",
+                account_id=account_id,
+                limit=limit,
+                detail=detail,
+            )
+        if module_available("saasdr"):
+            plan["saasdr_controls"] = lambda: saasdr_controls_agg(limit=limit, detail=detail)
 
     # ------------------------------------------------------------------
     # Containers (scope "all" or "containers", or image_id set)
     # ------------------------------------------------------------------
-    if scope_all or scope == "containers" or image_id:
+    if (scope_all or scope == "containers" or image_id) and module_available("cs"):
         if scope == "containers":
             plan["container_security_posture"] = lambda: container_security_posture(
                 limit=limit,
@@ -770,7 +773,7 @@ def assess_risk(
     # ------------------------------------------------------------------
     # Web apps (scope "all" or "web", or web params set)
     # ------------------------------------------------------------------
-    if scope_all or scope == "web" or web_params_set:
+    if (scope_all or scope == "web" or web_params_set) and module_available("was"):
         plan["webapp_vulns"] = lambda: webapp_vulns(
             severity=0,
             days=0,
@@ -783,7 +786,7 @@ def assess_risk(
     # ------------------------------------------------------------------
     # Certificates (scope "all" or "certs", or cert params set)
     # ------------------------------------------------------------------
-    if scope_all or scope == "certs" or cert_params_set:
+    if (scope_all or scope == "certs" or cert_params_set) and module_available("certview"):
         plan["expiring_certs"] = lambda: expiring_certs(
             days=days,
             include_expired=include_expired,
@@ -800,9 +803,9 @@ def assess_risk(
     # ------------------------------------------------------------------
     # FIM / EDR (scope "all" or specific)
     # ------------------------------------------------------------------
-    if scope == "fim":
+    if scope == "fim" and module_available("fim"):
         plan["fim_posture"] = lambda: fim_posture(days=days, limit=limit, detail=detail)
-    if scope == "edr":
+    if scope == "edr" and module_available("edr"):
         plan["edr_posture"] = lambda: edr_posture(days=days, limit=limit, detail=detail)
 
     # ------------------------------------------------------------------

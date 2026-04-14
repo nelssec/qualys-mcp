@@ -80,6 +80,141 @@ KB_CONFLICT_BASE_DELAY = 3  # seconds
 KB_BUSY_MSG = "Knowledge base export is currently busy (concurrent request in progress). Please try again in a moment."
 _KB_SEM = Semaphore(1)  # Qualys KB allows only one concurrent query per subscription
 CDR_UNAVAILABLE_MSG = "CDR findings currently unavailable"
+
+# ---------------------------------------------------------------------------
+# Module availability detection
+# ---------------------------------------------------------------------------
+# Probes each Qualys module once on first use and caches whether it's
+# available (licensed + reachable). Workflows skip unavailable modules
+# instead of waiting for timeouts.
+
+_MODULE_AVAILABLE = {}
+_MODULE_LOCK = Lock()
+
+MODULES = {
+    "vmdr":       {"probe": "vmdr", "label": "VMDR"},
+    "csam":       {"probe": "csam", "label": "CyberSecurity Asset Management"},
+    "totalcloud": {"probe": "totalcloud", "label": "TotalCloud / CloudView"},
+    "cdr":        {"probe": "cdr", "label": "Cloud Detection & Response"},
+    "cs":         {"probe": "cs", "label": "Container Security"},
+    "was":        {"probe": "was", "label": "Web Application Scanning"},
+    "pm":         {"probe": "pm", "label": "Patch Management"},
+    "edr":        {"probe": "edr", "label": "Endpoint Detection & Response"},
+    "fim":        {"probe": "fim", "label": "File Integrity Monitoring"},
+    "certview":   {"probe": "certview", "label": "CertView"},
+    "totalai":    {"probe": "totalai", "label": "TotalAI"},
+    "pcas":       {"probe": "pcas", "label": "Policy Audit"},
+    "saasdr":     {"probe": "saasdr", "label": "SaaS Detection & Response"},
+}
+
+
+def _probe_module(module_name):
+    """Quick probe to check if a module is available. Returns True/False.
+    When credentials are not configured, assumes all modules are available (test mode)."""
+    if not USERNAME or not PASSWORD:
+        return True
+    try:
+        probe_type = MODULES.get(module_name, {}).get("probe")
+        if probe_type == "vmdr":
+            data = api_get(f"{BASE_URL}/api/2.0/fo/knowledge_base/vuln/?action=list&ids=38906", timeout=10)
+            return data is not None
+        elif probe_type == "csam":
+            url = f"{GATEWAY_URL}/rest/2.0/count/am/asset"
+            req = Request(url, data=json.dumps({"filters": []}).encode(), method='POST')
+            token = get_bearer_token()
+            req.add_header('Authorization', f'Bearer {token}')
+            req.add_header('Content-Type', 'application/json')
+            with _open(req, timeout=10) as resp:
+                return resp.status == 200
+        elif probe_type == "totalcloud":
+            data = api_get(f"{GATEWAY_URL}/cloudview-api/rest/v1/aws/connectors?pageSize=1", gateway=True, timeout=10, not_found_ok=True)
+            return data is not None
+        elif probe_type == "cdr":
+            from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+            end = _dt.now(_tz.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+            start = (_dt.now(_tz.utc) - _td(days=1)).strftime('%Y-%m-%dT%H:%M:%SZ')
+            url = f"{GATEWAY_URL}/cdr-api/rest/v1/findings/?pageSize=1&startAt={start}&endAt={end}"
+            data = api_get(url, gateway=True, timeout=10, not_found_ok=True)
+            return data is not None
+        elif probe_type == "cs":
+            data = api_get(f"{GATEWAY_URL}/csapi/v1.3/images?pageSize=1&pageNumber=1", gateway=True, timeout=10, not_found_ok=True)
+            return data is not None
+        elif probe_type == "was":
+            data = api_get(f"{BASE_URL}/qps/rest/3.0/count/was/webapp", timeout=10)
+            return data is not None
+        elif probe_type == "pm":
+            data = api_get(f"{GATEWAY_URL}/pm/v1/patches/count?platform=Windows", gateway=True, timeout=10, not_found_ok=True)
+            return data is not None
+        elif probe_type == "edr":
+            data = api_get(f"{GATEWAY_URL}/ioc/events/count", gateway=True, timeout=10, not_found_ok=True)
+            return data is not None
+        elif probe_type == "fim":
+            result = _gateway_post(f"{GATEWAY_URL}/fim/v3/assets/count", {}, timeout=10)
+            return result is not None
+        elif probe_type == "certview":
+            data = api_get(f"{GATEWAY_URL}/certview/v2/certificates?pageSize=1", gateway=True, timeout=10, not_found_ok=True)
+            if data is None:
+                data = api_get(f"{GATEWAY_URL}/certview/v1/certificates?pageSize=1", gateway=True, timeout=10, not_found_ok=True)
+            return data is not None
+        elif probe_type == "totalai":
+            result = _totalai_post("detection/count", {}, timeout=10)
+            return result is not None and isinstance(result, dict)
+        elif probe_type == "pcas":
+            data = api_get(f"{GATEWAY_URL}/pcas/v1/library/label", gateway=True, timeout=10, not_found_ok=True)
+            return data is not None
+        elif probe_type == "saasdr":
+            data = api_get(f"{GATEWAY_URL}/sdr/api/controls/list?size=1", gateway=True, timeout=10, not_found_ok=True)
+            return data is not None
+        return False
+    except Exception:
+        return False
+
+
+def module_available(module_name):
+    """Check if a Qualys module is available (licensed + reachable).
+    Probes once on first call, caches the result for the session and on disk (1h TTL)."""
+    if module_name not in MODULES:
+        return True
+    with _MODULE_LOCK:
+        if module_name in _MODULE_AVAILABLE:
+            return _MODULE_AVAILABLE[module_name]
+    disk_key = f"module_avail_{module_name}"
+    disk_hit = disk_cache.get(disk_key)
+    if disk_hit is not None:
+        with _MODULE_LOCK:
+            _MODULE_AVAILABLE[module_name] = disk_hit
+        return disk_hit
+    available = _probe_module(module_name)
+    with _MODULE_LOCK:
+        _MODULE_AVAILABLE[module_name] = available
+    disk_cache.set(disk_key, available, 3600)
+    label = MODULES[module_name]["label"]
+    if available:
+        _log(f"Module {label} ({module_name}): available")
+    else:
+        _log(f"Module {label} ({module_name}): not available — skipping")
+    return available
+
+
+def get_available_modules():
+    """Return dict of {module_name: bool} for all known modules."""
+    for name in MODULES:
+        module_available(name)
+    with _MODULE_LOCK:
+        return dict(_MODULE_AVAILABLE)
+
+
+def module_status_summary():
+    """Return a human-readable summary of module availability."""
+    modules = get_available_modules()
+    available = [MODULES[m]["label"] for m, v in modules.items() if v]
+    unavailable = [MODULES[m]["label"] for m, v in modules.items() if not v]
+    return {
+        "available": available,
+        "unavailable": unavailable,
+        "total": len(modules),
+        "enabled": len(available),
+    }
 CSAM_MAX_RETRIES = int(os.environ.get("CSAM_MAX_RETRIES", "3"))
 CSAM_RATE_LIMITED_MSG = "Asset search temporarily unavailable due to rate limiting. Please try again in a moment."
 # Cap concurrent CSAM requests to avoid 429 floods at high worker concurrency
