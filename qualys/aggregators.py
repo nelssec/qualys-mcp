@@ -6244,3 +6244,155 @@ def cs_vulnerability_detail_agg(vuln_uuid: str, detail: str = "standard") -> dic
         result['_followups'] = ["No patch available — consider runtime mitigation or container isolation"]
 
     return _apply_detail_level(_with_meta(result, None, 1), detail)
+
+
+def assess_exposure(cve: str = "", qid: int = 0, software: str = "", detail: str = "standard") -> dict:
+    result = {
+        'exposure': {'potentialAssets': 0, 'softwareMatches': [], 'riskContext': {}},
+        'summary': '',
+        'kb': {},
+    }
+
+    qids_to_check = []
+    if cve:
+        qids_to_check = get_cve_qids(cve)
+        if not qids_to_check:
+            result['summary'] = f'{cve} not found in Qualys Knowledge Base — it may be too new or not applicable to your scanned technologies.'
+            result['exposure']['status'] = 'unknown'
+            return _with_meta(result)
+    elif qid:
+        qids_to_check = [qid]
+
+    if qids_to_check:
+        kb_data = get_kb_batch(qids_to_check[:20])
+    else:
+        kb_data = {}
+
+    best_kb = None
+    max_sev = 0
+    all_cves = set()
+    for q in qids_to_check:
+        kb = kb_data.get(q)
+        if kb and kb.get('severity', 0) > max_sev:
+            max_sev = kb['severity']
+            best_kb = kb
+        if kb:
+            all_cves.update(kb.get('cves', []))
+
+    if best_kb:
+        result['kb'] = {
+            'qid': best_kb.get('qid'),
+            'title': best_kb.get('title', ''),
+            'severity': best_kb.get('severity', 0),
+            'qds': best_kb.get('qds', 0),
+            'cvss_v3': best_kb.get('cvss_v3'),
+            'cves': list(all_cves),
+            'patchAvailable': best_kb.get('patch_available', False),
+            'hasExploit': best_kb.get('has_exploit', False),
+            'ransomware': best_kb.get('ransomware', False),
+            'threatIntel': best_kb.get('threat_intel', []),
+        }
+        import re
+        diag = best_kb.get('diagnosis', '') or ''
+        clean_diag = re.sub(r'<[^>]+>', '', diag)
+        result['kb']['diagnosis'] = clean_diag[:300]
+        sol = best_kb.get('solution', '') or ''
+        clean_sol = re.sub(r'<[^>]+>', '', sol)
+        result['kb']['solution'] = clean_sol[:300]
+
+    sw_keywords = _extract_software_keywords(best_kb.get('title', '') if best_kb else software) if best_kb or software else []
+    if software and software not in sw_keywords:
+        sw_keywords.append(software)
+
+    if not sw_keywords and not software:
+        title = best_kb.get('title', '') if best_kb else ''
+        title_lower = title.lower()
+        for candidate in ('OpenSSH', 'Apache', 'nginx', 'Windows', 'Linux', 'Chrome', 'Firefox',
+                          'Java', 'Python', 'Node', 'PHP', 'MySQL', 'PostgreSQL', 'Oracle',
+                          'VMware', 'Cisco', 'Fortinet', 'Palo Alto', 'F5'):
+            if candidate.lower() in title_lower:
+                sw_keywords.append(candidate)
+                break
+
+    if sw_keywords:
+        sw_tasks = {}
+        for kw in sw_keywords[:5]:
+            sw_tasks[kw] = lambda k=kw: (
+                csam_count([{'field': 'software.name', 'operator': 'CONTAINS', 'value': k}]),
+            )
+        sw_results = _run_concurrent(**sw_tasks)
+
+        total_potential = 0
+        for kw, val in sw_results.items():
+            count = 0
+            if isinstance(val, tuple):
+                count = val[0] if val[0] else 0
+            elif isinstance(val, int):
+                count = val
+            if count > 0:
+                result['exposure']['softwareMatches'].append({
+                    'software': kw,
+                    'assetCount': count,
+                })
+                total_potential = max(total_potential, count)
+        result['exposure']['potentialAssets'] = total_potential
+
+    total_assets = csam_count()
+    result['exposure']['totalAssets'] = total_assets
+
+    severity = best_kb.get('severity', 0) if best_kb else 0
+    qds = best_kb.get('qds', 0) if best_kb else 0
+    has_exploit = best_kb.get('has_exploit', False) if best_kb else False
+    is_ransomware = best_kb.get('ransomware', False) if best_kb else False
+    potential = result['exposure']['potentialAssets']
+
+    if potential == 0:
+        risk = 'none'
+        result['exposure']['status'] = 'not_exposed'
+    elif is_ransomware or has_exploit:
+        risk = 'critical'
+        result['exposure']['status'] = 'likely_exposed'
+    elif severity >= 5 or qds >= 90:
+        risk = 'critical'
+        result['exposure']['status'] = 'likely_exposed'
+    elif severity >= 4 or qds >= 70:
+        risk = 'high'
+        result['exposure']['status'] = 'likely_exposed'
+    elif severity >= 3:
+        risk = 'medium'
+        result['exposure']['status'] = 'possibly_exposed'
+    else:
+        risk = 'low'
+        result['exposure']['status'] = 'low_exposure'
+    result['exposure']['riskContext'] = {
+        'risk': risk,
+        'severity': severity,
+        'qds': qds,
+        'hasExploit': has_exploit,
+        'ransomware': is_ransomware,
+    }
+
+    target_name = cve or f'QID {qid}' or software
+    sw_names = ', '.join(m['software'] for m in result['exposure']['softwareMatches'])
+    parts = [f'{target_name}']
+    if best_kb:
+        parts.append(f'({best_kb.get("title", "")})')
+    if potential > 0:
+        pct = round(potential / total_assets * 100, 1) if total_assets else 0
+        parts.append(f'— {potential} assets ({pct}% of {total_assets}) potentially exposed')
+        parts.append(f'(running {sw_names})')
+    else:
+        parts.append(f'— no matching software found across {total_assets} assets')
+    if has_exploit:
+        parts.append('. Active exploit known')
+    if is_ransomware:
+        parts.append('. Linked to ransomware')
+    if best_kb and best_kb.get('patch_available'):
+        parts.append('. Patch available')
+    result['summary'] = ' '.join(parts) + '.'
+    result['exposure']['recommendation'] = (
+        f'Prioritize scanning the {potential} assets with {sw_names} installed. '
+        f'Use assess_risk(scope="assets", tag="<tag>") after scan completes to confirm exposure.'
+    ) if potential > 0 else 'No matching software found — exposure unlikely. Verify with a targeted scan.'
+
+    return _apply_detail_level(_with_meta(result), detail)
