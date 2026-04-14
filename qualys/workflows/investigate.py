@@ -164,6 +164,7 @@ def _build_plan(
         fim_events,
         totalai_summary,
         cs_vulnerability_detail_agg,
+        assess_exposure,
     )
     from qualys.api import module_available
 
@@ -177,6 +178,7 @@ def _build_plan(
 
     if target_type == "cve":
         plan["cve_deep"] = lambda: investigate_cve_agg(target, detail=detail)
+        plan["exposure"] = lambda: assess_exposure(cve=target, detail=detail)
 
     elif target_type == "cs_vuln_uuid":
         plan["cs_vuln_detail"] = lambda: cs_vulnerability_detail_agg(target, detail=detail)
@@ -269,6 +271,7 @@ def _build_plan(
 def _summarize(data: dict) -> str:
     """Build a narrative summary string from aggregated results."""
     parts: list[str] = []
+    stats: dict[str, Any] = {}
 
     cve_deep = data.get("cve_deep") or {}
     if cve_deep:
@@ -292,6 +295,21 @@ def _summarize(data: dict) -> str:
         if asset_count:
             desc += f", {asset_count} potentially affected assets"
         parts.append(desc)
+
+    exposure = data.get("exposure")
+    if isinstance(exposure, dict):
+        exp = exposure.get("exposure", {})
+        potential = exp.get("potentialAssets", 0)
+        if potential > 0:
+            sw_matches = exp.get("softwareMatches", [])
+            sw_names = ", ".join(m.get("software", "") for m in sw_matches[:3])
+            parts.append(f"{potential} assets potentially exposed (running {sw_names})")
+            stats["potentiallyExposed"] = potential
+        risk_ctx = exp.get("riskContext", {})
+        if risk_ctx.get("hasExploit"):
+            parts.append("Active exploit exists — prioritize scanning")
+        if risk_ctx.get("ransomware"):
+            parts.append("Linked to ransomware campaigns")
 
     threat_actor = data.get("threat_actor") or {}
     if threat_actor:
@@ -378,7 +396,7 @@ def _summarize(data: dict) -> str:
         "headline": headline,
         "risk_level": risk,
         "key_findings": parts[:5],
-        "stats": {},
+        "stats": stats,
     }
 
 
