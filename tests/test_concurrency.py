@@ -134,6 +134,72 @@ class TestDispatchTimeout:
         assert elapsed_ms < 5000
 
 
+class TestNullCache:
+    def test_get_returns_none(self):
+        from qualys.cache import NullCache
+        c = NullCache()
+        assert c.get("any_key") is None
+
+    def test_set_is_noop(self):
+        from qualys.cache import NullCache
+        c = NullCache()
+        c.set("k", {"data": 1}, 3600)
+        assert c.get("k") is None
+
+    def test_clear_is_noop(self):
+        from qualys.cache import NullCache
+        c = NullCache()
+        c.clear()
+        c.clear(key="k")
+
+    def test_age_returns_none(self):
+        from qualys.cache import NullCache
+        c = NullCache()
+        assert c.age("k") is None
+
+    def test_size_kb_returns_zero(self):
+        from qualys.cache import NullCache
+        c = NullCache()
+        assert c.size_kb() == 0
+
+    def test_keys_returns_empty(self):
+        from qualys.cache import NullCache
+        c = NullCache()
+        assert c.keys() == []
+
+    def test_cache_mode_none_uses_null_cache(self):
+        import os
+        from importlib import reload
+        from qualys import cache as cache_module
+        old = os.environ.get("QUALYS_CACHE_MODE")
+        try:
+            os.environ["QUALYS_CACHE_MODE"] = "none"
+            reload(cache_module)
+            assert isinstance(cache_module.disk_cache, cache_module.NullCache)
+        finally:
+            if old is None:
+                os.environ.pop("QUALYS_CACHE_MODE", None)
+            else:
+                os.environ["QUALYS_CACHE_MODE"] = old
+            reload(cache_module)
+
+    def test_cache_mode_lazy_uses_disk_cache(self):
+        import os
+        from importlib import reload
+        from qualys import cache as cache_module
+        old = os.environ.get("QUALYS_CACHE_MODE")
+        try:
+            os.environ["QUALYS_CACHE_MODE"] = "lazy"
+            reload(cache_module)
+            assert isinstance(cache_module.disk_cache, cache_module.DiskCache)
+        finally:
+            if old is None:
+                os.environ.pop("QUALYS_CACHE_MODE", None)
+            else:
+                os.environ["QUALYS_CACHE_MODE"] = old
+            reload(cache_module)
+
+
 class TestPartialFailureResilience:
     @patch("qualys.workflows.investigate._dispatch")
     def test_investigate_survives_partial_failure(self, mock_dispatch):
