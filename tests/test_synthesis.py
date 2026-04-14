@@ -159,3 +159,71 @@ class TestCacheStatusMode:
         result = cache_status_agg()
         assert isinstance(result["cacheMode"], str)
         assert result["cacheMode"] in ("lazy", "aggressive", "none")
+
+
+class TestAssessExposure:
+    def test_assess_exposure_signature(self):
+        from qualys.aggregators import assess_exposure
+        import inspect
+        sig = inspect.signature(assess_exposure)
+        assert "cve" in sig.parameters
+        assert "detail" in sig.parameters
+
+    def test_assess_exposure_unknown_cve(self, monkeypatch):
+        import qualys.aggregators as agg
+        monkeypatch.setattr(agg, "get_cve_qids", lambda cve: [])
+        result = agg.assess_exposure(cve="CVE-9999-99999")
+        assert isinstance(result, dict)
+        assert "exposure" in result
+        assert "summary" in result
+        assert result["exposure"]["status"] == "unknown"
+
+    def test_assess_exposure_with_kb_hit(self, monkeypatch):
+        import qualys.aggregators as agg
+        monkeypatch.setattr(agg, "get_cve_qids", lambda cve: [12345])
+        monkeypatch.setattr(agg, "get_kb_batch", lambda qids: {
+            12345: {
+                "qid": 12345,
+                "title": "OpenSSH Remote Code Execution",
+                "severity": 5,
+                "qds": 95,
+                "cvss_v3": 9.8,
+                "cves": ["CVE-2024-6387"],
+                "patch_available": True,
+                "has_exploit": True,
+                "ransomware": False,
+                "threat_intel": ["Exploit_Public"],
+                "diagnosis": "OpenSSH is vulnerable.",
+                "solution": "Upgrade OpenSSH to 9.8p1.",
+            }
+        })
+        monkeypatch.setattr(agg, "csam_count", lambda filters=None: 100 if filters else 5000)
+        result = agg.assess_exposure(cve="CVE-2024-6387")
+        assert result["exposure"]["potentialAssets"] == 100
+        assert result["exposure"]["status"] == "likely_exposed"
+        assert result["exposure"]["riskContext"]["risk"] == "critical"
+        assert result["kb"]["qid"] == 12345
+        assert len(result["exposure"]["softwareMatches"]) > 0
+
+    def test_assess_exposure_no_software_match(self, monkeypatch):
+        import qualys.aggregators as agg
+        monkeypatch.setattr(agg, "get_cve_qids", lambda cve: [99999])
+        monkeypatch.setattr(agg, "get_kb_batch", lambda qids: {
+            99999: {
+                "qid": 99999,
+                "title": "Obscure Widget Buffer Overflow",
+                "severity": 3,
+                "qds": 40,
+                "cves": ["CVE-2024-0001"],
+                "patch_available": False,
+                "has_exploit": False,
+                "ransomware": False,
+                "threat_intel": [],
+                "diagnosis": "",
+                "solution": "",
+            }
+        })
+        monkeypatch.setattr(agg, "csam_count", lambda filters=None: 0)
+        result = agg.assess_exposure(cve="CVE-2024-0001")
+        assert result["exposure"]["potentialAssets"] == 0
+        assert result["exposure"]["status"] == "not_exposed"
