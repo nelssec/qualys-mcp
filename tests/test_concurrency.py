@@ -200,6 +200,39 @@ class TestNullCache:
             reload(cache_module)
 
 
+class TestCacheMode:
+    def test_cache_mode_default_is_lazy(self):
+        from qualys.api import CACHE_MODE
+        assert CACHE_MODE in ("lazy", "aggressive", "none")
+
+    def test_cache_mode_none_disables_disk_cache(self):
+        import os
+        os.environ["QUALYS_CACHE_MODE"] = "none"
+        try:
+            from importlib import reload
+            import qualys.api
+            reload(qualys.api)
+            assert qualys.api.CACHE_MODE == "none"
+        finally:
+            os.environ.pop("QUALYS_CACHE_MODE", None)
+            reload(qualys.api)
+
+
+class TestQDSDetections:
+    def test_get_detections_by_qds_signature(self):
+        from qualys.api import get_detections_by_qds
+        import inspect
+        sig = inspect.signature(get_detections_by_qds)
+        assert "qds_min" in sig.parameters
+        assert "days" in sig.parameters
+        assert "limit" in sig.parameters
+
+    def test_get_detections_by_qds_returns_list(self):
+        from qualys.api import get_detections_by_qds
+        result = get_detections_by_qds(qds_min=90, days=7, limit=10)
+        assert isinstance(result, list)
+
+
 class TestPartialFailureResilience:
     @patch("qualys.workflows.investigate._dispatch")
     def test_investigate_survives_partial_failure(self, mock_dispatch):

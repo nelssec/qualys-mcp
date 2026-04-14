@@ -4,7 +4,7 @@
 import asyncio
 from threading import Thread
 from fastmcp import FastMCP
-from qualys.api import BASE_URL, GATEWAY_URL, _resolved_pod, _log, _warmup_vmdr_cache
+from qualys.api import BASE_URL, GATEWAY_URL, _resolved_pod, _log, _warmup_vmdr_cache, CACHE_MODE
 from qualys.workflows.investigate import investigate as investigate_wf
 from qualys.workflows.assess_risk import assess_risk as assess_risk_wf
 from qualys.workflows.compliance import check_compliance as check_compliance_wf
@@ -253,8 +253,9 @@ def main():
     else:
         _log(f"qualys-mcp v0.2.2 — BASE_URL={BASE_URL}  GATEWAY_URL={GATEWAY_URL}")
     _log("8 tools: investigate, assess_risk, check_compliance, plan_remediation, security_overview, reports, cache_status, aws_org_connectors")
-    warmup = Thread(target=_warmup_vmdr_cache, daemon=True, name="vmdr-cache-warmup")
-    warmup.start()
+    if CACHE_MODE == "aggressive":
+        warmup = Thread(target=_warmup_vmdr_cache, daemon=True, name="vmdr-cache-warmup")
+        warmup.start()
     mcp.run()
 
 
