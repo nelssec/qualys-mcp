@@ -16,12 +16,12 @@ from qualys.workflows import _envelope_to_markdown
 mcp = FastMCP("qualys-mcp")
 
 
-@mcp.tool()
+@mcp.tool(output_schema=None)
 async def investigate(target: str, depth: str = "standard", scope: str = "all",
                 tag: str = "", asset_group: str = "", threat_type: str = "",
                 software: str = "", days: int = 7, limit: int = 20,
                 detail: str = "standard", prior_context: str = "",
-                audience: str = "technical") -> dict:
+                audience: str = "technical") -> str:
     """[Investigation] Deep-dive investigation on any security topic — CVEs, threat actors, assets, endpoint events, vulnerability intelligence. @slow
 
     USE WHEN: "tell me about CVE-2024-3400", "are we exposed to Lazarus Group?", "investigate this IP",
@@ -49,7 +49,7 @@ async def investigate(target: str, depth: str = "standard", scope: str = "all",
     return _envelope_to_markdown(result) if isinstance(result, dict) and "summary" in result else result
 
 
-@mcp.tool()
+@mcp.tool(output_schema=None)
 async def assess_risk(scope: str = "all", tag: str = "", asset_group: str = "",
                 asset_id: str = "", os: str = "", query: str = "",
                 days_since_seen: int = 0, days_since_scan: int = 0, eol_only: bool = False,
@@ -60,7 +60,7 @@ async def assess_risk(scope: str = "all", tag: str = "", asset_group: str = "",
                 weak_only: bool = False, insecure_renegotiation: bool = False,
                 include_expired: bool = True, days: int = 30, limit: int = 20,
                 detail: str = "standard", sort_by: str = "trurisk",
-                breakdown_by: str = "tag") -> dict:
+                breakdown_by: str = "tag") -> str:
     """[Risk Assessment] Cross-domain risk assessment — VMs, cloud, containers, web apps, certificates, assets. @slow
 
     USE WHEN: "what's our risk?", "show me cloud risk in AWS", "top risky assets", "container vulnerabilities",
@@ -108,12 +108,12 @@ async def assess_risk(scope: str = "all", tag: str = "", asset_group: str = "",
     return _envelope_to_markdown(result) if isinstance(result, dict) and "summary" in result else result
 
 
-@mcp.tool()
+@mcp.tool(output_schema=None)
 async def check_compliance(framework: str = "", platform: str = "", tag: str = "",
                      asset_group: str = "", include_exceptions: bool = False,
                      exception_status: str = "Active", vuln_type: str = "",
                      days_to_expiry: int = 30, limit: int = 20,
-                     detail: str = "standard") -> dict:
+                     detail: str = "standard") -> str:
     """[Compliance] Compliance posture assessment — framework pass/fail rates, failing controls, risk acceptances. @slow
 
     USE WHEN: "are we PCI compliant?", "compliance gaps", "show failing controls", "risk acceptances expiring",
@@ -139,11 +139,11 @@ async def check_compliance(framework: str = "", platform: str = "", tag: str = "
     return _envelope_to_markdown(result) if isinstance(result, dict) and "summary" in result else result
 
 
-@mcp.tool()
+@mcp.tool(output_schema=None)
 async def plan_remediation(scope: str = "all", tag: str = "", asset_group: str = "",
                      platform: str = "", severity: str = "", status: str = "",
                      qids: list = None, cves: list = None, limit: int = 20,
-                     detail: str = "standard") -> dict:
+                     detail: str = "standard") -> str:
     """[Remediation] Remediation planning — patch priorities, deployment status, mitigation coverage, program gaps. @slow
 
     USE WHEN: "what should we patch?", "outstanding patches", "patch deployment status", "mitigation coverage",
@@ -168,11 +168,11 @@ async def plan_remediation(scope: str = "all", tag: str = "", asset_group: str =
     return _envelope_to_markdown(result) if isinstance(result, dict) and "summary" in result else result
 
 
-@mcp.tool()
+@mcp.tool(output_schema=None)
 async def security_overview(period: str = "today", scope: str = "all", quick: bool = False,
                       tag: str = "", asset_group: str = "", qql: str = "",
                       severity: str = "", scan_state: str = "Running,Paused,Queued,Error",
-                      limit: int = 50, detail: str = "standard") -> dict:
+                      limit: int = 50, detail: str = "standard") -> str:
     """[Overview] Security briefing — daily/weekly/monthly summary with scanner health, findings, and risk trends. @slow when quick=False
 
     USE WHEN: "morning briefing", "what happened this week?", "security overview", "any new critical vulns?",
