@@ -14,9 +14,10 @@ from datetime import datetime, date
 from pathlib import Path
 
 # ── env ──────────────────────────────────────────────────────────────────────
-os.environ.setdefault("QUALYS_USERNAME", "***REMOVED***")
-os.environ.setdefault("QUALYS_PASSWORD", "***REMOVED***")
-os.environ.setdefault("QUALYS_POD", "US2")
+# Credentials MUST come from environment or .env file — never hardcode here.
+for _var in ("QUALYS_USERNAME", "QUALYS_PASSWORD"):
+    if _var not in os.environ:
+        sys.exit(f"ERROR: {_var} not set. Export it or add to .env")
 
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
