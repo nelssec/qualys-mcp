@@ -5719,8 +5719,15 @@ def policy_audit_agg(label: str = "", technology: str = "", policy_id: int = 0, 
     result = {'labels': [], 'policies': [], 'policyDetail': None, 'summary': ''}
 
     if policy_id:
-        pd = get_policy_detail(policy_id)
+        concurrent = _run_concurrent(
+            v1=lambda: get_policy_detail(policy_id),
+            v3=lambda: get_policy_export_v3(policy_id, show_updated_controls=True),
+        )
+        pd = concurrent.get('v1') or {}
+        pd_v3 = concurrent.get('v3') or {}
         result['policyDetail'] = pd
+        if pd_v3:
+            result['policyDetailV3'] = pd_v3
         result['summary'] = f"Policy detail for ID {policy_id}: {pd.get('policyTitle', 'Unknown')}"
         return _with_meta(result, 'policies')
 
@@ -6089,3 +6096,77 @@ def scheduled_scans_agg(limit: int = 50, detail: str = "standard") -> dict:
     }
 
     return _apply_detail_level(_with_meta(result, 'scans', len(scans)), detail, list_keys=['scans'])
+
+
+# ---------------------------------------------------------------------------
+# PolicyAudit v3 — policy export + technology evaluation (PA 1.10)
+# ---------------------------------------------------------------------------
+
+def policy_export_v3_agg(policy_id: int, show_updated_controls: bool = False,
+                          detail: str = "standard") -> dict:
+    """Export a policy via PCAS v3 API with controlDefinitionUpdateAvailable indicators."""
+    if not policy_id:
+        return {'policy': {}, 'summary': 'policy_id is required', '_meta': {'returned': 0}}
+
+    data = get_policy_export_v3(policy_id, show_updated_controls=show_updated_controls)
+    if not data:
+        return {'policy': {}, 'summary': f'Policy {policy_id} not found or PCAS v3 not available',
+                '_meta': {'returned': 0}}
+
+    title = data.get('policyTitle', data.get('title', f'Policy {policy_id}'))
+    result = {
+        'policy': data,
+        'policyId': policy_id,
+        'policyTitle': title,
+        'showUpdatedControls': show_updated_controls,
+        'summary': f"Policy export v3: {title}",
+    }
+    return _apply_detail_level(_with_meta(result, 'policy'), detail, list_keys=[])
+
+
+def policy_technology_eval_agg(policy_id: int, section_id: str = "",
+                                control_id: str = "", technology_id: str = "",
+                                show_updated_definition: bool = False,
+                                limit: int = 50, detail: str = "standard") -> dict:
+    """Get technology evaluation results for a policy control (PA 1.10)."""
+    if not policy_id:
+        return {'evaluations': [], 'summary': 'policy_id is required', '_meta': {'returned': 0}}
+
+    data = get_policy_technology_evaluation(
+        policy_id=policy_id, section_id=section_id or None,
+        control_id=control_id or None, technology_id=technology_id or None,
+        show_updated_definition=show_updated_definition, limit=limit,
+    )
+
+    content = data.get('content', []) if isinstance(data, dict) else []
+    total = data.get('totalElements', len(content)) if isinstance(data, dict) else len(content)
+
+    result = {
+        'evaluations': content[:limit],
+        'totalEvaluations': total,
+        'policyId': policy_id,
+        'summary': f"{total} technology evaluation results for policy {policy_id}",
+    }
+    return _apply_detail_level(_with_meta(result, 'evaluations', total), detail,
+                               list_keys=['evaluations'])
+
+
+# ---------------------------------------------------------------------------
+# OLVM Authentication Records (VM 10.38)
+# ---------------------------------------------------------------------------
+
+def olvm_auth_agg(limit: int = 50, detail: str = "standard") -> dict:
+    """List Oracle Linux Virtualization Manager (OLVM) authentication records."""
+    records = get_olvm_auth_records(limit=limit)
+
+    if not records:
+        return {'records': [], 'summary': 'No OLVM authentication records found or OLVM not configured',
+                '_meta': {'returned': 0, 'total': 0, 'truncated': False}}
+
+    result = {
+        'records': records[:limit],
+        'totalRecords': len(records),
+        'summary': f"{len(records)} OLVM authentication record(s) configured",
+    }
+    return _apply_detail_level(_with_meta(result, 'records', len(records)), detail,
+                               list_keys=['records'])

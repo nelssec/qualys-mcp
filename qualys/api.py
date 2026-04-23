@@ -2291,3 +2291,70 @@ def get_scheduled_scans(state=None, limit=50):
         return scans
     except ET.ParseError:
         return []
+
+# ---------------------------------------------------------------------------
+# PolicyAudit v3 (PA 1.10 — controlDefinitionUpdateAvailable + evaluation)
+# ---------------------------------------------------------------------------
+
+
+def get_policy_export_v3(policy_id, show_updated_controls=False):
+    """Export a policy via PCAS v3 API, includes controlDefinitionUpdateAvailable field."""
+    url = f"{GATEWAY_URL}/pcas/v3/policy?policyId={policy_id}"
+    if show_updated_controls:
+        url += "&showUpdatedControlDefinition=true"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return {}
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+
+
+def get_policy_technology_evaluation(policy_id, section_id=None, control_id=None,
+                                      technology_id=None, show_updated_definition=False,
+                                      limit=50):
+    """Get technology evaluation results for a policy control (PA 1.10).
+
+    Supports showUpdatedControlDefinition to surface updated fix values.
+    """
+    url = (f"{GATEWAY_URL}/pcas/v3/policy/section/control/technology/evaluation"
+           f"?policyId={policy_id}&pageSize={limit}")
+    if section_id:
+        url += f"&sectionId={section_id}"
+    if control_id:
+        url += f"&controlId={control_id}"
+    if technology_id:
+        url += f"&technologyId={technology_id}"
+    if show_updated_definition:
+        url += "&showUpdatedControlDefinition=true"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return {'content': [], 'totalElements': 0}
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return {'content': [], 'totalElements': 0}
+
+
+# ---------------------------------------------------------------------------
+# VMDR — OLVM Authentication Records (VM 10.38)
+# ---------------------------------------------------------------------------
+
+
+def get_olvm_auth_records(limit=50):
+    """List Oracle Linux Virtualization Manager (OLVM) authentication records."""
+    url = (f"{BASE_URL}/api/2.0/fo/auth/olvm/"
+           f"?action=list&output_format=JSON&truncation_limit={limit}")
+    data = api_get(url, timeout=20, not_found_ok=True)
+    if data is None:
+        return []
+    try:
+        parsed = json.loads(data)
+        records = (parsed.get('OLVM_LIST', {}).get('OLVM_RECORD', [])
+                   if isinstance(parsed, dict) else parsed)
+        if isinstance(records, dict):
+            records = [records]
+        return records
+    except (json.JSONDecodeError, TypeError):
+        return []

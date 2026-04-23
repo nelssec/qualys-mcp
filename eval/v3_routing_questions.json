@@ -4,2239 +4,2924 @@
     "question": "Tell me everything about CVE-2024-3400 and our exposure",
     "expected_workflow": "investigate",
     "category": "CVE Triage",
-    "params_hint": {"target": "CVE-2024-3400"}
+    "params_hint": {
+      "target": "CVE-2024-3400"
+    }
   },
   {
     "id": 2,
     "question": "How many assets are affected by CVE-2024-21887?",
     "expected_workflow": "investigate",
     "category": "CVE Triage",
-    "params_hint": {"target": "CVE-2024-21887"}
+    "params_hint": {
+      "target": "CVE-2024-21887"
+    }
   },
   {
     "id": 3,
     "question": "What's the deal with CVE-2024-47575 in our environment?",
     "expected_workflow": "investigate",
     "category": "CVE Triage",
-    "params_hint": {"target": "CVE-2024-47575"}
+    "params_hint": {
+      "target": "CVE-2024-47575"
+    }
   },
   {
     "id": 4,
-    "question": "Investigate CVE-2023-34362 — are we exposed to MOVEit?",
+    "question": "Investigate CVE-2023-34362 \u2014 are we exposed to MOVEit?",
     "expected_workflow": "investigate",
     "category": "CVE Triage",
-    "params_hint": {"target": "CVE-2023-34362"}
+    "params_hint": {
+      "target": "CVE-2023-34362"
+    }
   },
   {
     "id": 5,
     "question": "Do we have any systems vulnerable to the XZ Utils backdoor CVE-2024-3094?",
     "expected_workflow": "investigate",
     "category": "CVE Triage",
-    "params_hint": {"target": "CVE-2024-3094"}
+    "params_hint": {
+      "target": "CVE-2024-3094"
+    }
   },
   {
     "id": 6,
     "question": "Check our exposure to CVE-2024-21762 on FortiOS devices",
     "expected_workflow": "investigate",
     "category": "CVE Triage",
-    "params_hint": {"target": "CVE-2024-21762"}
+    "params_hint": {
+      "target": "CVE-2024-21762"
+    }
   },
   {
     "id": 7,
     "question": "Are any of our Cisco IOS XE devices hit by CVE-2023-20198?",
     "expected_workflow": "investigate",
     "category": "CVE Triage",
-    "params_hint": {"target": "CVE-2023-20198"}
+    "params_hint": {
+      "target": "CVE-2023-20198"
+    }
   },
   {
     "id": 8,
     "question": "Is Log4Shell still a problem for us? Any remaining exposure?",
     "expected_workflow": "investigate",
     "category": "CVE Triage",
-    "params_hint": {"target": "CVE-2021-44228"}
+    "params_hint": {
+      "target": "CVE-2021-44228"
+    }
   },
   {
     "id": 9,
     "question": "Check if Spring4Shell is still present anywhere in our environment",
     "expected_workflow": "investigate",
     "category": "CVE Triage",
-    "params_hint": {"target": "CVE-2022-22965"}
+    "params_hint": {
+      "target": "CVE-2022-22965"
+    }
   },
   {
     "id": 10,
     "question": "look up QID 38747",
     "expected_workflow": "investigate",
     "category": "Vulnerability Intelligence",
-    "params_hint": {"target": "QID 38747"}
+    "params_hint": {
+      "target": "QID 38747"
+    }
   },
   {
     "id": 11,
     "question": "what's QID 375925",
     "expected_workflow": "investigate",
     "category": "Vulnerability Intelligence",
-    "params_hint": {"target": "QID 375925"}
+    "params_hint": {
+      "target": "QID 375925"
+    }
   },
   {
     "id": 12,
     "question": "Which vulns have a QDS above 90?",
     "expected_workflow": "investigate",
     "category": "Vulnerability Intelligence",
-    "params_hint": {"target": "QDS critical"}
+    "params_hint": {
+      "target": "QDS critical"
+    }
   },
   {
     "id": 13,
     "question": "Show me all QVS critical vulnerabilities",
     "expected_workflow": "investigate",
     "category": "Vulnerability Intelligence",
-    "params_hint": {"target": "QVS critical"}
+    "params_hint": {
+      "target": "QVS critical"
+    }
   },
   {
     "id": 14,
     "question": "What CVEs are actively being exploited in the wild right now?",
     "expected_workflow": "investigate",
     "category": "Vulnerability Intelligence",
-    "params_hint": {"target": "actively exploited"}
+    "params_hint": {
+      "target": "actively exploited"
+    }
   },
   {
     "id": 15,
     "question": "Any new critical vulns in Apache this quarter?",
     "expected_workflow": "investigate",
     "category": "Vulnerability Intelligence",
-    "params_hint": {"target": "Apache vulnerabilities"}
+    "params_hint": {
+      "target": "Apache vulnerabilities"
+    }
   },
   {
     "id": 16,
     "question": "Show me OpenSSL vulnerabilities across our fleet",
     "expected_workflow": "investigate",
     "category": "Vulnerability Intelligence",
-    "params_hint": {"target": "OpenSSL"}
+    "params_hint": {
+      "target": "OpenSSL"
+    }
   },
   {
     "id": 17,
     "question": "What VMware vulns do we have outstanding?",
     "expected_workflow": "investigate",
     "category": "Vulnerability Intelligence",
-    "params_hint": {"target": "VMware"}
+    "params_hint": {
+      "target": "VMware"
+    }
   },
   {
     "id": 18,
     "question": "Are there any Exchange Server zero-days affecting us?",
     "expected_workflow": "investigate",
     "category": "Vulnerability Intelligence",
-    "params_hint": {"target": "Exchange Server"}
+    "params_hint": {
+      "target": "Exchange Server"
+    }
   },
   {
     "id": 19,
     "question": "Check for Chrome vulnerabilities on our endpoints",
     "expected_workflow": "investigate",
     "category": "Vulnerability Intelligence",
-    "params_hint": {"target": "Chrome"}
+    "params_hint": {
+      "target": "Chrome"
+    }
   },
   {
     "id": 20,
     "question": "How exposed are we to Java deserialization vulns?",
     "expected_workflow": "investigate",
     "category": "Vulnerability Intelligence",
-    "params_hint": {"target": "Java deserialization"}
+    "params_hint": {
+      "target": "Java deserialization"
+    }
   },
   {
     "id": 21,
     "question": "What threat actors are targeting our industry?",
     "expected_workflow": "investigate",
     "category": "Threat Actor Attribution",
-    "params_hint": {"target": "industry threat actors"}
+    "params_hint": {
+      "target": "industry threat actors"
+    }
   },
   {
     "id": 22,
     "question": "Are we exposed to APT28 TTPs?",
     "expected_workflow": "investigate",
     "category": "Threat Actor Attribution",
-    "params_hint": {"target": "APT28"}
+    "params_hint": {
+      "target": "APT28"
+    }
   },
   {
     "id": 23,
     "question": "What's our exposure to Volt Typhoon campaigns?",
     "expected_workflow": "investigate",
     "category": "Threat Actor Attribution",
-    "params_hint": {"target": "Volt Typhoon"}
+    "params_hint": {
+      "target": "Volt Typhoon"
+    }
   },
   {
     "id": 24,
     "question": "Check if we're vulnerable to Lazarus Group attack vectors",
     "expected_workflow": "investigate",
     "category": "Threat Actor Attribution",
-    "params_hint": {"target": "Lazarus Group"}
+    "params_hint": {
+      "target": "Lazarus Group"
+    }
   },
   {
     "id": 25,
     "question": "Do we have any vulns associated with LockBit ransomware?",
     "expected_workflow": "investigate",
     "category": "Threat Actor Attribution",
-    "params_hint": {"target": "LockBit"}
+    "params_hint": {
+      "target": "LockBit"
+    }
   },
   {
     "id": 26,
     "question": "Show me our exposure to APT29 / Cozy Bear",
     "expected_workflow": "investigate",
     "category": "Threat Actor Attribution",
-    "params_hint": {"target": "APT29"}
+    "params_hint": {
+      "target": "APT29"
+    }
   },
   {
     "id": 27,
     "question": "what vulns are linked to Salt Typhoon?",
     "expected_workflow": "investigate",
     "category": "Threat Actor Attribution",
-    "params_hint": {"target": "Salt Typhoon"}
+    "params_hint": {
+      "target": "Salt Typhoon"
+    }
   },
   {
     "id": 28,
     "question": "Are we at risk from Sandworm attacks?",
     "expected_workflow": "investigate",
     "category": "Threat Actor Attribution",
-    "params_hint": {"target": "Sandworm"}
+    "params_hint": {
+      "target": "Sandworm"
+    }
   },
   {
     "id": 29,
     "question": "Check our posture against APT41 known exploits",
     "expected_workflow": "investigate",
     "category": "Threat Actor Attribution",
-    "params_hint": {"target": "APT41"}
+    "params_hint": {
+      "target": "APT41"
+    }
   },
   {
     "id": 30,
     "question": "What's the CrackArmor campaign and are we affected?",
     "expected_workflow": "investigate",
     "category": "Threat Actor Attribution",
-    "params_hint": {"target": "CrackArmor"}
+    "params_hint": {
+      "target": "CrackArmor"
+    }
   },
   {
     "id": 31,
     "question": "Show me vulns associated with Charming Kitten / APT35",
     "expected_workflow": "investigate",
     "category": "Threat Actor Attribution",
-    "params_hint": {"target": "Charming Kitten"}
+    "params_hint": {
+      "target": "Charming Kitten"
+    }
   },
   {
     "id": 32,
     "question": "Are we exposed to RansomHub exploitation techniques?",
     "expected_workflow": "investigate",
     "category": "Threat Actor Attribution",
-    "params_hint": {"target": "RansomHub"}
+    "params_hint": {
+      "target": "RansomHub"
+    }
   },
   {
     "id": 33,
     "question": "What CVEs does Cl0p typically exploit and do we have them?",
     "expected_workflow": "investigate",
     "category": "Threat Actor Attribution",
-    "params_hint": {"target": "Cl0p"}
+    "params_hint": {
+      "target": "Cl0p"
+    }
   },
   {
     "id": 34,
     "question": "Check our exposure to Akira ransomware attack paths",
     "expected_workflow": "investigate",
     "category": "Threat Actor Attribution",
-    "params_hint": {"target": "Akira"}
+    "params_hint": {
+      "target": "Akira"
+    }
   },
   {
     "id": 35,
     "question": "Any exposure to APT33 / Elfin TTPs?",
     "expected_workflow": "investigate",
     "category": "Threat Actor Attribution",
-    "params_hint": {"target": "APT33"}
+    "params_hint": {
+      "target": "APT33"
+    }
   },
   {
     "id": 36,
     "question": "Are we vulnerable to Kimsuky spear-phishing related CVEs?",
     "expected_workflow": "investigate",
     "category": "Threat Actor Attribution",
-    "params_hint": {"target": "Kimsuky"}
+    "params_hint": {
+      "target": "Kimsuky"
+    }
   },
   {
     "id": 37,
     "question": "What threats are targeting healthcare organizations like us?",
     "expected_workflow": "investigate",
     "category": "Threat Actor Attribution",
-    "params_hint": {"target": "healthcare threats"}
+    "params_hint": {
+      "target": "healthcare threats"
+    }
   },
   {
     "id": 38,
     "question": "Show me threats targeting the financial sector",
     "expected_workflow": "investigate",
     "category": "Threat Actor Attribution",
-    "params_hint": {"target": "finance threats"}
+    "params_hint": {
+      "target": "finance threats"
+    }
   },
   {
     "id": 39,
     "question": "What nation-state threats are relevant to energy companies?",
     "expected_workflow": "investigate",
     "category": "Threat Actor Attribution",
-    "params_hint": {"target": "energy sector threats"}
+    "params_hint": {
+      "target": "energy sector threats"
+    }
   },
   {
     "id": 40,
     "question": "Which government-targeted APTs might affect us?",
     "expected_workflow": "investigate",
     "category": "Threat Actor Attribution",
-    "params_hint": {"target": "government APTs"}
+    "params_hint": {
+      "target": "government APTs"
+    }
   },
   {
     "id": 41,
     "question": "Do a full investigation of server-prod-db-01",
     "expected_workflow": "investigate",
     "category": "Asset Investigation",
-    "params_hint": {"target": "server-prod-db-01"}
+    "params_hint": {
+      "target": "server-prod-db-01"
+    }
   },
   {
     "id": 42,
     "question": "What's the security posture of host 10.0.1.55?",
     "expected_workflow": "investigate",
     "category": "Asset Investigation",
-    "params_hint": {"target": "10.0.1.55"}
+    "params_hint": {
+      "target": "10.0.1.55"
+    }
   },
   {
     "id": 43,
     "question": "Investigate the asset web-frontend-03 for me",
     "expected_workflow": "investigate",
     "category": "Asset Investigation",
-    "params_hint": {"target": "web-frontend-03"}
+    "params_hint": {
+      "target": "web-frontend-03"
+    }
   },
   {
     "id": 44,
     "question": "Pull up everything on the Exchange server mail-01",
     "expected_workflow": "investigate",
     "category": "Asset Investigation",
-    "params_hint": {"target": "mail-01"}
+    "params_hint": {
+      "target": "mail-01"
+    }
   },
   {
     "id": 45,
     "question": "What vulnerabilities exist on our domain controllers?",
     "expected_workflow": "investigate",
     "category": "Asset Investigation",
-    "params_hint": {"target": "domain controllers"}
+    "params_hint": {
+      "target": "domain controllers"
+    }
   },
   {
     "id": 46,
     "question": "Investigate asset with IP 192.168.1.100",
     "expected_workflow": "investigate",
     "category": "Asset Investigation",
-    "params_hint": {"target": "192.168.1.100"}
+    "params_hint": {
+      "target": "192.168.1.100"
+    }
   },
   {
     "id": 47,
     "question": "What's going on with the jump box bastion-01?",
     "expected_workflow": "investigate",
     "category": "Asset Investigation",
-    "params_hint": {"target": "bastion-01"}
+    "params_hint": {
+      "target": "bastion-01"
+    }
   },
   {
     "id": 48,
     "question": "Any EDR detections for malware in the last 24 hours?",
     "expected_workflow": "investigate",
     "category": "Endpoint Detection",
-    "params_hint": {"target": "malware detections"}
+    "params_hint": {
+      "target": "malware detections"
+    }
   },
   {
     "id": 49,
     "question": "Show me recent C2 beaconing activity from EDR",
     "expected_workflow": "investigate",
     "category": "Endpoint Detection",
-    "params_hint": {"target": "C2 beaconing"}
+    "params_hint": {
+      "target": "C2 beaconing"
+    }
   },
   {
     "id": 50,
     "question": "Have we detected any lateral movement in our network?",
     "expected_workflow": "investigate",
     "category": "Endpoint Detection",
-    "params_hint": {"target": "lateral movement"}
+    "params_hint": {
+      "target": "lateral movement"
+    }
   },
   {
     "id": 51,
     "question": "Any process injection events flagged by EDR?",
     "expected_workflow": "investigate",
     "category": "Endpoint Detection",
-    "params_hint": {"target": "process injection"}
+    "params_hint": {
+      "target": "process injection"
+    }
   },
   {
     "id": 52,
     "question": "Show me FIM alerts for unauthorized file changes",
     "expected_workflow": "investigate",
     "category": "Endpoint Detection",
-    "params_hint": {"target": "FIM unauthorized changes"}
+    "params_hint": {
+      "target": "FIM unauthorized changes"
+    }
   },
   {
     "id": 53,
     "question": "Any FIM events on critical system paths like /etc/passwd?",
     "expected_workflow": "investigate",
     "category": "Endpoint Detection",
-    "params_hint": {"target": "FIM critical paths"}
+    "params_hint": {
+      "target": "FIM critical paths"
+    }
   },
   {
     "id": 54,
     "question": "Check EDR for any suspicious PowerShell execution",
     "expected_workflow": "investigate",
     "category": "Endpoint Detection",
-    "params_hint": {"target": "PowerShell suspicious"}
+    "params_hint": {
+      "target": "PowerShell suspicious"
+    }
   },
   {
     "id": 55,
     "question": "What EDR events happened on server-prod-01 this week?",
     "expected_workflow": "investigate",
     "category": "Endpoint Detection",
-    "params_hint": {"target": "server-prod-01 EDR events"}
+    "params_hint": {
+      "target": "server-prod-01 EDR events"
+    }
   },
   {
     "id": 56,
     "question": "Show me any ransomware indicators from EDR",
     "expected_workflow": "investigate",
     "category": "Endpoint Detection",
-    "params_hint": {"target": "ransomware indicators"}
+    "params_hint": {
+      "target": "ransomware indicators"
+    }
   },
   {
     "id": 57,
-    "question": "whats the story on CVE-2024-3400 — is it being exploited against us?",
+    "question": "whats the story on CVE-2024-3400 \u2014 is it being exploited against us?",
     "expected_workflow": "investigate",
     "category": "CVE Triage",
-    "params_hint": {"target": "CVE-2024-3400"}
+    "params_hint": {
+      "target": "CVE-2024-3400"
+    }
   },
   {
     "id": 58,
     "question": "Give me the full picture on our Palo Alto firewall vulnerabilities",
     "expected_workflow": "investigate",
     "category": "Vulnerability Intelligence",
-    "params_hint": {"target": "Palo Alto"}
+    "params_hint": {
+      "target": "Palo Alto"
+    }
   },
   {
     "id": 59,
     "question": "Which of our vulns have known exploits in the wild?",
     "expected_workflow": "investigate",
     "category": "Vulnerability Intelligence",
-    "params_hint": {"target": "exploits in the wild"}
+    "params_hint": {
+      "target": "exploits in the wild"
+    }
   },
   {
     "id": 60,
     "question": "Investigate whether BlackCat/ALPHV ransomware TTPs apply to our environment",
     "expected_workflow": "investigate",
     "category": "Threat Actor Attribution",
-    "params_hint": {"target": "BlackCat ALPHV"}
+    "params_hint": {
+      "target": "BlackCat ALPHV"
+    }
   },
   {
     "id": 61,
     "question": "What's our overall TruRisk score?",
     "expected_workflow": "assess_risk",
     "category": "TruRisk Scoring",
-    "params_hint": {"target": "overall TruRisk"}
+    "params_hint": {
+      "target": "overall TruRisk"
+    }
   },
   {
     "id": 62,
     "question": "How has our TruRisk score trended over the past 30 days?",
     "expected_workflow": "assess_risk",
     "category": "TruRisk Scoring",
-    "params_hint": {"target": "TruRisk trend"}
+    "params_hint": {
+      "target": "TruRisk trend"
+    }
   },
   {
     "id": 63,
     "question": "Break down TruRisk by business unit",
     "expected_workflow": "assess_risk",
     "category": "TruRisk Scoring",
-    "params_hint": {"target": "TruRisk by business unit"}
+    "params_hint": {
+      "target": "TruRisk by business unit"
+    }
   },
   {
     "id": 64,
     "question": "Why did our TruRisk score go up this week?",
     "expected_workflow": "assess_risk",
     "category": "TruRisk Scoring",
-    "params_hint": {"target": "TruRisk increase"}
+    "params_hint": {
+      "target": "TruRisk increase"
+    }
   },
   {
     "id": 65,
     "question": "Show me TruRisk scores by asset tag",
     "expected_workflow": "assess_risk",
     "category": "TruRisk Scoring",
-    "params_hint": {"target": "TruRisk by tag"}
+    "params_hint": {
+      "target": "TruRisk by tag"
+    }
   },
   {
     "id": 66,
     "question": "What's the TruRisk for our Production environment vs Dev?",
     "expected_workflow": "assess_risk",
     "category": "TruRisk Scoring",
-    "params_hint": {"target": "TruRisk Production vs Dev"}
+    "params_hint": {
+      "target": "TruRisk Production vs Dev"
+    }
   },
   {
     "id": 67,
     "question": "Show me the top 10 assets by TruRisk score",
     "expected_workflow": "assess_risk",
     "category": "TruRisk Scoring",
-    "params_hint": {"target": "top assets by TruRisk"}
+    "params_hint": {
+      "target": "top assets by TruRisk"
+    }
   },
   {
     "id": 68,
     "question": "Show me all assets with TruRisk above 900",
     "expected_workflow": "assess_risk",
     "category": "TruRisk Scoring",
-    "params_hint": {"target": "TruRisk above 900"}
+    "params_hint": {
+      "target": "TruRisk above 900"
+    }
   },
   {
     "id": 69,
     "question": "What's the TruRisk breakdown for the finance department?",
     "expected_workflow": "assess_risk",
     "category": "TruRisk Scoring",
-    "params_hint": {"target": "TruRisk finance"}
+    "params_hint": {
+      "target": "TruRisk finance"
+    }
   },
   {
     "id": 70,
     "question": "hey what's going on with our cloud security",
     "expected_workflow": "assess_risk",
     "category": "Cloud Security",
-    "params_hint": {"target": "cloud security overview"}
+    "params_hint": {
+      "target": "cloud security overview"
+    }
   },
   {
     "id": 71,
     "question": "How's our AWS security posture looking?",
     "expected_workflow": "assess_risk",
     "category": "Cloud Security",
-    "params_hint": {"target": "AWS posture"}
+    "params_hint": {
+      "target": "AWS posture"
+    }
   },
   {
     "id": 72,
     "question": "Show me Azure CIS benchmark results",
     "expected_workflow": "assess_risk",
     "category": "Cloud Security",
-    "params_hint": {"target": "Azure CIS"}
+    "params_hint": {
+      "target": "Azure CIS"
+    }
   },
   {
     "id": 73,
     "question": "Are there any exposed S3 buckets?",
     "expected_workflow": "assess_risk",
     "category": "Cloud Security",
-    "params_hint": {"target": "S3 bucket exposure"}
+    "params_hint": {
+      "target": "S3 bucket exposure"
+    }
   },
   {
     "id": 74,
     "question": "Check for IAM misconfigurations across our cloud accounts",
     "expected_workflow": "assess_risk",
     "category": "Cloud Security",
-    "params_hint": {"target": "IAM misconfiguration"}
+    "params_hint": {
+      "target": "IAM misconfiguration"
+    }
   },
   {
     "id": 75,
     "question": "Any Lambda function security risks?",
     "expected_workflow": "assess_risk",
     "category": "Cloud Security",
-    "params_hint": {"target": "Lambda risks"}
+    "params_hint": {
+      "target": "Lambda risks"
+    }
   },
   {
     "id": 76,
     "question": "Show me CDR findings from our cloud environments",
     "expected_workflow": "assess_risk",
     "category": "Cloud Security",
-    "params_hint": {"target": "CDR findings"}
+    "params_hint": {
+      "target": "CDR findings"
+    }
   },
   {
     "id": 77,
     "question": "Give me a per-account breakdown of cloud risk",
     "expected_workflow": "assess_risk",
     "category": "Cloud Security",
-    "params_hint": {"target": "cloud risk per account"}
+    "params_hint": {
+      "target": "cloud risk per account"
+    }
   },
   {
     "id": 78,
     "question": "What's our GCP security controls status?",
     "expected_workflow": "assess_risk",
     "category": "Cloud Security",
-    "params_hint": {"target": "GCP controls"}
+    "params_hint": {
+      "target": "GCP controls"
+    }
   },
   {
     "id": 79,
     "question": "Give me a cross-domain risk assessment across all cloud providers with per-account breakdown",
     "expected_workflow": "assess_risk",
     "category": "Cloud Security",
-    "params_hint": {"target": "cross-cloud risk assessment"}
+    "params_hint": {
+      "target": "cross-cloud risk assessment"
+    }
   },
   {
     "id": 80,
     "question": "Which container images have critical vulnerabilities?",
     "expected_workflow": "assess_risk",
     "category": "Container Security",
-    "params_hint": {"target": "container critical vulns"}
+    "params_hint": {
+      "target": "container critical vulns"
+    }
   },
   {
     "id": 81,
     "question": "Are there running containers with unpatched base images?",
     "expected_workflow": "assess_risk",
     "category": "Container Security",
-    "params_hint": {"target": "unpatched containers"}
+    "params_hint": {
+      "target": "unpatched containers"
+    }
   },
   {
     "id": 82,
     "question": "Check for container escape risks in our Kubernetes clusters",
     "expected_workflow": "assess_risk",
     "category": "Container Security",
-    "params_hint": {"target": "container escape risks"}
+    "params_hint": {
+      "target": "container escape risks"
+    }
   },
   {
     "id": 83,
     "question": "What's the vulnerability status of the nginx:latest image?",
     "expected_workflow": "assess_risk",
     "category": "Container Security",
-    "params_hint": {"target": "nginx:latest image"}
+    "params_hint": {
+      "target": "nginx:latest image"
+    }
   },
   {
     "id": 84,
     "question": "Show me container vulnerabilities by severity",
     "expected_workflow": "assess_risk",
     "category": "Container Security",
-    "params_hint": {"target": "container vulns by severity"}
+    "params_hint": {
+      "target": "container vulns by severity"
+    }
   },
   {
     "id": 85,
     "question": "What are the OWASP Top 10 findings for our web applications?",
     "expected_workflow": "assess_risk",
     "category": "Web App Security",
-    "params_hint": {"target": "OWASP Top 10"}
+    "params_hint": {
+      "target": "OWASP Top 10"
+    }
   },
   {
     "id": 86,
     "question": "Do we have any XSS vulnerabilities in our web apps?",
     "expected_workflow": "assess_risk",
     "category": "Web App Security",
-    "params_hint": {"target": "XSS findings"}
+    "params_hint": {
+      "target": "XSS findings"
+    }
   },
   {
     "id": 87,
     "question": "Show me SQL injection findings from WAS",
     "expected_workflow": "assess_risk",
     "category": "Web App Security",
-    "params_hint": {"target": "SQL injection"}
+    "params_hint": {
+      "target": "SQL injection"
+    }
   },
   {
     "id": 88,
     "question": "Any SSRF vulnerabilities in our web applications?",
     "expected_workflow": "assess_risk",
     "category": "Web App Security",
-    "params_hint": {"target": "SSRF"}
+    "params_hint": {
+      "target": "SSRF"
+    }
   },
   {
     "id": 89,
     "question": "What's the security status of our customer portal web app?",
     "expected_workflow": "assess_risk",
     "category": "Web App Security",
-    "params_hint": {"target": "customer portal"}
+    "params_hint": {
+      "target": "customer portal"
+    }
   },
   {
     "id": 90,
     "question": "How many SSL certificates are expiring in the next 30 days?",
     "expected_workflow": "assess_risk",
     "category": "Certificate Security",
-    "params_hint": {"target": "expiring certs"}
+    "params_hint": {
+      "target": "expiring certs"
+    }
   },
   {
     "id": 91,
     "question": "Do we still have any TLS 1.0 or 1.1 endpoints?",
     "expected_workflow": "assess_risk",
     "category": "Certificate Security",
-    "params_hint": {"target": "TLS 1.0 1.1"}
+    "params_hint": {
+      "target": "TLS 1.0 1.1"
+    }
   },
   {
     "id": 92,
     "question": "Check for weak cipher suites across our infrastructure",
     "expected_workflow": "assess_risk",
     "category": "Certificate Security",
-    "params_hint": {"target": "weak ciphers"}
+    "params_hint": {
+      "target": "weak ciphers"
+    }
   },
   {
     "id": 93,
     "question": "Any systems vulnerable to POODLE or BEAST attacks?",
     "expected_workflow": "assess_risk",
     "category": "Certificate Security",
-    "params_hint": {"target": "POODLE BEAST"}
+    "params_hint": {
+      "target": "POODLE BEAST"
+    }
   },
   {
     "id": 94,
     "question": "Show me insecure SSL renegotiation findings",
     "expected_workflow": "assess_risk",
     "category": "Certificate Security",
-    "params_hint": {"target": "insecure renegotiation"}
+    "params_hint": {
+      "target": "insecure renegotiation"
+    }
   },
   {
     "id": 95,
     "question": "How many end-of-life systems do we have?",
     "expected_workflow": "assess_risk",
     "category": "Asset Lifecycle",
-    "params_hint": {"target": "EOL systems"}
+    "params_hint": {
+      "target": "EOL systems"
+    }
   },
   {
     "id": 96,
     "question": "Show me stale assets not seen in the last 30 days",
     "expected_workflow": "assess_risk",
     "category": "Asset Lifecycle",
-    "params_hint": {"target": "stale assets 30 days"}
+    "params_hint": {
+      "target": "stale assets 30 days"
+    }
   },
   {
     "id": 97,
     "question": "How many unscanned assets do we have?",
     "expected_workflow": "assess_risk",
     "category": "Asset Lifecycle",
-    "params_hint": {"target": "unscanned assets"}
+    "params_hint": {
+      "target": "unscanned assets"
+    }
   },
   {
     "id": 98,
     "question": "Find assets running Windows Server 2012",
     "expected_workflow": "assess_risk",
     "category": "Asset Lifecycle",
-    "params_hint": {"target": "Windows Server 2012"}
+    "params_hint": {
+      "target": "Windows Server 2012"
+    }
   },
   {
     "id": 99,
     "question": "What's our total asset count by operating system?",
     "expected_workflow": "assess_risk",
     "category": "Asset Inventory",
-    "params_hint": {"target": "asset count by OS"}
+    "params_hint": {
+      "target": "asset count by OS"
+    }
   },
   {
     "id": 100,
     "question": "Search for assets with hostname matching prod-web",
     "expected_workflow": "assess_risk",
     "category": "Asset Inventory",
-    "params_hint": {"target": "prod-web assets"}
+    "params_hint": {
+      "target": "prod-web assets"
+    }
   },
   {
     "id": 101,
     "question": "Compare risk scores between Production and Development environments",
     "expected_workflow": "assess_risk",
     "category": "TruRisk Scoring",
-    "params_hint": {"target": "risk comparison prod dev"}
+    "params_hint": {
+      "target": "risk comparison prod dev"
+    }
   },
   {
     "id": 102,
     "question": "What's the risk profile by department?",
     "expected_workflow": "assess_risk",
     "category": "TruRisk Scoring",
-    "params_hint": {"target": "risk by department"}
+    "params_hint": {
+      "target": "risk by department"
+    }
   },
   {
     "id": 103,
     "question": "Which Linux assets have the most risk?",
     "expected_workflow": "assess_risk",
     "category": "Asset Inventory",
-    "params_hint": {"target": "Linux assets risk"}
+    "params_hint": {
+      "target": "Linux assets risk"
+    }
   },
   {
     "id": 104,
     "question": "show me assets running CentOS 7",
     "expected_workflow": "assess_risk",
     "category": "Asset Lifecycle",
-    "params_hint": {"target": "CentOS 7"}
+    "params_hint": {
+      "target": "CentOS 7"
+    }
   },
   {
     "id": 105,
     "question": "How many Windows 10 machines are past end-of-support?",
     "expected_workflow": "assess_risk",
     "category": "Asset Lifecycle",
-    "params_hint": {"target": "Windows 10 EOL"}
+    "params_hint": {
+      "target": "Windows 10 EOL"
+    }
   },
   {
     "id": 106,
     "question": "What web apps have the highest vulnerability counts?",
     "expected_workflow": "assess_risk",
     "category": "Web App Security",
-    "params_hint": {"target": "web apps highest vulns"}
+    "params_hint": {
+      "target": "web apps highest vulns"
+    }
   },
   {
     "id": 107,
     "question": "Are any of our public-facing certs using SHA-1?",
     "expected_workflow": "assess_risk",
     "category": "Certificate Security",
-    "params_hint": {"target": "SHA-1 certs"}
+    "params_hint": {
+      "target": "SHA-1 certs"
+    }
   },
   {
     "id": 108,
     "question": "Give me the overall risk posture for our cloud environment",
     "expected_workflow": "assess_risk",
     "category": "Cloud Security",
-    "params_hint": {"target": "cloud risk posture"}
+    "params_hint": {
+      "target": "cloud risk posture"
+    }
   },
   {
     "id": 109,
     "question": "which containers are running privileged mode?",
     "expected_workflow": "assess_risk",
     "category": "Container Security",
-    "params_hint": {"target": "privileged containers"}
+    "params_hint": {
+      "target": "privileged containers"
+    }
   },
   {
     "id": 110,
     "question": "What's our mean TruRisk per asset across all tags?",
     "expected_workflow": "assess_risk",
     "category": "TruRisk Scoring",
-    "params_hint": {"target": "mean TruRisk per asset"}
+    "params_hint": {
+      "target": "mean TruRisk per asset"
+    }
   },
   {
     "id": 111,
     "question": "Show me assets in the DMZ and their risk scores",
     "expected_workflow": "assess_risk",
     "category": "Asset Inventory",
-    "params_hint": {"target": "DMZ assets risk"}
+    "params_hint": {
+      "target": "DMZ assets risk"
+    }
   },
   {
     "id": 112,
     "question": "What's the vulnerability density in our Kubernetes namespaces?",
     "expected_workflow": "assess_risk",
     "category": "Container Security",
-    "params_hint": {"target": "Kubernetes vulnerability density"}
+    "params_hint": {
+      "target": "Kubernetes vulnerability density"
+    }
   },
   {
     "id": 113,
     "question": "Are there any wildcard certificates we should be concerned about?",
     "expected_workflow": "assess_risk",
     "category": "Certificate Security",
-    "params_hint": {"target": "wildcard certificates"}
+    "params_hint": {
+      "target": "wildcard certificates"
+    }
   },
   {
     "id": 114,
     "question": "what does our web app attack surface look like overall?",
     "expected_workflow": "assess_risk",
     "category": "Web App Security",
-    "params_hint": {"target": "web app attack surface"}
+    "params_hint": {
+      "target": "web app attack surface"
+    }
   },
   {
     "id": 115,
     "question": "Show me the AWS accounts with the worst security posture",
     "expected_workflow": "assess_risk",
     "category": "Cloud Security",
-    "params_hint": {"target": "worst AWS accounts"}
+    "params_hint": {
+      "target": "worst AWS accounts"
+    }
   },
   {
     "id": 116,
     "question": "How many assets haven't been scanned in 7 days?",
     "expected_workflow": "assess_risk",
     "category": "Asset Lifecycle",
-    "params_hint": {"target": "unscanned 7 days"}
+    "params_hint": {
+      "target": "unscanned 7 days"
+    }
   },
   {
     "id": 117,
     "question": "Give me a TruRisk summary for the infrastructure team's assets",
     "expected_workflow": "assess_risk",
     "category": "TruRisk Scoring",
-    "params_hint": {"target": "TruRisk infrastructure team"}
+    "params_hint": {
+      "target": "TruRisk infrastructure team"
+    }
   },
   {
     "id": 118,
     "question": "What's our exposure to critical web app vulns in production?",
     "expected_workflow": "assess_risk",
     "category": "Web App Security",
-    "params_hint": {"target": "critical web vulns production"}
+    "params_hint": {
+      "target": "critical web vulns production"
+    }
   },
   {
     "id": 119,
     "question": "List all Ubuntu 18.04 systems that are end of life",
     "expected_workflow": "assess_risk",
     "category": "Asset Lifecycle",
-    "params_hint": {"target": "Ubuntu 18.04 EOL"}
+    "params_hint": {
+      "target": "Ubuntu 18.04 EOL"
+    }
   },
   {
     "id": 120,
     "question": "What's our patch coverage percentage?",
     "expected_workflow": "plan_remediation",
     "category": "Patch Management",
-    "params_hint": {"target": "patch coverage"}
+    "params_hint": {
+      "target": "patch coverage"
+    }
   },
   {
     "id": 121,
     "question": "How many assets are unpatched for critical vulnerabilities?",
     "expected_workflow": "plan_remediation",
     "category": "Patch Management",
-    "params_hint": {"target": "unpatched critical"}
+    "params_hint": {
+      "target": "unpatched critical"
+    }
   },
   {
     "id": 122,
     "question": "Show me patching trends over the last quarter",
     "expected_workflow": "plan_remediation",
     "category": "Patch Management",
-    "params_hint": {"target": "patching trends"}
+    "params_hint": {
+      "target": "patching trends"
+    }
   },
   {
     "id": 123,
     "question": "What outstanding patches do we have for Windows systems?",
     "expected_workflow": "plan_remediation",
     "category": "Patch Management",
-    "params_hint": {"target": "Windows outstanding patches"}
+    "params_hint": {
+      "target": "Windows outstanding patches"
+    }
   },
   {
     "id": 124,
     "question": "Show me missing Linux patches by severity",
     "expected_workflow": "plan_remediation",
     "category": "Patch Management",
-    "params_hint": {"target": "Linux patches by severity"}
+    "params_hint": {
+      "target": "Linux patches by severity"
+    }
   },
   {
     "id": 125,
     "question": "What critical patches are missing across the environment?",
     "expected_workflow": "plan_remediation",
     "category": "Patch Management",
-    "params_hint": {"target": "missing critical patches"}
+    "params_hint": {
+      "target": "missing critical patches"
+    }
   },
   {
     "id": 126,
     "question": "How many high severity patches are outstanding?",
     "expected_workflow": "plan_remediation",
     "category": "Patch Management",
-    "params_hint": {"target": "outstanding high patches"}
+    "params_hint": {
+      "target": "outstanding high patches"
+    }
   },
   {
     "id": 127,
     "question": "What's the status of our PM patch deployment jobs?",
     "expected_workflow": "plan_remediation",
     "category": "Deployment Status",
-    "params_hint": {"target": "PM job status"}
+    "params_hint": {
+      "target": "PM job status"
+    }
   },
   {
     "id": 128,
     "question": "Show me failed patch deployments from this week",
     "expected_workflow": "plan_remediation",
     "category": "Deployment Status",
-    "params_hint": {"target": "failed deployments"}
+    "params_hint": {
+      "target": "failed deployments"
+    }
   },
   {
     "id": 129,
     "question": "What's our deployment success rate for patches?",
     "expected_workflow": "plan_remediation",
     "category": "Deployment Status",
-    "params_hint": {"target": "deployment success rate"}
+    "params_hint": {
+      "target": "deployment success rate"
+    }
   },
   {
     "id": 130,
     "question": "Are we meeting our patching SLA for critical vulns?",
     "expected_workflow": "plan_remediation",
     "category": "Deployment Status",
-    "params_hint": {"target": "patching SLA"}
+    "params_hint": {
+      "target": "patching SLA"
+    }
   },
   {
     "id": 131,
     "question": "What mitigations are available for CVE-2024-3400?",
     "expected_workflow": "plan_remediation",
     "category": "Mitigation Coverage",
-    "params_hint": {"target": "CVE-2024-3400 mitigations"}
+    "params_hint": {
+      "target": "CVE-2024-3400 mitigations"
+    }
   },
   {
     "id": 132,
     "question": "Show me TruRisk Eliminate coverage for QID 38747",
     "expected_workflow": "plan_remediation",
     "category": "Mitigation Coverage",
-    "params_hint": {"target": "TruRisk Eliminate QID 38747"}
+    "params_hint": {
+      "target": "TruRisk Eliminate QID 38747"
+    }
   },
   {
     "id": 133,
     "question": "What mitigations do we have in place across the board?",
     "expected_workflow": "plan_remediation",
     "category": "Mitigation Coverage",
-    "params_hint": {"target": "mitigation coverage"}
+    "params_hint": {
+      "target": "mitigation coverage"
+    }
   },
   {
     "id": 134,
     "question": "Which vulns have no available patch or mitigation?",
     "expected_workflow": "plan_remediation",
     "category": "Mitigation Coverage",
-    "params_hint": {"target": "no patch no mitigation"}
+    "params_hint": {
+      "target": "no patch no mitigation"
+    }
   },
   {
     "id": 135,
     "question": "Do a gap analysis on our security program",
     "expected_workflow": "plan_remediation",
     "category": "Program Gaps",
-    "params_hint": {"target": "gap analysis"}
+    "params_hint": {
+      "target": "gap analysis"
+    }
   },
   {
     "id": 136,
     "question": "What Qualys modules should we add to reduce risk?",
     "expected_workflow": "plan_remediation",
     "category": "Program Gaps",
-    "params_hint": {"target": "module recommendations"}
+    "params_hint": {
+      "target": "module recommendations"
+    }
   },
   {
     "id": 137,
     "question": "How can we reduce our TruRisk score the fastest?",
     "expected_workflow": "plan_remediation",
     "category": "Program Gaps",
-    "params_hint": {"target": "reduce TruRisk"}
+    "params_hint": {
+      "target": "reduce TruRisk"
+    }
   },
   {
     "id": 138,
     "question": "Give me recommendations to improve our security posture",
     "expected_workflow": "plan_remediation",
     "category": "Program Gaps",
-    "params_hint": {"target": "security recommendations"}
+    "params_hint": {
+      "target": "security recommendations"
+    }
   },
   {
     "id": 139,
     "question": "What should we patch this sprint for maximum risk reduction?",
     "expected_workflow": "plan_remediation",
     "category": "Patch Management",
-    "params_hint": {"target": "sprint patch priorities"}
+    "params_hint": {
+      "target": "sprint patch priorities"
+    }
   },
   {
     "id": 140,
     "question": "What are the quick wins for patching this week?",
     "expected_workflow": "plan_remediation",
     "category": "Patch Management",
-    "params_hint": {"target": "quick wins patching"}
+    "params_hint": {
+      "target": "quick wins patching"
+    }
   },
   {
     "id": 141,
     "question": "What should we prioritize for the next maintenance window?",
     "expected_workflow": "plan_remediation",
     "category": "Patch Management",
-    "params_hint": {"target": "maintenance window priorities"}
+    "params_hint": {
+      "target": "maintenance window priorities"
+    }
   },
   {
     "id": 142,
     "question": "Show me the remediation plan for our top 20 critical vulns",
     "expected_workflow": "plan_remediation",
     "category": "Patch Management",
-    "params_hint": {"target": "top 20 critical remediation"}
+    "params_hint": {
+      "target": "top 20 critical remediation"
+    }
   },
   {
     "id": 143,
     "question": "What's left to patch on our Windows Server fleet?",
     "expected_workflow": "plan_remediation",
     "category": "Patch Management",
-    "params_hint": {"target": "Windows Server outstanding"}
+    "params_hint": {
+      "target": "Windows Server outstanding"
+    }
   },
   {
     "id": 144,
     "question": "How many patches failed to deploy last week and why?",
     "expected_workflow": "plan_remediation",
     "category": "Deployment Status",
-    "params_hint": {"target": "failed patches last week"}
+    "params_hint": {
+      "target": "failed patches last week"
+    }
   },
   {
     "id": 145,
     "question": "Show me deployment status for the January patch Tuesday rollout",
     "expected_workflow": "plan_remediation",
     "category": "Deployment Status",
-    "params_hint": {"target": "patch Tuesday deployment"}
+    "params_hint": {
+      "target": "patch Tuesday deployment"
+    }
   },
   {
     "id": 146,
     "question": "what patches are we behind on",
     "expected_workflow": "plan_remediation",
     "category": "Patch Management",
-    "params_hint": {"target": "behind on patches"}
+    "params_hint": {
+      "target": "behind on patches"
+    }
   },
   {
     "id": 147,
     "question": "Is there a workaround for CVE-2024-21887 until we can patch?",
     "expected_workflow": "plan_remediation",
     "category": "Mitigation Coverage",
-    "params_hint": {"target": "CVE-2024-21887 workaround"}
+    "params_hint": {
+      "target": "CVE-2024-21887 workaround"
+    }
   },
   {
     "id": 148,
     "question": "What's our SLA compliance for patching high-severity vulns?",
     "expected_workflow": "plan_remediation",
     "category": "Deployment Status",
-    "params_hint": {"target": "SLA high severity"}
+    "params_hint": {
+      "target": "SLA high severity"
+    }
   },
   {
     "id": 149,
     "question": "Plan the remediation for our FortiOS devices",
     "expected_workflow": "plan_remediation",
     "category": "Patch Management",
-    "params_hint": {"target": "FortiOS remediation plan"}
+    "params_hint": {
+      "target": "FortiOS remediation plan"
+    }
   },
   {
     "id": 150,
     "question": "What percentage of our estate is fully patched?",
     "expected_workflow": "plan_remediation",
     "category": "Patch Management",
-    "params_hint": {"target": "fully patched percentage"}
+    "params_hint": {
+      "target": "fully patched percentage"
+    }
   },
   {
     "id": 151,
     "question": "Which systems have had patches pending for more than 30 days?",
     "expected_workflow": "plan_remediation",
     "category": "Patch Management",
-    "params_hint": {"target": "patches pending 30 days"}
+    "params_hint": {
+      "target": "patches pending 30 days"
+    }
   },
   {
     "id": 152,
     "question": "Can we mitigate Log4Shell with WAF rules where patching isn't possible?",
     "expected_workflow": "plan_remediation",
     "category": "Mitigation Coverage",
-    "params_hint": {"target": "Log4Shell WAF mitigation"}
+    "params_hint": {
+      "target": "Log4Shell WAF mitigation"
+    }
   },
   {
     "id": 153,
     "question": "What's the biggest bang-for-buck patch we can deploy right now?",
     "expected_workflow": "plan_remediation",
     "category": "Patch Management",
-    "params_hint": {"target": "highest impact patch"}
+    "params_hint": {
+      "target": "highest impact patch"
+    }
   },
   {
     "id": 154,
     "question": "Show me PM jobs that are currently running",
     "expected_workflow": "plan_remediation",
     "category": "Deployment Status",
-    "params_hint": {"target": "running PM jobs"}
+    "params_hint": {
+      "target": "running PM jobs"
+    }
   },
   {
     "id": 155,
     "question": "What's blocking our patch completion rate from reaching 95%?",
     "expected_workflow": "plan_remediation",
     "category": "Program Gaps",
-    "params_hint": {"target": "patch completion blockers"}
+    "params_hint": {
+      "target": "patch completion blockers"
+    }
   },
   {
     "id": 156,
     "question": "How do we improve our mean time to remediate?",
     "expected_workflow": "plan_remediation",
     "category": "Program Gaps",
-    "params_hint": {"target": "improve MTTR"}
+    "params_hint": {
+      "target": "improve MTTR"
+    }
   },
   {
     "id": 157,
     "question": "Give me remediation priorities sorted by TruRisk reduction",
     "expected_workflow": "plan_remediation",
     "category": "Patch Management",
-    "params_hint": {"target": "remediation by TruRisk reduction"}
+    "params_hint": {
+      "target": "remediation by TruRisk reduction"
+    }
   },
   {
     "id": 158,
     "question": "Which patches would reduce our TruRisk the most if applied?",
     "expected_workflow": "plan_remediation",
     "category": "Patch Management",
-    "params_hint": {"target": "patches max TruRisk reduction"}
+    "params_hint": {
+      "target": "patches max TruRisk reduction"
+    }
   },
   {
     "id": 159,
     "question": "What's the remediation timeline for our Ivanti vulnerabilities?",
     "expected_workflow": "plan_remediation",
     "category": "Patch Management",
-    "params_hint": {"target": "Ivanti remediation timeline"}
+    "params_hint": {
+      "target": "Ivanti remediation timeline"
+    }
   },
   {
     "id": 160,
     "question": "Show me patch availability for all critical QIDs",
     "expected_workflow": "plan_remediation",
     "category": "Patch Management",
-    "params_hint": {"target": "patch availability critical QIDs"}
+    "params_hint": {
+      "target": "patch availability critical QIDs"
+    }
   },
   {
     "id": 161,
     "question": "Which assets are the hardest to patch and why?",
     "expected_workflow": "plan_remediation",
     "category": "Program Gaps",
-    "params_hint": {"target": "hardest to patch assets"}
+    "params_hint": {
+      "target": "hardest to patch assets"
+    }
   },
   {
     "id": 162,
     "question": "Create a patching roadmap for Q2",
     "expected_workflow": "plan_remediation",
     "category": "Program Gaps",
-    "params_hint": {"target": "Q2 patching roadmap"}
+    "params_hint": {
+      "target": "Q2 patching roadmap"
+    }
   },
   {
     "id": 163,
     "question": "What compensating controls do we have for unpatched Exchange servers?",
     "expected_workflow": "plan_remediation",
     "category": "Mitigation Coverage",
-    "params_hint": {"target": "Exchange compensating controls"}
+    "params_hint": {
+      "target": "Exchange compensating controls"
+    }
   },
   {
     "id": 164,
     "question": "Show me the patch deployment schedule for next week",
     "expected_workflow": "plan_remediation",
     "category": "Deployment Status",
-    "params_hint": {"target": "next week patch schedule"}
+    "params_hint": {
+      "target": "next week patch schedule"
+    }
   },
   {
     "id": 165,
     "question": "How are we doing with our remediation efforts overall?",
     "expected_workflow": "plan_remediation",
     "category": "Patch Management",
-    "params_hint": {"target": "remediation overall status"}
+    "params_hint": {
+      "target": "remediation overall status"
+    }
   },
   {
     "id": 166,
     "question": "What should the team focus on fixing first this month?",
     "expected_workflow": "plan_remediation",
     "category": "Patch Management",
-    "params_hint": {"target": "monthly fix priorities"}
+    "params_hint": {
+      "target": "monthly fix priorities"
+    }
   },
   {
     "id": 167,
     "question": "Which vulnerabilities have had mitigations expire?",
     "expected_workflow": "plan_remediation",
     "category": "Mitigation Coverage",
-    "params_hint": {"target": "expired mitigations"}
+    "params_hint": {
+      "target": "expired mitigations"
+    }
   },
   {
     "id": 168,
     "question": "What's blocking remediation on our database servers?",
     "expected_workflow": "plan_remediation",
     "category": "Program Gaps",
-    "params_hint": {"target": "database remediation blockers"}
+    "params_hint": {
+      "target": "database remediation blockers"
+    }
   },
   {
     "id": 169,
     "question": "Show me the oldest unpatched critical vulnerabilities",
     "expected_workflow": "plan_remediation",
     "category": "Patch Management",
-    "params_hint": {"target": "oldest unpatched critical"}
+    "params_hint": {
+      "target": "oldest unpatched critical"
+    }
   },
   {
     "id": 170,
     "question": "Are we meeting our 15-day SLA for critical patch deployment?",
     "expected_workflow": "plan_remediation",
     "category": "Deployment Status",
-    "params_hint": {"target": "15-day SLA critical"}
+    "params_hint": {
+      "target": "15-day SLA critical"
+    }
   },
   {
     "id": 171,
     "question": "What recommendations do you have for our vulnerability management program?",
     "expected_workflow": "plan_remediation",
     "category": "Program Gaps",
-    "params_hint": {"target": "VM program recommendations"}
+    "params_hint": {
+      "target": "VM program recommendations"
+    }
   },
   {
     "id": 172,
     "question": "Give me a list of patches needed for PCI compliance",
     "expected_workflow": "plan_remediation",
     "category": "Patch Management",
-    "params_hint": {"target": "PCI required patches"}
+    "params_hint": {
+      "target": "PCI required patches"
+    }
   },
   {
     "id": 173,
     "question": "What's our automated vs manual patching ratio?",
     "expected_workflow": "plan_remediation",
     "category": "Deployment Status",
-    "params_hint": {"target": "auto vs manual patching"}
+    "params_hint": {
+      "target": "auto vs manual patching"
+    }
   },
   {
     "id": 174,
     "question": "How many zero-day vulns do we have without patches?",
     "expected_workflow": "plan_remediation",
     "category": "Mitigation Coverage",
-    "params_hint": {"target": "zero-day no patch"}
+    "params_hint": {
+      "target": "zero-day no patch"
+    }
   },
   {
     "id": 175,
     "question": "Plan remediation for our internet-facing assets first",
     "expected_workflow": "plan_remediation",
     "category": "Patch Management",
-    "params_hint": {"target": "internet-facing remediation"}
+    "params_hint": {
+      "target": "internet-facing remediation"
+    }
   },
   {
     "id": 176,
     "question": "What's the average time to patch for our org?",
     "expected_workflow": "plan_remediation",
     "category": "Deployment Status",
-    "params_hint": {"target": "average time to patch"}
+    "params_hint": {
+      "target": "average time to patch"
+    }
   },
   {
     "id": 177,
     "question": "Which teams are falling behind on patching?",
     "expected_workflow": "plan_remediation",
     "category": "Program Gaps",
-    "params_hint": {"target": "teams behind on patching"}
+    "params_hint": {
+      "target": "teams behind on patching"
+    }
   },
   {
     "id": 178,
     "question": "Can we use virtual patching for the FortiManager vuln?",
     "expected_workflow": "plan_remediation",
     "category": "Mitigation Coverage",
-    "params_hint": {"target": "FortiManager virtual patching"}
+    "params_hint": {
+      "target": "FortiManager virtual patching"
+    }
   },
   {
     "id": 179,
-    "question": "What's the patch rollback rate — are patches causing issues?",
+    "question": "What's the patch rollback rate \u2014 are patches causing issues?",
     "expected_workflow": "plan_remediation",
     "category": "Deployment Status",
-    "params_hint": {"target": "patch rollback rate"}
+    "params_hint": {
+      "target": "patch rollback rate"
+    }
   },
   {
     "id": 180,
     "question": "What's our PCI DSS compliance status?",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "PCI DSS"}
+    "params_hint": {
+      "target": "PCI DSS"
+    }
   },
   {
     "id": 181,
     "question": "How are we doing on HIPAA compliance?",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "HIPAA"}
+    "params_hint": {
+      "target": "HIPAA"
+    }
   },
   {
     "id": 182,
     "question": "Show me our CIS benchmark results",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "CIS benchmarks"}
+    "params_hint": {
+      "target": "CIS benchmarks"
+    }
   },
   {
     "id": 183,
     "question": "What's our NIST 800-53 compliance posture?",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "NIST 800-53"}
+    "params_hint": {
+      "target": "NIST 800-53"
+    }
   },
   {
     "id": 184,
     "question": "Are we ready for our SOC 2 audit?",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "SOC 2"}
+    "params_hint": {
+      "target": "SOC 2"
+    }
   },
   {
     "id": 185,
     "question": "Show me our ISO 27001 compliance gaps",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "ISO 27001"}
+    "params_hint": {
+      "target": "ISO 27001"
+    }
   },
   {
     "id": 186,
     "question": "whats our compliance look like",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "compliance overview"}
+    "params_hint": {
+      "target": "compliance overview"
+    }
   },
   {
     "id": 187,
     "question": "What's our pass/fail rate for PCI controls?",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "PCI pass fail rate"}
+    "params_hint": {
+      "target": "PCI pass fail rate"
+    }
   },
   {
     "id": 188,
     "question": "How has our compliance posture trended over the last 6 months?",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "compliance trend"}
+    "params_hint": {
+      "target": "compliance trend"
+    }
   },
   {
     "id": 189,
-    "question": "Show me CIS compliance by platform — Windows vs Linux",
+    "question": "Show me CIS compliance by platform \u2014 Windows vs Linux",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "CIS by platform"}
+    "params_hint": {
+      "target": "CIS by platform"
+    }
   },
   {
     "id": 190,
     "question": "What are the top failing controls across all frameworks?",
     "expected_workflow": "check_compliance",
     "category": "Control Failures",
-    "params_hint": {"target": "top failing controls"}
+    "params_hint": {
+      "target": "top failing controls"
+    }
   },
   {
     "id": 191,
     "question": "Show me details on our most-failed CIS control",
     "expected_workflow": "check_compliance",
     "category": "Control Failures",
-    "params_hint": {"target": "most failed CIS control"}
+    "params_hint": {
+      "target": "most failed CIS control"
+    }
   },
   {
     "id": 192,
     "question": "Which NIST controls are we failing and how do we fix them?",
     "expected_workflow": "check_compliance",
     "category": "Control Failures",
-    "params_hint": {"target": "NIST failing controls remediation"}
+    "params_hint": {
+      "target": "NIST failing controls remediation"
+    }
   },
   {
     "id": 193,
     "question": "What PCI controls have been failing for more than 30 days?",
     "expected_workflow": "check_compliance",
     "category": "Control Failures",
-    "params_hint": {"target": "PCI long-failing controls"}
+    "params_hint": {
+      "target": "PCI long-failing controls"
+    }
   },
   {
     "id": 194,
     "question": "Show me controls that are failing across multiple compliance frameworks",
     "expected_workflow": "check_compliance",
     "category": "Control Failures",
-    "params_hint": {"target": "cross-framework failures"}
+    "params_hint": {
+      "target": "cross-framework failures"
+    }
   },
   {
     "id": 195,
     "question": "How many active risk acceptances do we have?",
     "expected_workflow": "check_compliance",
     "category": "Risk Acceptances",
-    "params_hint": {"target": "active risk acceptances"}
+    "params_hint": {
+      "target": "active risk acceptances"
+    }
   },
   {
     "id": 196,
     "question": "Are any risk exceptions expiring soon?",
     "expected_workflow": "check_compliance",
     "category": "Risk Acceptances",
-    "params_hint": {"target": "expiring exceptions"}
+    "params_hint": {
+      "target": "expiring exceptions"
+    }
   },
   {
     "id": 197,
     "question": "Show me all false positive designations we've made",
     "expected_workflow": "check_compliance",
     "category": "Risk Acceptances",
-    "params_hint": {"target": "false positives"}
+    "params_hint": {
+      "target": "false positives"
+    }
   },
   {
     "id": 198,
     "question": "What compensating controls have we documented?",
     "expected_workflow": "check_compliance",
     "category": "Risk Acceptances",
-    "params_hint": {"target": "compensating controls"}
+    "params_hint": {
+      "target": "compensating controls"
+    }
   },
   {
     "id": 199,
     "question": "Are we audit-ready for PCI DSS right now?",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "PCI audit readiness"}
+    "params_hint": {
+      "target": "PCI audit readiness"
+    }
   },
   {
     "id": 200,
     "question": "What compliance gaps do we need to close before our upcoming audit?",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "audit compliance gaps"}
+    "params_hint": {
+      "target": "audit compliance gaps"
+    }
   },
   {
     "id": 201,
     "question": "Show me HIPAA compliance for our systems that handle PHI",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "HIPAA PHI systems"}
+    "params_hint": {
+      "target": "HIPAA PHI systems"
+    }
   },
   {
     "id": 202,
     "question": "What's our CIS Level 1 vs Level 2 compliance rate?",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "CIS Level 1 vs 2"}
+    "params_hint": {
+      "target": "CIS Level 1 vs 2"
+    }
   },
   {
     "id": 203,
     "question": "How many systems are non-compliant with our password policy control?",
     "expected_workflow": "check_compliance",
     "category": "Control Failures",
-    "params_hint": {"target": "password policy non-compliant"}
+    "params_hint": {
+      "target": "password policy non-compliant"
+    }
   },
   {
     "id": 204,
     "question": "Show me NIST 800-53 control family AC (Access Control) status",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "NIST AC controls"}
+    "params_hint": {
+      "target": "NIST AC controls"
+    }
   },
   {
     "id": 205,
     "question": "Which risk acceptances were approved by the CISO?",
     "expected_workflow": "check_compliance",
     "category": "Risk Acceptances",
-    "params_hint": {"target": "CISO approved acceptances"}
+    "params_hint": {
+      "target": "CISO approved acceptances"
+    }
   },
   {
     "id": 206,
     "question": "Do we have any compliance exceptions that have been in place for over a year?",
     "expected_workflow": "check_compliance",
     "category": "Risk Acceptances",
-    "params_hint": {"target": "old exceptions"}
+    "params_hint": {
+      "target": "old exceptions"
+    }
   },
   {
     "id": 207,
     "question": "What's our SOC 2 Type II readiness looking like?",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "SOC 2 Type II"}
+    "params_hint": {
+      "target": "SOC 2 Type II"
+    }
   },
   {
     "id": 208,
     "question": "Show me the compliance posture for our Windows Server 2019 fleet",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "Windows Server 2019 compliance"}
+    "params_hint": {
+      "target": "Windows Server 2019 compliance"
+    }
   },
   {
     "id": 209,
     "question": "Are any of our PCI systems out of compliance right now?",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "PCI out of compliance"}
+    "params_hint": {
+      "target": "PCI out of compliance"
+    }
   },
   {
     "id": 210,
     "question": "What controls are failing on our Linux hardening benchmarks?",
     "expected_workflow": "check_compliance",
     "category": "Control Failures",
-    "params_hint": {"target": "Linux hardening failures"}
+    "params_hint": {
+      "target": "Linux hardening failures"
+    }
   },
   {
     "id": 211,
     "question": "Give me a compliance summary across all frameworks",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "all frameworks summary"}
+    "params_hint": {
+      "target": "all frameworks summary"
+    }
   },
   {
     "id": 212,
     "question": "Which departments have the worst compliance scores?",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "worst compliance by department"}
+    "params_hint": {
+      "target": "worst compliance by department"
+    }
   },
   {
     "id": 213,
     "question": "Show me risk acceptance requests that are pending approval",
     "expected_workflow": "check_compliance",
     "category": "Risk Acceptances",
-    "params_hint": {"target": "pending risk acceptances"}
+    "params_hint": {
+      "target": "pending risk acceptances"
+    }
   },
   {
     "id": 214,
-    "question": "What's the trend on our failing controls — getting better or worse?",
+    "question": "What's the trend on our failing controls \u2014 getting better or worse?",
     "expected_workflow": "check_compliance",
     "category": "Control Failures",
-    "params_hint": {"target": "failing controls trend"}
+    "params_hint": {
+      "target": "failing controls trend"
+    }
   },
   {
     "id": 215,
     "question": "How do our CIS benchmark scores compare month over month?",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "CIS month over month"}
+    "params_hint": {
+      "target": "CIS month over month"
+    }
   },
   {
     "id": 216,
     "question": "Are there any HIPAA controls we've never been compliant with?",
     "expected_workflow": "check_compliance",
     "category": "Control Failures",
-    "params_hint": {"target": "HIPAA never compliant"}
+    "params_hint": {
+      "target": "HIPAA never compliant"
+    }
   },
   {
     "id": 217,
     "question": "What's the remediation path for our top 5 failing compliance controls?",
     "expected_workflow": "check_compliance",
     "category": "Control Failures",
-    "params_hint": {"target": "top 5 failing controls remediation"}
+    "params_hint": {
+      "target": "top 5 failing controls remediation"
+    }
   },
   {
     "id": 218,
     "question": "Show me all exceptions with justification for PCI scope",
     "expected_workflow": "check_compliance",
     "category": "Risk Acceptances",
-    "params_hint": {"target": "PCI exceptions justification"}
+    "params_hint": {
+      "target": "PCI exceptions justification"
+    }
   },
   {
     "id": 219,
     "question": "How many new compliance failures were introduced this month?",
     "expected_workflow": "check_compliance",
     "category": "Control Failures",
-    "params_hint": {"target": "new failures this month"}
+    "params_hint": {
+      "target": "new failures this month"
+    }
   },
   {
     "id": 220,
     "question": "What frameworks overlap in requirements and where are we failing both?",
     "expected_workflow": "check_compliance",
     "category": "Control Failures",
-    "params_hint": {"target": "overlapping framework failures"}
+    "params_hint": {
+      "target": "overlapping framework failures"
+    }
   },
   {
     "id": 221,
     "question": "Are we compliant with encryption-at-rest requirements across all frameworks?",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "encryption at rest compliance"}
+    "params_hint": {
+      "target": "encryption at rest compliance"
+    }
   },
   {
     "id": 222,
     "question": "Show me compliance findings for our database tier",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "database tier compliance"}
+    "params_hint": {
+      "target": "database tier compliance"
+    }
   },
   {
     "id": 223,
     "question": "What's the age distribution of our risk acceptances?",
     "expected_workflow": "check_compliance",
     "category": "Risk Acceptances",
-    "params_hint": {"target": "risk acceptance age distribution"}
+    "params_hint": {
+      "target": "risk acceptance age distribution"
+    }
   },
   {
     "id": 224,
     "question": "Can you show me which NIST control families we're weakest in?",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "NIST weakest control families"}
+    "params_hint": {
+      "target": "NIST weakest control families"
+    }
   },
   {
     "id": 225,
     "question": "How does our PCI compliance compare between card-processing and non-card systems?",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "PCI card vs non-card"}
+    "params_hint": {
+      "target": "PCI card vs non-card"
+    }
   },
   {
     "id": 226,
     "question": "List all compensating controls we've defined for HIPAA",
     "expected_workflow": "check_compliance",
     "category": "Risk Acceptances",
-    "params_hint": {"target": "HIPAA compensating controls"}
+    "params_hint": {
+      "target": "HIPAA compensating controls"
+    }
   },
   {
     "id": 227,
     "question": "Which CIS controls just started failing this week?",
     "expected_workflow": "check_compliance",
     "category": "Control Failures",
-    "params_hint": {"target": "newly failing CIS controls"}
+    "params_hint": {
+      "target": "newly failing CIS controls"
+    }
   },
   {
     "id": 228,
     "question": "What compliance items do we need to address before the auditor arrives next month?",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "pre-audit compliance items"}
+    "params_hint": {
+      "target": "pre-audit compliance items"
+    }
   },
   {
     "id": 229,
     "question": "Show me a breakdown of compliant vs non-compliant hosts by OS",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "compliance by OS"}
+    "params_hint": {
+      "target": "compliance by OS"
+    }
   },
   {
     "id": 230,
     "question": "What false positive rate do we have in our compliance scans?",
     "expected_workflow": "check_compliance",
     "category": "Risk Acceptances",
-    "params_hint": {"target": "compliance false positive rate"}
+    "params_hint": {
+      "target": "compliance false positive rate"
+    }
   },
   {
     "id": 231,
     "question": "Show me our compliance control coverage map",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "control coverage map"}
+    "params_hint": {
+      "target": "control coverage map"
+    }
   },
   {
     "id": 232,
     "question": "Are we meeting the 90% compliance threshold for CIS?",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "CIS 90% threshold"}
+    "params_hint": {
+      "target": "CIS 90% threshold"
+    }
   },
   {
     "id": 233,
     "question": "What risk acceptances expire in the next 30 days?",
     "expected_workflow": "check_compliance",
     "category": "Risk Acceptances",
-    "params_hint": {"target": "acceptances expiring 30 days"}
+    "params_hint": {
+      "target": "acceptances expiring 30 days"
+    }
   },
   {
     "id": 234,
     "question": "Show me compliance status for all internet-facing systems",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "internet-facing compliance"}
+    "params_hint": {
+      "target": "internet-facing compliance"
+    }
   },
   {
     "id": 235,
     "question": "Have any previously passing controls regressed to failing?",
     "expected_workflow": "check_compliance",
     "category": "Control Failures",
-    "params_hint": {"target": "regressed controls"}
+    "params_hint": {
+      "target": "regressed controls"
+    }
   },
   {
     "id": 236,
     "question": "What's our compliance score for the SOC 2 availability criteria?",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "SOC 2 availability"}
+    "params_hint": {
+      "target": "SOC 2 availability"
+    }
   },
   {
     "id": 237,
     "question": "Do we have any unapproved exceptions in our compliance data?",
     "expected_workflow": "check_compliance",
     "category": "Risk Acceptances",
-    "params_hint": {"target": "unapproved exceptions"}
+    "params_hint": {
+      "target": "unapproved exceptions"
+    }
   },
   {
     "id": 238,
     "question": "What controls do we need to remediate for ISO 27001 certification?",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "ISO 27001 certification gaps"}
+    "params_hint": {
+      "target": "ISO 27001 certification gaps"
+    }
   },
   {
     "id": 239,
     "question": "Show me the highest-impact compliance failures",
     "expected_workflow": "check_compliance",
     "category": "Control Failures",
-    "params_hint": {"target": "highest impact compliance failures"}
+    "params_hint": {
+      "target": "highest impact compliance failures"
+    }
   },
   {
     "id": 240,
     "question": "Give me my morning security briefing",
     "expected_workflow": "security_overview",
     "category": "Daily Briefing",
-    "params_hint": {"target": "morning briefing"}
+    "params_hint": {
+      "target": "morning briefing"
+    }
   },
   {
     "id": 241,
     "question": "What happened overnight?",
     "expected_workflow": "security_overview",
     "category": "Daily Briefing",
-    "params_hint": {"target": "overnight events"}
+    "params_hint": {
+      "target": "overnight events"
+    }
   },
   {
     "id": 242,
     "question": "What should I focus on today?",
     "expected_workflow": "security_overview",
     "category": "Daily Briefing",
-    "params_hint": {"target": "today priorities"}
+    "params_hint": {
+      "target": "today priorities"
+    }
   },
   {
     "id": 243,
     "question": "Quick security snapshot please",
     "expected_workflow": "security_overview",
     "category": "Daily Briefing",
-    "params_hint": {"target": "quick snapshot"}
+    "params_hint": {
+      "target": "quick snapshot"
+    }
   },
   {
     "id": 244,
     "question": "Good morning, what do I need to know?",
     "expected_workflow": "security_overview",
     "category": "Daily Briefing",
-    "params_hint": {"target": "morning update"}
+    "params_hint": {
+      "target": "morning update"
+    }
   },
   {
     "id": 245,
     "question": "Give me the daily security digest",
     "expected_workflow": "security_overview",
     "category": "Daily Briefing",
-    "params_hint": {"target": "daily digest"}
+    "params_hint": {
+      "target": "daily digest"
+    }
   },
   {
     "id": 246,
     "question": "What's changed since yesterday?",
     "expected_workflow": "security_overview",
     "category": "Daily Briefing",
-    "params_hint": {"target": "changes since yesterday"}
+    "params_hint": {
+      "target": "changes since yesterday"
+    }
   },
   {
     "id": 247,
     "question": "Any critical issues I should know about this morning?",
     "expected_workflow": "security_overview",
     "category": "Daily Briefing",
-    "params_hint": {"target": "critical morning issues"}
+    "params_hint": {
+      "target": "critical morning issues"
+    }
   },
   {
     "id": 248,
     "question": "Give me a weekly security summary",
     "expected_workflow": "security_overview",
     "category": "Weekly Summary",
-    "params_hint": {"target": "weekly summary"}
+    "params_hint": {
+      "target": "weekly summary"
+    }
   },
   {
     "id": 249,
     "question": "What's the week-over-week change in our security posture?",
     "expected_workflow": "security_overview",
     "category": "Weekly Summary",
-    "params_hint": {"target": "week-over-week changes"}
+    "params_hint": {
+      "target": "week-over-week changes"
+    }
   },
   {
     "id": 250,
     "question": "Show me weekly risk trends",
     "expected_workflow": "security_overview",
     "category": "Weekly Summary",
-    "params_hint": {"target": "weekly risk trends"}
+    "params_hint": {
+      "target": "weekly risk trends"
+    }
   },
   {
     "id": 251,
     "question": "Summarize this week's security events",
     "expected_workflow": "security_overview",
     "category": "Weekly Summary",
-    "params_hint": {"target": "weekly events summary"}
+    "params_hint": {
+      "target": "weekly events summary"
+    }
   },
   {
     "id": 252,
     "question": "What's the weekly security report?",
     "expected_workflow": "security_overview",
     "category": "Weekly Summary",
-    "params_hint": {"target": "weekly report"}
+    "params_hint": {
+      "target": "weekly report"
+    }
   },
   {
     "id": 253,
     "question": "Generate a monthly security posture report",
     "expected_workflow": "security_overview",
     "category": "Monthly Summary",
-    "params_hint": {"target": "monthly posture report"}
+    "params_hint": {
+      "target": "monthly posture report"
+    }
   },
   {
     "id": 254,
     "question": "How does this month compare to last month?",
     "expected_workflow": "security_overview",
     "category": "Monthly Summary",
-    "params_hint": {"target": "month-over-month comparison"}
+    "params_hint": {
+      "target": "month-over-month comparison"
+    }
   },
   {
     "id": 255,
     "question": "Give me the monthly security summary for leadership",
     "expected_workflow": "security_overview",
     "category": "Monthly Summary",
-    "params_hint": {"target": "monthly leadership summary"}
+    "params_hint": {
+      "target": "monthly leadership summary"
+    }
   },
   {
     "id": 256,
     "question": "What's the monthly trend in our vulnerability counts?",
     "expected_workflow": "security_overview",
     "category": "Monthly Summary",
-    "params_hint": {"target": "monthly vulnerability trends"}
+    "params_hint": {
+      "target": "monthly vulnerability trends"
+    }
   },
   {
     "id": 257,
     "question": "What's the scanner health status?",
     "expected_workflow": "security_overview",
     "category": "Infrastructure Health",
-    "params_hint": {"target": "scanner health"}
+    "params_hint": {
+      "target": "scanner health"
+    }
   },
   {
     "id": 258,
     "question": "Are any scanners offline?",
     "expected_workflow": "security_overview",
     "category": "Infrastructure Health",
-    "params_hint": {"target": "offline scanners"}
+    "params_hint": {
+      "target": "offline scanners"
+    }
   },
   {
     "id": 259,
-    "question": "Check scanner capacity — are we overloaded?",
+    "question": "Check scanner capacity \u2014 are we overloaded?",
     "expected_workflow": "security_overview",
     "category": "Infrastructure Health",
-    "params_hint": {"target": "scanner capacity"}
+    "params_hint": {
+      "target": "scanner capacity"
+    }
   },
   {
     "id": 260,
     "question": "scanner status",
     "expected_workflow": "security_overview",
     "category": "Infrastructure Health",
-    "params_hint": {"target": "scanner status"}
+    "params_hint": {
+      "target": "scanner status"
+    }
   },
   {
     "id": 261,
     "question": "How are our Qualys appliances doing?",
     "expected_workflow": "security_overview",
     "category": "Infrastructure Health",
-    "params_hint": {"target": "appliance health"}
+    "params_hint": {
+      "target": "appliance health"
+    }
   },
   {
     "id": 262,
     "question": "Show me any scanners that haven't checked in recently",
     "expected_workflow": "security_overview",
     "category": "Infrastructure Health",
-    "params_hint": {"target": "stale scanners"}
+    "params_hint": {
+      "target": "stale scanners"
+    }
   },
   {
     "id": 263,
     "question": "What scans are currently running?",
     "expected_workflow": "security_overview",
     "category": "Scan Management",
-    "params_hint": {"target": "running scans"}
+    "params_hint": {
+      "target": "running scans"
+    }
   },
   {
     "id": 264,
     "question": "Any scans that failed today?",
     "expected_workflow": "security_overview",
     "category": "Scan Management",
-    "params_hint": {"target": "failed scans"}
+    "params_hint": {
+      "target": "failed scans"
+    }
   },
   {
     "id": 265,
     "question": "Show me the scan queue",
     "expected_workflow": "security_overview",
     "category": "Scan Management",
-    "params_hint": {"target": "queued scans"}
+    "params_hint": {
+      "target": "queued scans"
+    }
   },
   {
     "id": 266,
     "question": "Are there any scan errors I should investigate?",
     "expected_workflow": "security_overview",
     "category": "Scan Management",
-    "params_hint": {"target": "scan errors"}
+    "params_hint": {
+      "target": "scan errors"
+    }
   },
   {
     "id": 267,
     "question": "When was the last full vulnerability scan completed?",
     "expected_workflow": "security_overview",
     "category": "Scan Management",
-    "params_hint": {"target": "last full scan"}
+    "params_hint": {
+      "target": "last full scan"
+    }
   },
   {
     "id": 268,
     "question": "Show me scan completion rates for this week",
     "expected_workflow": "security_overview",
     "category": "Scan Management",
-    "params_hint": {"target": "scan completion rates"}
+    "params_hint": {
+      "target": "scan completion rates"
+    }
   },
   {
     "id": 269,
     "question": "Show me confirmed vulnerabilities from ETM",
     "expected_workflow": "security_overview",
     "category": "Findings",
-    "params_hint": {"target": "confirmed vulnerabilities"}
+    "params_hint": {
+      "target": "confirmed vulnerabilities"
+    }
   },
   {
     "id": 270,
     "question": "Run a QQL query for severity 5 vulnerabilities",
     "expected_workflow": "security_overview",
     "category": "Findings",
-    "params_hint": {"target": "severity 5 vulns"}
+    "params_hint": {
+      "target": "severity 5 vulns"
+    }
   },
   {
     "id": 271,
     "question": "Filter ETM findings by critical severity",
     "expected_workflow": "security_overview",
     "category": "Findings",
-    "params_hint": {"target": "critical ETM findings"}
+    "params_hint": {
+      "target": "critical ETM findings"
+    }
   },
   {
     "id": 272,
     "question": "show me the cves from this week",
     "expected_workflow": "security_overview",
     "category": "Findings",
-    "params_hint": {"target": "this week CVEs"}
+    "params_hint": {
+      "target": "this week CVEs"
+    }
   },
   {
     "id": 273,
     "question": "What new vulnerabilities were detected today?",
     "expected_workflow": "security_overview",
     "category": "Findings",
-    "params_hint": {"target": "new vulns today"}
+    "params_hint": {
+      "target": "new vulns today"
+    }
   },
   {
     "id": 274,
     "question": "How many total confirmed vulns do we have?",
     "expected_workflow": "security_overview",
     "category": "Findings",
-    "params_hint": {"target": "total confirmed vulns"}
+    "params_hint": {
+      "target": "total confirmed vulns"
+    }
   },
   {
     "id": 275,
     "question": "Give me a full security briefing with all the details",
     "expected_workflow": "security_overview",
     "category": "Daily Briefing",
-    "params_hint": {"target": "full briefing"}
+    "params_hint": {
+      "target": "full briefing"
+    }
   },
   {
     "id": 276,
     "question": "Give me an executive summary of our security posture",
     "expected_workflow": "security_overview",
     "category": "Daily Briefing",
-    "params_hint": {"target": "executive summary"}
+    "params_hint": {
+      "target": "executive summary"
+    }
   },
   {
     "id": 277,
     "question": "How's our overall infrastructure health?",
     "expected_workflow": "security_overview",
     "category": "Infrastructure Health",
-    "params_hint": {"target": "infrastructure health"}
+    "params_hint": {
+      "target": "infrastructure health"
+    }
   },
   {
     "id": 278,
     "question": "What's the overall status of our security program?",
     "expected_workflow": "security_overview",
     "category": "Daily Briefing",
-    "params_hint": {"target": "security program status"}
+    "params_hint": {
+      "target": "security program status"
+    }
   },
   {
     "id": 279,
     "question": "Are there any scan scheduling conflicts?",
     "expected_workflow": "security_overview",
     "category": "Scan Management",
-    "params_hint": {"target": "scan scheduling conflicts"}
+    "params_hint": {
+      "target": "scan scheduling conflicts"
+    }
   },
   {
     "id": 280,
     "question": "What vulnerability trends are we seeing this quarter?",
     "expected_workflow": "security_overview",
     "category": "Monthly Summary",
-    "params_hint": {"target": "quarterly vulnerability trends"}
+    "params_hint": {
+      "target": "quarterly vulnerability trends"
+    }
   },
   {
     "id": 281,
     "question": "Show me a breakdown of findings by severity level",
     "expected_workflow": "security_overview",
     "category": "Findings",
-    "params_hint": {"target": "findings by severity"}
+    "params_hint": {
+      "target": "findings by severity"
+    }
   },
   {
     "id": 282,
     "question": "How many scans ran successfully this week vs failed?",
     "expected_workflow": "security_overview",
     "category": "Scan Management",
-    "params_hint": {"target": "scan success vs failure"}
+    "params_hint": {
+      "target": "scan success vs failure"
+    }
   },
   {
     "id": 283,
     "question": "What's the status of our external vs internal scans?",
     "expected_workflow": "security_overview",
     "category": "Scan Management",
-    "params_hint": {"target": "external vs internal scans"}
+    "params_hint": {
+      "target": "external vs internal scans"
+    }
   },
   {
     "id": 284,
     "question": "Is our scan coverage adequate across all network segments?",
     "expected_workflow": "security_overview",
     "category": "Scan Management",
-    "params_hint": {"target": "scan coverage"}
+    "params_hint": {
+      "target": "scan coverage"
+    }
   },
   {
     "id": 285,
     "question": "Show me the security dashboard",
     "expected_workflow": "security_overview",
     "category": "Daily Briefing",
-    "params_hint": {"target": "security dashboard"}
+    "params_hint": {
+      "target": "security dashboard"
+    }
   },
   {
     "id": 286,
     "question": "How many new vs recurring vulnerabilities this week?",
     "expected_workflow": "security_overview",
     "category": "Findings",
-    "params_hint": {"target": "new vs recurring vulns"}
+    "params_hint": {
+      "target": "new vs recurring vulns"
+    }
   },
   {
     "id": 287,
     "question": "What's the weekly scan schedule look like?",
     "expected_workflow": "security_overview",
     "category": "Scan Management",
-    "params_hint": {"target": "weekly scan schedule"}
+    "params_hint": {
+      "target": "weekly scan schedule"
+    }
   },
   {
     "id": 288,
     "question": "Which scanner is handling the most load right now?",
     "expected_workflow": "security_overview",
     "category": "Infrastructure Health",
-    "params_hint": {"target": "scanner load"}
+    "params_hint": {
+      "target": "scanner load"
+    }
   },
   {
     "id": 289,
     "question": "Prep me for the Monday morning security standup",
     "expected_workflow": "security_overview",
     "category": "Weekly Summary",
-    "params_hint": {"target": "Monday standup prep"}
+    "params_hint": {
+      "target": "Monday standup prep"
+    }
   },
   {
     "id": 290,
     "question": "What ETM findings need immediate attention?",
     "expected_workflow": "security_overview",
     "category": "Findings",
-    "params_hint": {"target": "urgent ETM findings"}
+    "params_hint": {
+      "target": "urgent ETM findings"
+    }
   },
   {
     "id": 291,
     "question": "Show me vulnerability counts by asset group",
     "expected_workflow": "security_overview",
     "category": "Findings",
-    "params_hint": {"target": "vulns by asset group"}
+    "params_hint": {
+      "target": "vulns by asset group"
+    }
   },
   {
     "id": 292,
     "question": "What's the average scan duration for our vuln scans?",
     "expected_workflow": "security_overview",
     "category": "Scan Management",
-    "params_hint": {"target": "average scan duration"}
+    "params_hint": {
+      "target": "average scan duration"
+    }
   },
   {
     "id": 293,
     "question": "Were there any scanner connectivity issues today?",
     "expected_workflow": "security_overview",
     "category": "Infrastructure Health",
-    "params_hint": {"target": "scanner connectivity issues"}
+    "params_hint": {
+      "target": "scanner connectivity issues"
+    }
   },
   {
     "id": 294,
     "question": "Generate the Friday end-of-week security report",
     "expected_workflow": "security_overview",
     "category": "Weekly Summary",
-    "params_hint": {"target": "Friday report"}
+    "params_hint": {
+      "target": "Friday report"
+    }
   },
   {
     "id": 295,
     "question": "How did our security metrics change this month?",
     "expected_workflow": "security_overview",
     "category": "Monthly Summary",
-    "params_hint": {"target": "monthly metrics change"}
+    "params_hint": {
+      "target": "monthly metrics change"
+    }
   },
   {
     "id": 296,
     "question": "Show me the top 10 most common vulnerabilities across our environment",
     "expected_workflow": "security_overview",
     "category": "Findings",
-    "params_hint": {"target": "top 10 common vulns"}
+    "params_hint": {
+      "target": "top 10 common vulns"
+    }
   },
   {
     "id": 297,
     "question": "Are all our cloud connectors healthy and syncing?",
     "expected_workflow": "security_overview",
     "category": "Infrastructure Health",
-    "params_hint": {"target": "cloud connector health"}
+    "params_hint": {
+      "target": "cloud connector health"
+    }
   },
   {
     "id": 298,
     "question": "What's the end-of-day security summary?",
     "expected_workflow": "security_overview",
     "category": "Daily Briefing",
-    "params_hint": {"target": "end of day summary"}
+    "params_hint": {
+      "target": "end of day summary"
+    }
   },
   {
     "id": 299,
     "question": "Show me any scans that exceeded their time window",
     "expected_workflow": "security_overview",
     "category": "Scan Management",
-    "params_hint": {"target": "scans exceeded time window"}
+    "params_hint": {
+      "target": "scans exceeded time window"
+    }
   },
   {
     "id": 300,
     "question": "Give me a high-level security overview for the board presentation",
     "expected_workflow": "security_overview",
     "category": "Monthly Summary",
-    "params_hint": {"target": "board presentation overview"}
+    "params_hint": {
+      "target": "board presentation overview"
+    }
   },
   {
     "id": 301,
     "question": "Are any of our FortiClient EMS servers exposed to CVE-2026-35616? It just got added to CISA KEV",
     "expected_workflow": "investigate",
     "category": "CVE Triage",
-    "params_hint": {"target": "CVE-2026-35616"}
+    "params_hint": {
+      "target": "CVE-2026-35616"
+    }
   },
   {
     "id": 302,
     "question": "What's our exposure to the Ivanti EPMM zero-days CVE-2026-1281 and CVE-2026-1340?",
     "expected_workflow": "investigate",
     "category": "CVE Triage",
-    "params_hint": {"target": "CVE-2026-1281 CVE-2026-1340"}
+    "params_hint": {
+      "target": "CVE-2026-1281 CVE-2026-1340"
+    }
   },
   {
     "id": 303,
-    "question": "We use Marimo notebooks in our data science team — are we affected by CVE-2026-39987?",
+    "question": "We use Marimo notebooks in our data science team \u2014 are we affected by CVE-2026-39987?",
     "expected_workflow": "investigate",
     "category": "CVE Triage",
-    "params_hint": {"target": "CVE-2026-39987"}
+    "params_hint": {
+      "target": "CVE-2026-39987"
+    }
   },
   {
     "id": 304,
-    "question": "Check if we have any exposure from the Trivy supply chain attack CVE-2026-33634 — did any of our CI/CD pipelines pull the compromised scanner versions?",
+    "question": "Check if we have any exposure from the Trivy supply chain attack CVE-2026-33634 \u2014 did any of our CI/CD pipelines pull the compromised scanner versions?",
     "expected_workflow": "investigate",
     "category": "CVE Triage",
-    "params_hint": {"target": "CVE-2026-33634"}
+    "params_hint": {
+      "target": "CVE-2026-33634"
+    }
   },
   {
     "id": 305,
     "question": "What TTPs does Storm-1175 use and do we have any vulnerabilities they could exploit for Medusa ransomware delivery?",
     "expected_workflow": "investigate",
     "category": "Threat Actor Attribution",
-    "params_hint": {"target": "Storm-1175"}
+    "params_hint": {
+      "target": "Storm-1175"
+    }
   },
   {
     "id": 306,
     "question": "Are we exposed to the Qilin ransomware BYOVD technique that's being used to kill EDR tools before encryption?",
     "expected_workflow": "investigate",
     "category": "Threat Actor Attribution",
-    "params_hint": {"target": "Qilin BYOVD"}
+    "params_hint": {
+      "target": "Qilin BYOVD"
+    }
   },
   {
     "id": 307,
     "question": "Do we have any BeyondTrust Remote Support instances that could be hit by CVE-2026-1731?",
     "expected_workflow": "investigate",
     "category": "CVE Triage",
-    "params_hint": {"target": "CVE-2026-1731"}
+    "params_hint": {
+      "target": "CVE-2026-1731"
+    }
   },
   {
     "id": 308,
     "question": "How exposed are we to the TeamPCP supply chain attack that hit Trivy, Checkmarx KICS, and dozens of npm packages?",
     "expected_workflow": "assess_risk",
     "category": "Container Security",
-    "params_hint": {"target": "TeamPCP supply chain"}
+    "params_hint": {
+      "target": "TeamPCP supply chain"
+    }
   },
   {
     "id": 309,
     "question": "What's our risk posture against AI-enhanced device code phishing campaigns that bypass MFA?",
     "expected_workflow": "assess_risk",
     "category": "Threat Actor Attribution",
-    "params_hint": {"target": "device code phishing MFA bypass"}
+    "params_hint": {
+      "target": "device code phishing MFA bypass"
+    }
   },
   {
     "id": 310,
-    "question": "Show me our exposure to the Medusa ransomware attack chain — we're a healthcare org and Storm-1175 is targeting us specifically",
+    "question": "Show me our exposure to the Medusa ransomware attack chain \u2014 we're a healthcare org and Storm-1175 is targeting us specifically",
     "expected_workflow": "assess_risk",
     "category": "Threat Actor Attribution",
-    "params_hint": {"target": "Medusa ransomware healthcare"}
+    "params_hint": {
+      "target": "Medusa ransomware healthcare"
+    }
   },
   {
     "id": 311,
     "question": "Are there any long-term IAM keys or cloud credentials in our CI/CD pipelines that could have been exfiltrated by the TeamPCP CanisterWorm?",
     "expected_workflow": "assess_risk",
     "category": "Cloud Security",
-    "params_hint": {"target": "CI/CD credential exposure TeamPCP"}
+    "params_hint": {
+      "target": "CI/CD credential exposure TeamPCP"
+    }
   },
   {
     "id": 312,
     "question": "Are we compliant with CISA BOD 25-01 cloud security requirements? We need to validate our cloud config controls",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "CISA BOD 25-01"}
+    "params_hint": {
+      "target": "CISA BOD 25-01"
+    }
   },
   {
     "id": 313,
     "question": "What do we need to do to meet EU AI Act security requirements for our internal LLM deployments?",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "EU AI Act LLM compliance"}
+    "params_hint": {
+      "target": "EU AI Act LLM compliance"
+    }
   },
   {
     "id": 314,
     "question": "Do our CI/CD pipeline security controls meet hardening standards after the Trivy/TeamPCP supply chain compromise wave?",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "CI/CD pipeline hardening compliance"}
+    "params_hint": {
+      "target": "CI/CD pipeline hardening compliance"
+    }
   },
   {
     "id": 315,
     "question": "Are our FortiClient EMS deployments compliant with Fortinet's latest security hardening guidance following CVE-2026-35616?",
     "expected_workflow": "check_compliance",
     "category": "Framework Compliance",
-    "params_hint": {"target": "FortiClient EMS hardening compliance"}
+    "params_hint": {
+      "target": "FortiClient EMS hardening compliance"
+    }
   },
   {
     "id": 316,
-    "question": "What's the remediation plan for the Ivanti EPMM CVE-2026-1281 and CVE-2026-1340 zero-days — how many systems need patching and how fast can we move?",
+    "question": "What's the remediation plan for the Ivanti EPMM CVE-2026-1281 and CVE-2026-1340 zero-days \u2014 how many systems need patching and how fast can we move?",
     "expected_workflow": "plan_remediation",
     "category": "Patch Management",
-    "params_hint": {"target": "CVE-2026-1281 CVE-2026-1340 remediation"}
+    "params_hint": {
+      "target": "CVE-2026-1281 CVE-2026-1340 remediation"
+    }
   },
   {
     "id": 317,
     "question": "How do we patch or mitigate CVE-2026-35616 on FortiClient EMS? Show me all affected assets and a deployment plan",
     "expected_workflow": "plan_remediation",
     "category": "Patch Management",
-    "params_hint": {"target": "CVE-2026-35616 remediation"}
+    "params_hint": {
+      "target": "CVE-2026-35616 remediation"
+    }
   },
   {
     "id": 318,
-    "question": "Help me plan remediation for any systems touched by the Trivy CVE-2026-33634 supply chain compromise — what secrets need to be rotated?",
+    "question": "Help me plan remediation for any systems touched by the Trivy CVE-2026-33634 supply chain compromise \u2014 what secrets need to be rotated?",
     "expected_workflow": "plan_remediation",
     "category": "Mitigation Coverage",
-    "params_hint": {"target": "CVE-2026-33634 remediation secrets rotation"}
+    "params_hint": {
+      "target": "CVE-2026-33634 remediation secrets rotation"
+    }
   },
   {
     "id": 319,
     "question": "What compensating controls can we put in place for Marimo CVE-2026-39987 on our data science systems until we can update?",
     "expected_workflow": "plan_remediation",
     "category": "Mitigation Coverage",
-    "params_hint": {"target": "CVE-2026-39987 compensating controls"}
+    "params_hint": {
+      "target": "CVE-2026-39987 compensating controls"
+    }
   },
   {
     "id": 320,
-    "question": "Give me a threat intel briefing — what new CVEs, ransomware campaigns, and active exploits should I know about this week?",
+    "question": "Give me a threat intel briefing \u2014 what new CVEs, ransomware campaigns, and active exploits should I know about this week?",
     "expected_workflow": "security_overview",
     "category": "Daily Briefing",
-    "params_hint": {"target": "weekly threat intel briefing"}
+    "params_hint": {
+      "target": "weekly threat intel briefing"
+    }
+  },
+  {
+    "id": 321,
+    "question": "Show me OLVM authentication records configured in Qualys",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "framework": "olvm"
+    }
+  },
+  {
+    "id": 322,
+    "question": "Do we have any Oracle Linux Virtualization Manager auth entries set up?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "framework": "olvm"
+    }
+  },
+  {
+    "id": 323,
+    "question": "Export policy 12345 using the v3 API with updated control definitions",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "framework": "policy"
+    }
+  },
+  {
+    "id": 324,
+    "question": "Are there any compliance controls with updated fix values available in policy 99?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "framework": "cis"
+    }
+  },
+  {
+    "id": 325,
+    "question": "Show technology evaluation results for policy 100 and list controls that have definition updates",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "framework": "policy"
+    }
   }
 ]

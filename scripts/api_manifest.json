@@ -1,7 +1,7 @@
 {
   "_meta": {
     "description": "Complete inventory of known Qualys API endpoints. Used for gap analysis against api.py.",
-    "lastUpdated": "2026-04-11",
+    "lastUpdated": "2026-04-23",
     "sources": "Qualys docs crawl + manual verification + release notes + US2 live testing"
   },
   "modules": {
@@ -110,6 +110,42 @@
           "path": "/api/5.0/fo/schedule/scan/",
           "status": "implemented",
           "description": "Scan scheduling v5"
+        },
+        {
+          "method": "GET",
+          "path": "/api/2.0/fo/auth/olvm/",
+          "status": "implemented",
+          "description": "OLVM authentication record list (VM 10.38)"
+        },
+        {
+          "method": "POST",
+          "path": "/api/2.0/fo/auth/olvm/",
+          "status": "not_needed",
+          "description": "OLVM auth record create/update/delete (write)"
+        }
+      ]
+    },
+    "CloudAgent": {
+      "baseUrl": "GATEWAY/caui",
+      "auth": "bearer",
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/caui/v1/config-profiles",
+          "status": "not_needed",
+          "description": "Create CA configuration profile (write)"
+        },
+        {
+          "method": "PUT",
+          "path": "/caui/v1/config-profiles",
+          "status": "not_needed",
+          "description": "Update CA configuration profile (write)"
+        },
+        {
+          "method": "POST",
+          "path": "/caui/v1/activation-keys/manage/activation-key",
+          "status": "not_needed",
+          "description": "Create CA activation key (write)"
         }
       ]
     },
@@ -567,6 +603,18 @@
           "path": "/pcas/v1/library/policy/import",
           "status": "not_needed",
           "description": "Import policy (write)"
+        },
+        {
+          "method": "GET",
+          "path": "/pcas/v3/policy",
+          "status": "implemented",
+          "description": "Policy export v3 with controlDefinitionUpdateAvailable (PA 1.10)"
+        },
+        {
+          "method": "GET",
+          "path": "/pcas/v3/policy/section/control/technology/evaluation",
+          "status": "implemented",
+          "description": "Technology evaluation with showUpdatedControlDefinition param (PA 1.10)"
         }
       ]
     },
