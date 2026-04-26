@@ -17,6 +17,7 @@ build/
 # Eval results
 eval_results/
 !eval_results/.gitkeep
+!eval_results/nightly_*.json
 benchmark_results.json
 
 # Node
