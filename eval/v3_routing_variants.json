@@ -4478,5 +4478,289 @@
       "Please provide a current threat intelligence briefing summarizing newly disclosed CVEs with active exploitation, emerging ransomware campaigns, and active threat actor activity relevant to our environment.",
       "weekly threat intel briefing — CVEs, campaigns, active exploits"
     ]
+  },
+  {
+    "id": 326,
+    "base_question": "Are any of our Docker Engine hosts exposed to CVE-2026-34040? CISA just added it to KEV",
+    "expected_workflow": "investigate",
+    "category": "CVE Triage",
+    "params_hint": {
+      "target": "CVE-2026-34040"
+    },
+    "variants": [
+      "hey, docker CVE-2026-34040 just hit KEV — are any of our container hosts affected?",
+      "Please investigate our environment for exposure to CVE-2026-34040, the Docker Engine authorization bypass vulnerability recently added to the CISA KEV catalog.",
+      "CVE-2026-34040 Docker auth bypass — exposure check"
+    ]
+  },
+  {
+    "id": 327,
+    "base_question": "CVE-2025-32975 is a CVSS 10 in Quest KACE SMA — do we have any KACE appliances that could be hit?",
+    "expected_workflow": "investigate",
+    "category": "CVE Triage",
+    "params_hint": {
+      "target": "CVE-2025-32975"
+    },
+    "variants": [
+      "there's a perfect-10 CVE in Quest KACE SMA (CVE-2025-32975) — do we run KACE anywhere?",
+      "Please assess whether our organization has any Quest KACE Systems Management Appliance deployments vulnerable to CVE-2025-32975, a CVSS 10.0 improper authentication flaw.",
+      "CVE-2025-32975 Quest KACE CVSS 10 — any exposure?"
+    ]
+  },
+  {
+    "id": 328,
+    "base_question": "What's our exposure to The Gentlemen ransomware group? They went from 35 to 182 victims in a single quarter",
+    "expected_workflow": "investigate",
+    "category": "Threat Actor Attribution",
+    "params_hint": {
+      "target": "The Gentlemen ransomware"
+    },
+    "variants": [
+      "have you heard about The Gentlemen ransomware? blew up to 182 victims this quarter — are we exposed to their TTPs?",
+      "Please investigate our organizational exposure to The Gentlemen ransomware group, which significantly escalated activity from 35 to 182 victims in Q1 2026.",
+      "The Gentlemen ransomware group — TTP exposure assessment"
+    ]
+  },
+  {
+    "id": 329,
+    "base_question": "There's a CVSS 9.6 RCE in GitHub Copilot via prompt injection — CVE-2025-53773. Are we affected?",
+    "expected_workflow": "investigate",
+    "category": "CVE Triage",
+    "params_hint": {
+      "target": "CVE-2025-53773"
+    },
+    "variants": [
+      "CVE-2025-53773 lets attackers get RCE through copilot PR descriptions — do we use GitHub Copilot and are we vulnerable?",
+      "Please determine our exposure to CVE-2025-53773, a CVSS 9.6 remote code execution vulnerability in GitHub Copilot triggered by malicious prompt injection in pull request descriptions.",
+      "CVE-2025-53773 Copilot prompt injection RCE — are we at risk?"
+    ]
+  },
+  {
+    "id": 330,
+    "base_question": "Storm-1175 is deploying Medusa ransomware through exploited RMM consoles — what's our exposure?",
+    "expected_workflow": "investigate",
+    "category": "Threat Actor Attribution",
+    "params_hint": {
+      "target": "Storm-1175"
+    },
+    "variants": [
+      "Storm-1175 uses RMM exploits to drop Medusa ransomware — do we have RMM consoles that could be targeted?",
+      "Please assess our exposure to Storm-1175 threat actor TTPs, specifically their method of gaining initial access through compromised RMM console vulnerabilities to deploy Medusa ransomware.",
+      "Storm-1175 Medusa RMM initial access — our exposure?"
+    ]
+  },
+  {
+    "id": 331,
+    "base_question": "How exposed is our Kubernetes environment to CVE-2026-24514 — the ingress-nginx admission webhook DoS?",
+    "expected_workflow": "assess_risk",
+    "category": "Container Security",
+    "params_hint": {
+      "target": "CVE-2026-24514"
+    },
+    "variants": [
+      "CVE-2026-24514 can crash ingress-nginx pods via oversized admission requests — how many of our k8s clusters are at risk?",
+      "Please evaluate our Kubernetes environment's risk exposure to CVE-2026-24514, an unauthenticated denial-of-service vulnerability in ingress-nginx's validating admission webhook.",
+      "CVE-2026-24514 ingress-nginx DoS — k8s risk assessment"
+    ]
+  },
+  {
+    "id": 332,
+    "base_question": "How many Cisco Catalyst SD-WAN Manager instances do we have and are they exposed to CVE-2026-20133?",
+    "expected_workflow": "assess_risk",
+    "category": "CVE Triage",
+    "params_hint": {
+      "target": "CVE-2026-20133"
+    },
+    "variants": [
+      "CISA added CVE-2026-20133 for Cisco SD-WAN Manager — how many of those do we have and are they patched?",
+      "Please assess our exposure to CVE-2026-20133, a sensitive information disclosure vulnerability in Cisco Catalyst SD-WAN Manager recently added to the CISA KEV catalog with a federal remediation deadline.",
+      "CVE-2026-20133 Cisco SD-WAN Manager — inventory and exposure risk"
+    ]
+  },
+  {
+    "id": 333,
+    "base_question": "What's our risk from CVE-2026-33825 — CISA just flagged this Microsoft Defender access control flaw as actively exploited",
+    "expected_workflow": "assess_risk",
+    "category": "CVE Triage",
+    "params_hint": {
+      "target": "CVE-2026-33825"
+    },
+    "variants": [
+      "Microsoft Defender has a KEV entry now — CVE-2026-33825. What's our risk look like?",
+      "Please evaluate our organizational risk exposure to CVE-2026-33825, the Microsoft Defender insufficient access control vulnerability that CISA has confirmed is being actively exploited.",
+      "CVE-2026-33825 Microsoft Defender access control — risk assessment"
+    ]
+  },
+  {
+    "id": 334,
+    "base_question": "How bad is our IAM over-permissioning problem across AWS and Azure? That's behind most cloud breaches right now",
+    "expected_workflow": "assess_risk",
+    "category": "Cloud Security",
+    "params_hint": {
+      "target": "IAM over-permissioned roles"
+    },
+    "variants": [
+      "can you show me how over-permissioned our IAM roles are in AWS and Azure? I know this is a huge problem for us",
+      "Please provide a risk assessment of IAM over-permissioning across our AWS and Azure environments, identifying roles and accounts with excessive privileges that could be exploited in a breach scenario.",
+      "IAM over-permissioning AWS Azure — cloud breach risk"
+    ]
+  },
+  {
+    "id": 335,
+    "base_question": "Do we have any SimpleHelp instances vulnerable to the KEV-listed authorization bypass CVE-2024-57726 or path traversal CVE-2024-57728?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "framework": "CISA KEV",
+      "target": "CVE-2024-57726"
+    },
+    "variants": [
+      "SimpleHelp just got two CVEs added to KEV — CVE-2024-57726 and CVE-2024-57728. do we run SimpleHelp and are we patched?",
+      "Please verify whether our environment contains any SimpleHelp deployments subject to the CISA KEV-listed CVE-2024-57726 (missing authorization) and CVE-2024-57728 (path traversal) vulnerabilities.",
+      "CVE-2024-57726 CVE-2024-57728 SimpleHelp KEV compliance check"
+    ]
+  },
+  {
+    "id": 336,
+    "base_question": "Are we going to hit the CISA May 4 patching deadline for the Cisco SD-WAN and Quest KACE KEV entries?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "framework": "CISA KEV",
+      "target": "May 4 patch deadline"
+    },
+    "variants": [
+      "CISA gave us a May 4 deadline for those Cisco and Quest KACE KEV patches — are we on track?",
+      "Please assess our compliance status against the CISA KEV May 4 federal remediation deadline for Cisco Catalyst SD-WAN Manager and Quest KACE SMA vulnerabilities and identify any assets not yet patched.",
+      "CISA KEV May 4 deadline — Cisco SD-WAN and KACE patch compliance"
+    ]
+  },
+  {
+    "id": 337,
+    "base_question": "CVE-2023-27351 in PaperCut NG/MF is actively exploited and on CISA KEV — are we compliant on patching?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "framework": "patch compliance",
+      "target": "CVE-2023-27351 PaperCut"
+    },
+    "variants": [
+      "are our PaperCut print servers patched for CVE-2023-27351? it's on KEV and being actively used in attacks",
+      "Please confirm our patching compliance status for CVE-2023-27351, an improper authentication vulnerability in PaperCut NG/MF that is currently listed in the CISA KEV catalog with confirmed active exploitation.",
+      "CVE-2023-27351 PaperCut NG/MF — KEV patching compliance status"
+    ]
+  },
+  {
+    "id": 338,
+    "base_question": "Do our network device policies cover the D-Link DIR-823X command injection CVE-2025-29635 that CISA just added to KEV?",
+    "expected_workflow": "check_compliance",
+    "category": "Framework Compliance",
+    "params_hint": {
+      "framework": "network device policy",
+      "target": "CVE-2025-29635"
+    },
+    "variants": [
+      "D-Link DIR-823X has a command injection CVE (CVE-2025-29635) on KEV now — do we have those routers and are they in scope for our patching policy?",
+      "Please verify whether our network device management policies address CVE-2025-29635, a command injection vulnerability in D-Link DIR-823X devices recently added to the CISA KEV catalog.",
+      "CVE-2025-29635 D-Link DIR-823X KEV — network device policy compliance"
+    ]
+  },
+  {
+    "id": 339,
+    "base_question": "Build me a remediation plan for CVE-2026-34040 across our Docker Engine hosts — what needs to be updated to version 29.3.1?",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "CVE-2026-34040 Docker 29.3.1"
+    },
+    "variants": [
+      "we need to patch Docker to 29.3.1 for CVE-2026-34040 — help me figure out which hosts to hit first and how to sequence it",
+      "Please develop a prioritized remediation plan to address CVE-2026-34040 across all Docker Engine deployments in our environment, including affected host inventory, upgrade path to version 29.3.1, and recommended remediation sequencing.",
+      "CVE-2026-34040 Docker 29.3.1 upgrade — remediation plan and sequencing"
+    ]
+  },
+  {
+    "id": 340,
+    "base_question": "We need to harden against Medusa ransomware — which of our systems are most exposed to Storm-1175 initial access vectors?",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "Medusa ransomware hardening Storm-1175"
+    },
+    "variants": [
+      "Storm-1175 is dropping Medusa through RMM exploits — which of our assets are sitting ducks and what should we fix first?",
+      "Please identify assets in our environment most susceptible to Storm-1175 initial access techniques used in Medusa ransomware deployments, and provide a prioritized hardening and remediation plan.",
+      "Storm-1175 Medusa initial access — exposure inventory and hardening plan"
+    ]
+  },
+  {
+    "id": 341,
+    "base_question": "Help me prioritize patching CVE-2024-27199 in JetBrains TeamCity across our CI/CD infrastructure",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "CVE-2024-27199 TeamCity"
+    },
+    "variants": [
+      "we have TeamCity servers that might be vulnerable to CVE-2024-27199 — which ones do we patch first?",
+      "Please provide a prioritized remediation plan for CVE-2024-27199, the JetBrains TeamCity path traversal vulnerability, across all CI/CD server instances in our environment.",
+      "CVE-2024-27199 TeamCity path traversal — CI/CD patch prioritization"
+    ]
+  },
+  {
+    "id": 342,
+    "base_question": "What's the fix plan for Samsung MagicINFO 9 Server CVE-2024-7399 — it's a path traversal CISA just added to KEV",
+    "expected_workflow": "plan_remediation",
+    "category": "Patch Management",
+    "params_hint": {
+      "target": "CVE-2024-7399 Samsung MagicINFO"
+    },
+    "variants": [
+      "CVE-2024-7399 just hit CISA KEV — do we have Samsung MagicINFO servers and what's the patch plan?",
+      "Please develop a remediation plan for CVE-2024-7399, a path traversal vulnerability in Samsung MagicINFO 9 Server recently added to the CISA KEV catalog, covering affected assets and patching steps.",
+      "CVE-2024-7399 Samsung MagicINFO 9 KEV — remediation plan"
+    ]
+  },
+  {
+    "id": 343,
+    "base_question": "Give me a briefing on the April 2026 CISA KEV additions — what got added and what should we prioritize first?",
+    "expected_workflow": "security_overview",
+    "category": "Daily Briefing",
+    "params_hint": {
+      "target": "CISA KEV April 2026"
+    },
+    "variants": [
+      "what did CISA add to KEV this month? walk me through the April 2026 additions and what matters most for us",
+      "Please provide a comprehensive overview of all CISA Known Exploited Vulnerability catalog additions from April 2026, including affected products, exploitation status, and recommended prioritization for our environment.",
+      "April 2026 CISA KEV additions — summary and prioritization"
+    ]
+  },
+  {
+    "id": 344,
+    "base_question": "What's the current ransomware threat landscape? I'm seeing Medusa and The Gentlemen in the news — how does it affect us?",
+    "expected_workflow": "security_overview",
+    "category": "Daily Briefing",
+    "params_hint": {
+      "target": "ransomware threat landscape 2026"
+    },
+    "variants": [
+      "Medusa and The Gentlemen are all over security news right now — give me the ransomware threat landscape and our exposure",
+      "Please provide a current ransomware threat landscape briefing covering active campaigns including Medusa (Storm-1175) and The Gentlemen group, and assess how our environment aligns with their known targeting and initial access patterns.",
+      "2026 ransomware landscape — Medusa, The Gentlemen, and our exposure"
+    ]
+  },
+  {
+    "id": 345,
+    "base_question": "We're expanding our AI infrastructure — what does the LLM and MCP server attack surface look like and where are we most at risk?",
+    "expected_workflow": "security_overview",
+    "category": "AI Security",
+    "params_hint": {
+      "target": "LLM MCP attack surface"
+    },
+    "variants": [
+      "we're spinning up more AI stuff — can you give me the lay of the land on LLM and MCP server risks before we go further?",
+      "Please provide a security overview of the current LLM and Model Context Protocol (MCP) server attack surface, covering known exploitation patterns, misconfiguration risks, and recommendations relevant to our AI infrastructure expansion.",
+      "LLM and MCP server attack surface — AI infrastructure security overview"
+    ]
   }
 ]
