@@ -80,6 +80,33 @@ KB_CONFLICT_BASE_DELAY = 3  # seconds
 KB_BUSY_MSG = "Knowledge base export is currently busy (concurrent request in progress). Please try again in a moment."
 _KB_SEM = Semaphore(1)  # Qualys KB allows only one concurrent query per subscription
 CDR_UNAVAILABLE_MSG = "CDR findings currently unavailable"
+
+# ---------------------------------------------------------------------------
+# API error counters (for nightly latency-tolerance detection)
+# ---------------------------------------------------------------------------
+# Tracks HTTP errors seen across the session.  Not precise under high
+# concurrency, but accurate enough for "did any 503s happen?" detection.
+_api_error_counts: dict[str, int] = {"503": 0, "502": 0, "429": 0, "401_gw": 0}
+_api_error_counts_lock = threading.Lock()
+
+
+def get_api_error_counts() -> dict:
+    """Return a snapshot of HTTP error counts since last reset."""
+    with _api_error_counts_lock:
+        return dict(_api_error_counts)
+
+
+def reset_api_error_counts() -> None:
+    """Zero all HTTP error counters (call at the start of each timed run)."""
+    with _api_error_counts_lock:
+        for k in _api_error_counts:
+            _api_error_counts[k] = 0
+
+
+def _count_api_error(code: int, gateway: bool = False) -> None:
+    key = "401_gw" if (code == 401 and gateway) else str(code)
+    with _api_error_counts_lock:
+        _api_error_counts[key] = _api_error_counts.get(key, 0) + 1
 CSAM_MAX_RETRIES = int(os.environ.get("CSAM_MAX_RETRIES", "3"))
 CSAM_RATE_LIMITED_MSG = "Asset search temporarily unavailable due to rate limiting. Please try again in a moment."
 # Cap concurrent CSAM requests to avoid 429 floods at high worker concurrency
@@ -449,6 +476,7 @@ def _api_get_inner(url, gateway, timeout, not_found_ok, server_error_sentinel):
                 return resp.read()
         except HTTPError as e:
             if e.code in RETRY_STATUS and attempt < MAX_RETRIES - 1:
+                _count_api_error(e.code)
                 retry_after = e.headers.get('Retry-After') if e.headers else None
                 if retry_after:
                     try:
@@ -459,6 +487,15 @@ def _api_get_inner(url, gateway, timeout, not_found_ok, server_error_sentinel):
                     delay = 2 ** attempt + random.uniform(0, 1)
                 _log(f"Retry {attempt + 1}/{MAX_RETRIES} after {e.code} for {url.split('?')[0]} (wait {delay:.1f}s)")
                 time.sleep(delay)
+                continue
+            if e.code == 401 and gateway and attempt == 0:
+                # Token may have expired mid-session — force a fresh token and retry once.
+                _count_api_error(401, gateway=True)
+                with AUTH_LOCK:
+                    global BEARER_TOKEN, BEARER_TOKEN_TIME
+                    BEARER_TOKEN = None
+                    BEARER_TOKEN_TIME = None
+                _log(f"Got 401 on gateway call, forcing token refresh: {url.split('?')[0]}")
                 continue
             if e.code in KB_CONFLICT_RETRY_STATUS and attempt < KB_CONFLICT_MAX_RETRIES - 1:
                 delay = KB_CONFLICT_BASE_DELAY + random.uniform(0, 2)
@@ -504,6 +541,7 @@ def _csam_request(url, body, timeout=30):
                 return json.loads(raw)
         except HTTPError as e:
             if e.code in RETRY_STATUS and attempt < CSAM_MAX_RETRIES - 1:
+                _count_api_error(e.code)
                 retry_after = e.headers.get('Retry-After') if e.headers else None
                 if retry_after:
                     try:
