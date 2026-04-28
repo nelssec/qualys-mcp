@@ -27,6 +27,7 @@ from qualys.workflows.assess_risk import assess_risk
 from qualys.workflows.investigate import investigate
 from qualys.workflows.compliance import check_compliance
 from qualys.workflows.remediation import plan_remediation
+from qualys.api import get_api_error_counts, reset_api_error_counts
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -236,6 +237,7 @@ def phase3():
     print("PHASE 3 — Customer Simulation (17 fixed questions)")
     print('='*60)
 
+    reset_api_error_counts()
     results = []
     for i, (workflow, kwargs) in enumerate(PHASE3_CASES, 1):
         label = f"{workflow}({', '.join(f'{k}={repr(v)}' for k,v in kwargs.items())})"
@@ -250,12 +252,16 @@ def phase3():
         print(f"         → {status} ({r.get('elapsed', 0):.1f}s) {err}")
 
     passed = sum(1 for r in results if r["passed"])
+    # Capture API error counts so regression check can apply latency tolerance
+    error_counts = get_api_error_counts()
     print(f"\n  Phase 3 result: {passed}/17 passed ({100*passed/17:.0f}%)")
-    return results
+    if any(error_counts.get(k, 0) > 0 for k in ("503", "502", "429")):
+        print(f"  API errors detected during run: {error_counts} — latency threshold widened")
+    return results, error_counts
 
 # ── Phase 4: Regression Check ─────────────────────────────────────────────────
 
-def phase4(today_results: dict, previous: dict | None):
+def phase4(today_results: dict, previous: dict | None, api_error_counts: dict | None = None):
     print(f"\n{'='*60}")
     print("PHASE 4 — Regression Check")
     print('='*60)
@@ -277,6 +283,14 @@ def phase4(today_results: dict, previous: dict | None):
         regressions.append({"type": "pass_rate", "detail": msg})
         print(f"  *** REGRESSION: {msg}")
 
+    # Widen latency threshold when the Qualys API was degraded during the run
+    # (503/502/429 errors cause retry backoff that inflates wall-clock time).
+    err = api_error_counts or {}
+    api_degraded = any(err.get(k, 0) > 0 for k in ("503", "502", "429"))
+    latency_multiplier = 3.0 if api_degraded else 1.5
+    if api_degraded:
+        print(f"  API errors detected {err} — latency threshold widened to {latency_multiplier}×")
+
     # Check Phase 3 individually (fixed questions, comparable run-to-run)
     prev_p3 = {r["label"]: r for r in previous.get("phase3", [])}
     curr_p3 = {r["label"]: r for r in today_results.get("phase3", [])}
@@ -291,8 +305,12 @@ def phase4(today_results: dict, previous: dict | None):
         if prev_r and prev_r.get("elapsed", 0) > 0:
             prev_t = prev_r["elapsed"]
             curr_t = curr_r.get("elapsed", 0)
-            if curr_t > prev_t * 1.5:
-                msg = f"Response time regression on '{label}': {prev_t:.1f}s → {curr_t:.1f}s"
+            if curr_t > prev_t * latency_multiplier:
+                msg = (
+                    f"Response time regression on '{label}': "
+                    f"{prev_t:.1f}s → {curr_t:.1f}s"
+                    + (f" (threshold {latency_multiplier}× due to API errors)" if api_degraded else "")
+                )
                 regressions.append({"type": "latency", "label": label, "detail": msg})
                 print(f"  *** REGRESSION: {msg}")
 
@@ -441,7 +459,7 @@ def main():
     p2_passed = sum(1 for r in p2_results if r["passed"])
 
     # ── Phase 3 ──────────────────────────────────────────────────────────────
-    p3_results = phase3()
+    p3_results, p3_error_counts = phase3()
     p3_passed = sum(1 for r in p3_results if r["passed"])
 
     # ── Totals ────────────────────────────────────────────────────────────────
@@ -466,7 +484,7 @@ def main():
     }
 
     # ── Phase 4 ──────────────────────────────────────────────────────────────
-    regressions = phase4(today_results, previous)
+    regressions = phase4(today_results, previous, api_error_counts=p3_error_counts)
     today_results["regressions"] = regressions
 
     # ── Phase 5 ──────────────────────────────────────────────────────────────
