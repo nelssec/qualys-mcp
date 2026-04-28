@@ -11,7 +11,6 @@ from qualys.workflows.compliance import check_compliance as check_compliance_wf
 from qualys.workflows.remediation import plan_remediation as plan_remediation_wf
 from qualys.workflows.overview import security_overview as security_overview_wf
 from qualys.aggregators import reports_agg, cache_status_agg
-from qualys.workflows import _envelope_to_markdown
 
 mcp = FastMCP("qualys-mcp")
 
@@ -21,7 +20,7 @@ async def investigate(target: str, depth: str = "standard", scope: str = "all",
                 tag: str = "", asset_group: str = "", threat_type: str = "",
                 software: str = "", days: int = 7, limit: int = 20,
                 detail: str = "standard", prior_context: str = "",
-                audience: str = "technical") -> str:
+                audience: str = "technical") -> dict:
     """[Investigation] Deep-dive investigation on any security topic — CVEs, threat actors, assets, endpoint events, vulnerability intelligence. @slow
 
     USE WHEN: "tell me about CVE-2024-3400", "are we exposed to Lazarus Group?", "investigate this IP",
@@ -41,12 +40,11 @@ async def investigate(target: str, depth: str = "standard", scope: str = "all",
         prior_context: summary from a previous investigation for chaining
         audience: "technical" | "management" | "executive" (for deep investigation summaries)
 
-    Returns: markdown-formatted findings with risk level, key findings, stats, and recommended actions."""
-    result = await asyncio.to_thread(investigate_wf, target=target, depth=depth, scope=scope, tag=tag,
+    Returns: structured dict with workflow, summary, data, actions, correlations, and execution metadata."""
+    return await asyncio.to_thread(investigate_wf, target=target, depth=depth, scope=scope, tag=tag,
                           asset_group=asset_group, threat_type=threat_type,
                           software=software, days=days, limit=limit,
                           detail=detail, prior_context=prior_context, audience=audience)
-    return _envelope_to_markdown(result) if isinstance(result, dict) and "summary" in result else result
 
 
 @mcp.tool()
@@ -60,7 +58,7 @@ async def assess_risk(scope: str = "all", tag: str = "", asset_group: str = "",
                 weak_only: bool = False, insecure_renegotiation: bool = False,
                 include_expired: bool = True, days: int = 30, limit: int = 20,
                 detail: str = "standard", sort_by: str = "trurisk",
-                breakdown_by: str = "tag") -> str:
+                breakdown_by: str = "tag") -> dict:
     """[Risk Assessment] Cross-domain risk assessment — VMs, cloud, containers, web apps, certificates, assets. @slow
 
     USE WHEN: "what's our risk?", "show me cloud risk in AWS", "top risky assets", "container vulnerabilities",
@@ -94,8 +92,8 @@ async def assess_risk(scope: str = "all", tag: str = "", asset_group: str = "",
         sort_by: "trurisk" | "severity"
         breakdown_by: "tag" | "none"
 
-    Returns: markdown-formatted risk assessment with findings, stats, and recommended actions."""
-    result = await asyncio.to_thread(assess_risk_wf, scope=scope, tag=tag, asset_group=asset_group,
+    Returns: structured dict with workflow, summary, data, actions, correlations, and execution metadata."""
+    return await asyncio.to_thread(assess_risk_wf, scope=scope, tag=tag, asset_group=asset_group,
                           asset_id=asset_id, os=os, query=query,
                           days_since_seen=days_since_seen, days_since_scan=days_since_scan,
                           eol_only=eol_only, provider=provider, service=service,
@@ -105,7 +103,6 @@ async def assess_risk(scope: str = "all", tag: str = "", asset_group: str = "",
                           weak_only=weak_only, insecure_renegotiation=insecure_renegotiation,
                           include_expired=include_expired, days=days, limit=limit,
                           detail=detail, sort_by=sort_by, breakdown_by=breakdown_by)
-    return _envelope_to_markdown(result) if isinstance(result, dict) and "summary" in result else result
 
 
 @mcp.tool()
@@ -113,7 +110,7 @@ async def check_compliance(framework: str = "", platform: str = "", tag: str = "
                      asset_group: str = "", include_exceptions: bool = False,
                      exception_status: str = "Active", vuln_type: str = "",
                      days_to_expiry: int = 30, limit: int = 20,
-                     detail: str = "standard") -> str:
+                     detail: str = "standard") -> dict:
     """[Compliance] Compliance posture assessment — framework pass/fail rates, failing controls, risk acceptances. @slow
 
     USE WHEN: "are we PCI compliant?", "compliance gaps", "show failing controls", "risk acceptances expiring",
@@ -131,19 +128,18 @@ async def check_compliance(framework: str = "", platform: str = "", tag: str = "
         limit: max results (default 20)
         detail: "summary" | "standard" | "detailed"
 
-    Returns: markdown-formatted compliance assessment with pass rates, failing controls, and actions."""
-    result = await asyncio.to_thread(check_compliance_wf, framework=framework, platform=platform, tag=tag,
+    Returns: structured dict with workflow, summary, data, actions, correlations, and execution metadata."""
+    return await asyncio.to_thread(check_compliance_wf, framework=framework, platform=platform, tag=tag,
                                asset_group=asset_group, include_exceptions=include_exceptions,
                                exception_status=exception_status, vuln_type=vuln_type,
                                days_to_expiry=days_to_expiry, limit=limit, detail=detail)
-    return _envelope_to_markdown(result) if isinstance(result, dict) and "summary" in result else result
 
 
 @mcp.tool()
 async def plan_remediation(scope: str = "all", tag: str = "", asset_group: str = "",
                      platform: str = "", severity: str = "", status: str = "",
                      qids: list = None, cves: list = None, limit: int = 20,
-                     detail: str = "standard") -> str:
+                     detail: str = "standard") -> dict:
     """[Remediation] Remediation planning — patch priorities, deployment status, mitigation coverage, program gaps. @slow
 
     USE WHEN: "what should we patch?", "outstanding patches", "patch deployment status", "mitigation coverage",
@@ -161,18 +157,17 @@ async def plan_remediation(scope: str = "all", tag: str = "", asset_group: str =
         limit: max results (default 20)
         detail: "summary" | "standard" | "detailed"
 
-    Returns: markdown-formatted remediation plan with patch priorities and deployment status."""
-    result = await asyncio.to_thread(plan_remediation_wf, scope=scope, tag=tag, asset_group=asset_group,
+    Returns: structured dict with workflow, summary, data, actions, correlations, and execution metadata."""
+    return await asyncio.to_thread(plan_remediation_wf, scope=scope, tag=tag, asset_group=asset_group,
                                platform=platform, severity=severity, status=status,
                                qids=qids, cves=cves, limit=limit, detail=detail)
-    return _envelope_to_markdown(result) if isinstance(result, dict) and "summary" in result else result
 
 
 @mcp.tool()
 async def security_overview(period: str = "today", scope: str = "all", quick: bool = False,
                       tag: str = "", asset_group: str = "", qql: str = "",
                       severity: str = "", scan_state: str = "Running,Paused,Queued,Error",
-                      limit: int = 50, detail: str = "standard") -> str:
+                      limit: int = 50, detail: str = "standard") -> dict:
     """[Overview] Security briefing — daily/weekly/monthly summary with scanner health, findings, and risk trends. @slow when quick=False
 
     USE WHEN: "morning briefing", "what happened this week?", "security overview", "any new critical vulns?",
@@ -190,12 +185,11 @@ async def security_overview(period: str = "today", scope: str = "all", quick: bo
         limit: max results (default 50)
         detail: "summary" | "standard" | "detailed"
 
-    Returns: markdown-formatted security briefing with scanner health, findings, and risk trends."""
-    result = await asyncio.to_thread(security_overview_wf, period=period, scope=scope, quick=quick,
+    Returns: structured dict with workflow, summary, data, actions, correlations, and execution metadata."""
+    return await asyncio.to_thread(security_overview_wf, period=period, scope=scope, quick=quick,
                                 tag=tag, asset_group=asset_group, qql=qql,
                                 severity=severity, scan_state=scan_state,
                                 limit=limit, detail=detail)
-    return _envelope_to_markdown(result) if isinstance(result, dict) and "summary" in result else result
 
 
 @mcp.tool()
