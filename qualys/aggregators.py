@@ -941,37 +941,36 @@ def investigate_cve_agg(cve: str, detail: str = "standard") -> dict:
                 result['summary']['assetsWithSoftware'] = best_count
 
     if qids:
-        primary_qid = qids[0]
         try:
-            import xml.etree.ElementTree as _ET
-            det_url = f"{BASE_URL}/api/2.0/fo/asset/host/vm/detection/?action=list&qids={primary_qid}&status=New,Active,Re-Opened&truncation_limit=20&show_results=0"
-            det_data = api_get(det_url, timeout=45)
-            if det_data:
-                det_root = _ET.fromstring(det_data)
-                det_hosts = det_root.findall('.//HOST')
-                affected_list = []
-                for dh in det_hosts[:10]:
-                    affected_list.append({
-                        'hostId': dh.findtext('ID', ''),
-                        'ip': dh.findtext('IP', ''),
-                        'hostname': dh.findtext('DNS', '') or dh.findtext('DNS_DATA/HOSTNAME', '') or '',
-                        'os': dh.findtext('OS', ''),
-                    })
-                if affected_list:
-                    result['affectedAssets'] = affected_list
-                    result['detectionCount'] = len(det_hosts)
-                    result['summary']['confirmedAffected'] = len(det_hosts)
-                    result['confirmedHosts'] = {
-                        'searchedBy': f'QID {primary_qid} detections',
-                        'hostCount': len(det_hosts),
-                        'hosts': [{
-                            'hostId': a['hostId'],
-                            'ip': a['ip'],
-                            'hostname': a['hostname'],
-                            'os': a['os'],
-                        } for a in affected_list[:10]],
-                        'note': f'{len(det_hosts)} hosts have confirmed detections for QID {primary_qid} ({cve}).',
+            qids_set = set(qids)
+            all_dets = get_detections(severity=3)
+            matched = [d for d in all_dets if d.get('qid') in qids_set]
+            # Deduplicate by host_id so we count unique hosts, not detection records
+            seen_hosts: dict = {}
+            for d in matched:
+                hid = str(d.get('host_id') or d.get('hostId') or '')
+                if hid and hid not in seen_hosts:
+                    seen_hosts[hid] = d
+            if seen_hosts:
+                affected_list = [
+                    {
+                        'hostId': hid,
+                        'ip': d.get('ip', ''),
+                        'hostname': d.get('dnsName', '') or d.get('hostname', '') or '',
+                        'os': d.get('os', ''),
                     }
+                    for hid, d in list(seen_hosts.items())[:10]
+                ]
+                host_count = len(seen_hosts)
+                result['affectedAssets'] = affected_list
+                result['detectionCount'] = host_count
+                result['summary']['confirmedAffected'] = host_count
+                result['confirmedHosts'] = {
+                    'searchedBy': f'all {len(qids)} QID(s) for {cve} via detection cache',
+                    'hostCount': host_count,
+                    'hosts': affected_list,
+                    'note': f'{host_count} unique hosts have confirmed detections for {cve} across {len(qids)} QID(s).',
+                }
         except Exception:
             pass
 
