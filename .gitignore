@@ -31,3 +31,4 @@ discovery/
 *.yaml
 *.yml
 !.github/**/*.yml
+.worktrees/
