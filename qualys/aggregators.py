@@ -6324,31 +6324,26 @@ def assess_exposure(cve: str = "", qid: int = 0, software: str = "", detail: str
     ):
         sw_keywords.insert(0, first_word)
 
-    if sw_keywords:
-        sw_tasks = {}
-        for kw in sw_keywords[:5]:
-            sw_tasks[kw] = lambda k=kw: (
-                csam_count([{'field': 'software.name', 'operator': 'CONTAINS', 'value': k}]),
-            )
-        sw_results = _run_concurrent(**sw_tasks)
+    sw_tasks = {'__total__': lambda: csam_count()}
+    for kw in sw_keywords[:5]:
+        sw_tasks[kw] = lambda k=kw: csam_count(
+            [{'field': 'software.name', 'operator': 'CONTAINS', 'value': k}]
+        )
+    sw_results = _run_concurrent(**sw_tasks)
 
-        total_potential = 0
-        for kw, val in sw_results.items():
-            count = 0
-            if isinstance(val, tuple):
-                count = val[0] if val[0] else 0
-            elif isinstance(val, int):
-                count = val
-            if count > 0:
-                result['exposure']['softwareMatches'].append({
-                    'software': kw,
-                    'assetCount': count,
-                })
-                total_potential = max(total_potential, count)
-        result['exposure']['potentialAssets'] = total_potential
-
-    total_assets = csam_count()
+    total_assets = sw_results.pop('__total__', 0) or 0
     result['exposure']['totalAssets'] = total_assets
+
+    total_potential = 0
+    for kw, val in sw_results.items():
+        count = val if isinstance(val, int) else 0
+        if count > 0:
+            result['exposure']['softwareMatches'].append({
+                'software': kw,
+                'assetCount': count,
+            })
+            total_potential = max(total_potential, count)
+    result['exposure']['potentialAssets'] = total_potential
 
     severity = best_kb.get('severity', 0) if best_kb else 0
     qds = best_kb.get('qds', 0) if best_kb else 0

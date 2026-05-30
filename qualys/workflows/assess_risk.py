@@ -28,7 +28,7 @@ from qualys.aggregators import (
     cloud_reports_agg,
     scheduled_scans_agg,
 )
-from qualys.api import module_available
+from qualys.api import module_available, prewarm_modules
 from qualys.workflows import _dispatch, _build_envelope, _apply_detail
 
 
@@ -690,6 +690,26 @@ def assess_risk(
     web_params_set = bool(app_name or owasp_category)
 
     scope_all = scope == "all"
+
+    # ------------------------------------------------------------------
+    # Pre-warm module availability concurrently to avoid serial cold-start
+    # probing (each uncached probe is a 10s-timeout HTTP call).
+    # ------------------------------------------------------------------
+    _maybe_modules = []
+    if scope_all or scope == "cloud" or cloud_params_set:
+        _maybe_modules += ["totalcloud", "saasdr"]
+    if scope_all or scope == "containers" or image_id:
+        _maybe_modules.append("cs")
+    if scope_all or scope == "web" or web_params_set:
+        _maybe_modules.append("was")
+    if scope_all or scope == "certs" or cert_params_set:
+        _maybe_modules.append("certview")
+    if scope == "fim":
+        _maybe_modules.append("fim")
+    if scope == "edr":
+        _maybe_modules.append("edr")
+    if _maybe_modules:
+        prewarm_modules(_maybe_modules)
 
     # ------------------------------------------------------------------
     # Assets / trurisk (scope "all" or "assets")

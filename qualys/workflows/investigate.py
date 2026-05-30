@@ -166,12 +166,17 @@ def _build_plan(
         cs_vulnerability_detail_agg,
         assess_exposure,
     )
-    from qualys.api import module_available
+    from qualys.api import module_available, prewarm_modules
 
     AI_KEYWORDS = {"ai", "llm", "gpt", "totalai", "jailbreak", "owasp llm", "model detection", "ai security", "ai risk", "ai vulnerability"}
 
     plan: dict[str, Any] = {}
     has_investigate_agg = False
+
+    # Pre-warm module availability concurrently (host investigations probe
+    # both EDR and FIM; serial cold probes would add ~20s).
+    if target_type in ("ip", "hostname") or "edr" in scope or "fim" in scope:
+        prewarm_modules(["edr", "fim"])
 
     if any(kw in target.lower() for kw in AI_KEYWORDS) and module_available("totalai"):
         plan["totalai"] = lambda: totalai_summary(detail=detail)

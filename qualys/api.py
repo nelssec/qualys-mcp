@@ -200,10 +200,27 @@ def module_available(module_name):
     return available
 
 
+def prewarm_modules(names):
+    """Probe several modules concurrently to avoid serial cold-start latency.
+
+    Only probes modules that are not already cached (memory or disk), so
+    warm runs are a no-op. Populates the same caches module_available() uses.
+    """
+    cold = [
+        n for n in names
+        if n in MODULES
+        and n not in _MODULE_AVAILABLE
+        and disk_cache.get(f"module_avail_{n}") is None
+    ]
+    if len(cold) > 1:
+        _run_concurrent(**{n: (lambda m=n: module_available(m)) for n in cold})
+    elif cold:
+        module_available(cold[0])
+
+
 def get_available_modules():
     """Return dict of {module_name: bool} for all known modules."""
-    for name in MODULES:
-        module_available(name)
+    prewarm_modules(list(MODULES))
     with _MODULE_LOCK:
         return dict(_MODULE_AVAILABLE)
 
