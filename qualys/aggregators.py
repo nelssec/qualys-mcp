@@ -5810,6 +5810,72 @@ def oci_resources_agg(resource_type: str = "INSTANCE", limit: int = 50, detail: 
     return _apply_detail_level(_with_meta(result, 'resources', total), detail, list_keys=['resources'])
 
 
+def cloud_resources_v1_agg(provider: str = 'aws', resource_type: str = 'EC2_INSTANCE',
+                           limit: int = 50, detail: str = "standard") -> dict:
+    """List cloud resources via TotalCloud v1 API (AWS/Azure).
+
+    TC 2.24 extended this path to support AWS Workspaces Personal/Directories/Pools
+    and Azure Virtual Machine Scale Sets with their instances.
+    """
+    data = get_cloud_resources_v1(provider=provider, resource_type=resource_type, page_size=limit)
+    content = data.get('content', [])
+    total = data.get('totalHits', len(content))
+
+    resources = []
+    for r in content[:limit]:
+        resources.append({
+            'resourceId': r.get('resourceId', ''),
+            'name': r.get('name', r.get('resourceId', '')[:40]),
+            'region': r.get('region', ''),
+            'uuid': r.get('uuid', ''),
+            'criticality': r.get('criticality', ''),
+            'evaluatedOn': r.get('evaluatedOn', ''),
+            'connectorId': r.get('connectorId', ''),
+        })
+
+    result = {
+        'resources': resources,
+        'totalResources': total,
+        'provider': provider.upper(),
+        'resourceType': resource_type,
+        'summary': f"{total} {provider.upper()} {resource_type.lower()} resource(s) found",
+    }
+    return _apply_detail_level(_with_meta(result, 'resources', total), detail, list_keys=['resources'])
+
+
+def pm_remediation_insights_agg(platform: str = "Windows", limit: int = 50, detail: str = "standard") -> dict:
+    """Patch remediation insights — vendor-acquired patches and customized download URLs (PM 3.14)."""
+    data = get_pm_remediation_insights(platform=platform, page_size=limit)
+    patches = data.get('patches', data.get('content', [])) if isinstance(data, dict) else []
+    if not isinstance(patches, list):
+        patches = []
+
+    vendor_acquired = sum(1 for p in patches if p.get('vendorAcquired') or p.get('isVendorAcquired'))
+    customized_url = sum(1 for p in patches if p.get('isCustomizedDownloadUrl'))
+
+    rows = []
+    for p in patches[:limit]:
+        rows.append({
+            'patchId': p.get('id', p.get('patchId', '')),
+            'title': p.get('title', ''),
+            'vendorAcquired': bool(p.get('vendorAcquired') or p.get('isVendorAcquired')),
+            'customizedDownloadUrl': bool(p.get('isCustomizedDownloadUrl')),
+        })
+
+    result = {
+        'platform': platform,
+        'insights': rows,
+        'totalPatches': len(patches),
+        'vendorAcquired': vendor_acquired,
+        'customizedDownloadUrl': customized_url,
+        'summary': (
+            f"{len(patches)} {platform} remediation insight(s): "
+            f"{vendor_acquired} vendor-acquired, {customized_url} with customized download URL"
+        ),
+    }
+    return _apply_detail_level(_with_meta(result, 'insights', len(patches)), detail, list_keys=['insights'])
+
+
 # ---------------------------------------------------------------------------
 # TotalAI aggregator
 # ---------------------------------------------------------------------------

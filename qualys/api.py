@@ -57,6 +57,34 @@ def _perf_log(event: str, **fields):
         pass
 
 
+# ---------------------------------------------------------------------------
+# HTTP error counters (observability — used by the nightly runner to detect
+# api_degraded conditions like widespread 401/429/503 failures)
+# ---------------------------------------------------------------------------
+
+_api_error_counts = {"503": 0, "502": 0, "429": 0, "401_gw": 0}
+_api_error_counts_lock = threading.Lock()
+
+
+def get_api_error_counts() -> dict:
+    """Return a snapshot of HTTP error counts since last reset."""
+    with _api_error_counts_lock:
+        return dict(_api_error_counts)
+
+
+def reset_api_error_counts() -> None:
+    """Zero all HTTP error counters (call at the start of each timed run)."""
+    with _api_error_counts_lock:
+        for k in _api_error_counts:
+            _api_error_counts[k] = 0
+
+
+def _count_api_error(code: int, gateway: bool = False) -> None:
+    key = "401_gw" if (code == 401 and gateway) else str(code)
+    with _api_error_counts_lock:
+        _api_error_counts[key] = _api_error_counts.get(key, 0) + 1
+
+
 def _provider_from_url(url: str) -> str:
     """Detect Qualys API provider from URL path."""
     if "/csam/" in url or "/cerberus/" in url:
@@ -178,6 +206,10 @@ def module_available(module_name):
     """Check if a Qualys module is available (licensed + reachable).
     Probes once on first call, caches the result for the session and on disk (1h TTL)."""
     if module_name not in MODULES:
+        return True
+    # No-creds / test mode: assume available and never consult or pollute the
+    # disk cache (keeps tests deterministic regardless of prior probe state).
+    if not USERNAME or not PASSWORD or USERNAME in ("dummy", "test"):
         return True
     with _MODULE_LOCK:
         if module_name in _MODULE_AVAILABLE:
@@ -542,6 +574,20 @@ def clear_memory_cache(key=None):
 # ---------------------------------------------------------------------------
 
 
+def _invalidate_bearer_token(stale_token):
+    """Invalidate the cached bearer token only if it still matches stale_token.
+
+    Prevents a race where two concurrent 401 handlers both clear the token,
+    causing the second to null out a freshly-fetched token and trigger a
+    redundant serial auth call.
+    """
+    global BEARER_TOKEN, BEARER_TOKEN_TIME
+    with AUTH_LOCK:
+        if BEARER_TOKEN == stale_token:
+            BEARER_TOKEN = None
+            BEARER_TOKEN_TIME = None
+
+
 def get_bearer_token():
     """Get bearer token, refreshing if expired (tokens last ~4 hours). Thread-safe."""
     global BEARER_TOKEN, BEARER_TOKEN_TIME, AUTH_ERROR
@@ -605,6 +651,7 @@ def _api_get_inner(url, gateway, timeout, not_found_ok, server_error_sentinel):
                 return resp.read()
         except HTTPError as e:
             if e.code in RETRY_STATUS and attempt < MAX_RETRIES - 1:
+                _count_api_error(e.code)
                 retry_after = e.headers.get('Retry-After') if e.headers else None
                 if retry_after:
                     try:
@@ -615,6 +662,14 @@ def _api_get_inner(url, gateway, timeout, not_found_ok, server_error_sentinel):
                     delay = 2 ** attempt + random.uniform(0, 1)
                 _log(f"Retry {attempt + 1}/{MAX_RETRIES} after {e.code} for {url.split('?')[0]} (wait {delay:.1f}s)")
                 time.sleep(delay)
+                continue
+            if e.code == 401 and gateway and attempt == 0:
+                # Token may have expired mid-session — invalidate only the token we
+                # used (stale_token check prevents concurrent handlers from cascading
+                # into multiple serial auth fetches) and retry once with a fresh one.
+                _count_api_error(401, gateway=True)
+                _invalidate_bearer_token(token)
+                _log(f"Got 401 on gateway call, forcing token refresh: {url.split('?')[0]}")
                 continue
             if e.code in KB_CONFLICT_RETRY_STATUS and attempt < KB_CONFLICT_MAX_RETRIES - 1:
                 delay = KB_CONFLICT_BASE_DELAY + random.uniform(0, 2)
@@ -1687,6 +1742,13 @@ def get_pm_patches(platform='Windows', status='Missing', page_size=50):
         return []
 
 
+def get_pm_remediation_insights(platform='Windows', page_size=50):
+    """Get patch remediation insights — vendor-acquired patches, isCustomizedDownloadUrl flag (PM 3.14)."""
+    url = f"{GATEWAY_URL}/pm/v1/remediation/insights"
+    result = _gateway_post(url, {"platform": platform, "pageSize": page_size}, timeout=30)
+    return result if result is not None else {}
+
+
 def get_pm_assets(platform='Windows', limit=10):
     """Get Patch Management enabled assets"""
     data = api_get(f"{GATEWAY_URL}/pm/v1/assets?platform={platform}&pageSize={limit}", gateway=True, not_found_ok=True)
@@ -2263,6 +2325,18 @@ def get_cs_vulnerability_detail(vuln_uuid):
 def get_cloud_resources_v2(provider, resource_type, page_size=50):
     """Get cloud resources via v2 API — supports all providers, no 10K limit."""
     url = f"{GATEWAY_URL}/cloudview-api/rest/v2/resource/{resource_type}/{provider}?pageSize={page_size}"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if data is None:
+        return {'content': [], 'totalHits': 0}
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return {'content': [], 'totalHits': 0}
+
+
+def get_cloud_resources_v1(provider, resource_type, page_size=50):
+    """Get cloud resources via v1 API (AWS/Azure) — includes Workspaces and VM Scale Set types (TC 2.24)."""
+    url = f"{GATEWAY_URL}/cloudview-api/rest/v1/resource/{resource_type}/{provider}?pageSize={page_size}"
     data = api_get(url, gateway=True, not_found_ok=True)
     if data is None:
         return {'content': [], 'totalHits': 0}
