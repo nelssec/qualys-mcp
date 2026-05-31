@@ -1429,7 +1429,13 @@ def patch_status(limit: int = 20, tag: str = "", asset_group: str = "", detail: 
     return _apply_detail_level(result, detail, list_keys=['highRiskAssets'])
 
 
-def search_vulns_agg(days: int = 7, threat_type: str = "", software: str = "", limit: int = 50, tag: str = "", asset_group: str = "", detail: str = "standard") -> dict:
+def search_vulns_agg(days: int = 7, threat_type: str = "", software: str = "", limit: int = 50, tag: str = "", asset_group: str = "", detail: str = "standard", enrich_qds: bool = True) -> dict:
+    """Search the Knowledge Base for recently-published vulnerabilities.
+
+    enrich_qds=True augments the top results with detection-based QDS scores via
+    the VMDR host-detection API (accurate but slow on large environments). Set
+    False for fast listing/triage queries — the KB's own QDS is used instead.
+    """
     after = (datetime.now(timezone.utc) - timedelta(days=days)).strftime('%Y-%m-%d')
     result = {'days': days, 'publishedAfter': after, 'totalVulns': 0,
               'severityBreakdown': {'critical': 0, 'high': 0, 'medium': 0, 'low': 0},
@@ -1502,7 +1508,7 @@ def search_vulns_agg(days: int = 7, threat_type: str = "", software: str = "", l
     matching.sort(key=lambda x: (-x['severity'], -len(x.get('threat_intel', []))))
 
     top_qids = [v['qid'] for v in matching[:20] if v.get('qid')]
-    qds_scores = get_qds_for_qids(top_qids) if top_qids else {}
+    qds_scores = get_qds_for_qids(top_qids) if (enrich_qds and top_qids) else {}
 
     for v in matching[:limit]:
         real_qds = qds_scores.get(v['qid'], 0)

@@ -102,6 +102,36 @@ _CVE_PATTERN = re.compile(r"^CVE-\d{4}-\d{4,}$", re.IGNORECASE)
 _IP_PATTERN = re.compile(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
 _UUID_PATTERN = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
 
+# Vulnerability-listing intent: queries like "list exploitable vulnerabilities",
+# "top sev 5 QIDs", "what's actively exploited" want a vulnerability LIST, not a
+# software/host lookup. Map intent → Qualys threat-intel filter.
+_VULN_THREAT_KEYWORDS = {
+    "Active_Attacks": ("exploit", "active attack", "actively exploited", "in the wild", "weaponized"),
+    "Ransomware": ("ransomware", "ransom"),
+    "Cisa_Known_Exploited_Vulns": ("cisa", "kev", "known exploited"),
+}
+_VULN_LISTING_KEYWORDS = (
+    "vulnerabilit", "sev 5", "severity 5", "sev5", "critical vuln", "qid",
+    "unpatched", "zero-day", "zero day", "0-day", "cve published", "new cve",
+    "recent vuln", "new vuln", "top vuln", "list vuln", "show vuln",
+)
+
+
+def _vuln_listing_intent(target: str) -> tuple[str, bool]:
+    """Return (threat_type, is_listing) for vulnerability-listing queries.
+
+    threat_type is a Qualys RTI filter ("" if none); is_listing is True when the
+    query asks for a vulnerability list rather than a specific software/host.
+    """
+    t = target.lower()
+    threat = ""
+    for tt, kws in _VULN_THREAT_KEYWORDS.items():
+        if any(k in t for k in kws):
+            threat = tt
+            break
+    is_listing = bool(threat) or any(k in t for k in _VULN_LISTING_KEYWORDS)
+    return threat, is_listing
+
 
 def _detect_target_type(target: str) -> str:
     """Return one of: 'cve', 'ip', 'hostname', 'threat_actor', 'cs_vuln_uuid', 'general'."""
@@ -248,16 +278,28 @@ def _build_plan(
                 detail=detail,
             )
 
-    # For general/unknown targets, also search KB by software name — catches threat names in vuln titles
+    # For general/unknown targets: detect vulnerability-listing intent and route to
+    # the KB search with the right RTI filter (fast). Otherwise treat the target as
+    # a software name. This avoids using the literal question as a bogus software
+    # filter (e.g. "list exploitable vulnerabilities") which returns no data.
+    is_vuln_listing = False
     if target_type == "general" and not software and "vulns" not in plan:
-        plan["vulns"] = lambda: search_vulns_agg(
-            days=7, software=target, limit=limit, detail=detail,
-        )
+        v_threat, is_vuln_listing = _vuln_listing_intent(target)
+        if is_vuln_listing:
+            plan["vulns"] = lambda tt=v_threat: search_vulns_agg(
+                days=7, threat_type=tt, limit=limit, detail=detail, enrich_qds=False,
+            )
+        else:
+            plan["vulns"] = lambda: search_vulns_agg(
+                days=7, software=target, limit=limit, detail=detail, enrich_qds=False,
+            )
 
-    # General target or scope=="all" without investigate_agg yet
+    # General target or scope=="all" without investigate_agg yet. Skip the generic
+    # environment snapshot for pure vulnerability-listing queries — the KB vuln
+    # search above is the answer, and skipping the snapshot keeps it fast.
     scope_all = "all" in scope or scope == []
     needs_general = target_type == "general" or (scope_all and not has_investigate_agg and "investigate" not in plan and target_type not in ("cve", "threat_actor"))
-    if needs_general and "investigate" not in plan:
+    if needs_general and "investigate" not in plan and not is_vuln_listing:
         plan["investigate"] = lambda: investigate_agg(
             topic=target,
             depth=depth,
