@@ -31,3 +31,9 @@ docs/superpowers/
 *.yaml
 *.yml
 !.github/**/*.yml
+
+# Credential safety — never commit these
+*.creds
+.qualys-creds
+qualys-creds*
+.secrets
