@@ -112,7 +112,7 @@ _VULN_THREAT_KEYWORDS = {
 }
 _VULN_LISTING_KEYWORDS = (
     "vulnerabilit", "sev 5", "severity 5", "sev5", "critical vuln", "qid",
-    "unpatched", "zero-day", "zero day", "0-day", "cve published", "new cve",
+    "unpatched", "zero-day", "zero day", "0-day", "cve", "cves",
     "recent vuln", "new vuln", "top vuln", "list vuln", "show vuln",
 )
 

@@ -1,5 +1,65 @@
 import pytest
-from qualys.workflows import _build_envelope, _apply_detail, _vuln_identity, _determine_risk_level
+from qualys.workflows import _build_envelope, _apply_detail, _vuln_identity, _determine_risk_level, _envelope_to_markdown
+
+
+class TestEnvelopeToMarkdown:
+    def _envelope(self, **over):
+        env = {
+            "workflow": "assess_risk",
+            "aggregators_called": ["trurisk_score", "cloud_risk"],
+            "execution_time_ms": 1234,
+            "summary": {
+                "headline": "89031 assets, 173 critical-risk",
+                "risk_level": "high",
+                "key_findings": ["173 critical-risk assets", "316 CDR threats"],
+                "stats": {"totalAssets": 89031, "criticalRiskAssets": 173},
+            },
+            "actions": [{"priority": 1, "action": "Patch top vulns", "module": "VMDR"}],
+            "correlations": [{"type": "x", "finding": "compounding risk"}],
+        }
+        env.update(over)
+        return env
+
+    def test_returns_string(self):
+        assert isinstance(_envelope_to_markdown(self._envelope()), str)
+
+    def test_includes_title_risk_and_headline(self):
+        md = _envelope_to_markdown(self._envelope())
+        assert "# Assess Risk" in md
+        assert "**Risk Level:** high" in md
+        assert "89031 assets, 173 critical-risk" in md
+
+    def test_includes_findings_stats_actions_correlations(self):
+        md = _envelope_to_markdown(self._envelope())
+        assert "## Key Findings" in md and "- 173 critical-risk assets" in md
+        assert "## Stats" in md and "**totalAssets:** 89031" in md
+        assert "## Recommended Actions" in md and "**[P1]** Patch top vulns" in md
+        assert "Module: VMDR" in md
+        assert "## Correlations" in md and "compounding risk" in md
+        assert "1234ms" in md and "Sources: 2" in md
+
+    def test_more_compact_than_json(self):
+        import json
+        env = self._envelope()
+        assert len(_envelope_to_markdown(env)) < len(json.dumps(env))
+
+    def test_omits_empty_sections(self):
+        md = _envelope_to_markdown(self._envelope(actions=[], correlations=[], summary={
+            "headline": "", "risk_level": "low", "key_findings": [], "stats": {}}))
+        assert "## Key Findings" not in md
+        assert "## Recommended Actions" not in md
+        assert "## Correlations" not in md
+        assert "**Risk Level:** low" in md
+
+    def test_surfaces_unavailable_sources(self):
+        md = _envelope_to_markdown(self._envelope(_errors=["cloud_risk", "fim"]))
+        assert "2 data source(s) unavailable" in md
+        assert "cloud_risk" in md and "fim" in md
+
+    def test_missing_summary_defaults_unknown(self):
+        md = _envelope_to_markdown({"workflow": "investigate", "aggregators_called": []})
+        assert "# Investigate" in md
+        assert "**Risk Level:** unknown" in md
 
 
 class TestBuildEnvelope:
