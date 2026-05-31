@@ -14,9 +14,10 @@ from datetime import datetime, date
 from pathlib import Path
 
 # ── env ──────────────────────────────────────────────────────────────────────
-os.environ.setdefault("QUALYS_USERNAME", "REDACTED")
-os.environ.setdefault("QUALYS_PASSWORD", "REDACTED")
+# Credentials must be supplied via the environment — never hardcode them here.
 os.environ.setdefault("QUALYS_POD", "US2")
+if not os.environ.get("QUALYS_USERNAME") or not os.environ.get("QUALYS_PASSWORD"):
+    sys.exit("QUALYS_USERNAME and QUALYS_PASSWORD must be set in the environment.")
 
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
