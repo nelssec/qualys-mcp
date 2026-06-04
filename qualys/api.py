@@ -945,38 +945,48 @@ def get_detections_by_qds(qds_min=70, days=30, limit=0, use_cache=True):
 
 
 def get_host_detections(host_id, severity=4, days=30):
-    """Get detections for a specific host by ID."""
-    after_date = (datetime.now(timezone.utc) - timedelta(days=days)).strftime('%Y-%m-%d')
-    data = api_get(
-        f"{BASE_URL}/api/2.0/fo/asset/host/vm/detection/?action=list"
-        f"&ids={host_id}&severities={severity}&show_qds=1&filter_superseded_qids=1"
-        f"&vm_processed_after={after_date}",
-        timeout=120
-    )
-    if not data:
-        return []
-    dets = []
-    try:
-        root = ET.fromstring(data)
-        for host in root.findall('.//HOST'):
-            for d in host.findall('.//DETECTION'):
-                qds_el = d.find('QDS')
-                qds = 0
-                if qds_el is not None and qds_el.text:
-                    try:
-                        qds = int(qds_el.text)
-                    except ValueError:
-                        pass
-                dets.append({
-                    'qid': safe_int(d.findtext('QID', '0')),
-                    'severity': safe_int(d.findtext('SEVERITY', '0')),
-                    'status': d.findtext('STATUS', ''),
-                    'qds': qds,
-                    'first_found': d.findtext('FIRST_FOUND_DATETIME', ''),
-                })
-    except ET.ParseError:
-        pass
-    return dets
+    """Get detections for a specific host by ID.
+
+    Cached (memory + disk, VMDR TTL): the VMDR detection API is slow on large
+    subscriptions (~60s per host even when scoped to one host id), so repeat
+    per-host queries — common in multi-turn investigations — must not re-pay it.
+    """
+    cache_key = f"host_dets_{host_id}_{severity}_{days}"
+
+    def _fetch():
+        after_date = (datetime.now(timezone.utc) - timedelta(days=days)).strftime('%Y-%m-%d')
+        data = api_get(
+            f"{BASE_URL}/api/2.0/fo/asset/host/vm/detection/?action=list"
+            f"&ids={host_id}&severities={severity}&show_qds=1&filter_superseded_qids=1"
+            f"&vm_processed_after={after_date}",
+            timeout=120
+        )
+        if not data:
+            return []
+        dets = []
+        try:
+            root = ET.fromstring(data)
+            for host in root.findall('.//HOST'):
+                for d in host.findall('.//DETECTION'):
+                    qds_el = d.find('QDS')
+                    qds = 0
+                    if qds_el is not None and qds_el.text:
+                        try:
+                            qds = int(qds_el.text)
+                        except ValueError:
+                            pass
+                    dets.append({
+                        'qid': safe_int(d.findtext('QID', '0')),
+                        'severity': safe_int(d.findtext('SEVERITY', '0')),
+                        'status': d.findtext('STATUS', ''),
+                        'qds': qds,
+                        'first_found': d.findtext('FIRST_FOUND_DATETIME', ''),
+                    })
+        except ET.ParseError:
+            pass
+        return dets
+
+    return _get_or_fetch(DETECTION_CACHE, DETECTION_CACHE_TIME, cache_key, _fetch, VMDR_CACHE_TTL, disk_ttl=DISK_TTL_VMDR)
 
 
 def get_qds_for_qids(qids):
