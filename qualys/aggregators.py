@@ -3354,10 +3354,19 @@ def asset_detail(asset_id: str, detail_level: str = "summary", detail: str = "st
         etm_findings_list.sort(key=lambda x: (-x['severity'], -x.get('qds', 0)))
         result['etmFindings'] = etm_findings_list[:30]
 
-        vmdr_qids = list({d.get('qid', 0) for d in vmdr_raw if d.get('qid')})
-        vmdr_kb = get_kb_batch(vmdr_qids[:50]) if vmdr_qids else {}
+        # Sort by severity then QDS BEFORE choosing which QIDs to enrich, so the
+        # top detections we display are exactly the ones we fetch KB detail for
+        # (previously KB was fetched for 50 arbitrary QIDs, leaving most of the
+        # displayed top-30 without titles/CVEs).
+        vmdr_sorted = sorted(
+            vmdr_raw,
+            key=lambda d: (-(d.get('severity') or 0), -(d.get('qds') or 0)),
+        )
+        top_raw = vmdr_sorted[:30]
+        top_qids = list({d.get('qid', 0) for d in top_raw if d.get('qid')})
+        vmdr_kb = get_kb_batch(top_qids) if top_qids else {}
         vmdr_dets = []
-        for d in vmdr_raw:
+        for d in top_raw:
             kb = vmdr_kb.get(d.get('qid', 0)) or {}
             kb_title = kb.get('title', '')
             if detail != "detailed":
@@ -3376,8 +3385,7 @@ def asset_detail(asset_id: str, detail_level: str = "summary", detail: str = "st
                 'status': d.get('status', ''),
                 'firstFound': short_date(d.get('first_found', '')),
             })
-        vmdr_dets.sort(key=lambda x: (-x['severity'], -x['qds']))
-        result['vmdrDetections'] = vmdr_dets[:30]
+        result['vmdrDetections'] = vmdr_dets
 
         crit_etm = sum(1 for f in etm_findings_list if f['severity'] >= 5)
         high_etm = sum(1 for f in etm_findings_list if f['severity'] == 4)

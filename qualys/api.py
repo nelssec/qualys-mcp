@@ -1257,10 +1257,17 @@ def csam_search(filters=None, limit=100, fields=None, fetch_all=False):
 
 
 def get_asset_by_id(asset_id):
-    """Get a single asset by ID using CSAM v2 (fast, targeted)."""
+    """Get a single asset by ID using CSAM v2 (fast, targeted).
+
+    Must request an explicit field set — csam_search defaults to a minimal
+    projection (tagList only), which omits hostId/riskScore/software and
+    silently breaks per-asset vulnerability detail (issue #229).
+    """
     assets = csam_search(
         filters=[{"field": "asset.id", "operator": "EQUALS", "value": str(asset_id)}],
-        limit=1
+        limit=1,
+        fields="assetId,address,dnsName,operatingSystem,riskScore,criticality,"
+               "lastModifiedDate,hostId,softwareListData,tagList",
     )
     return assets[0] if assets else None
 

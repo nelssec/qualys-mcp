@@ -135,6 +135,34 @@ class TestVulnListingIntent:
         assert listing is False
 
 
+class TestAssetByIdFieldProjection:
+    """Regression for issue #229: get_asset_by_id must request hostId/riskScore
+    explicitly, or csam_search returns a minimal projection and per-asset
+    vulnerability detail silently breaks."""
+
+    def test_requests_hostid_and_riskscore_fields(self):
+        from qualys.api import get_asset_by_id
+        captured = {}
+
+        def fake_search(filters=None, limit=100, fields=None, fetch_all=False):
+            captured["fields"] = fields or ""
+            captured["filters"] = filters
+            return [{"assetId": 1, "hostId": "99", "riskScore": 800}]
+
+        with patch("qualys.api.csam_search", side_effect=fake_search):
+            asset = get_asset_by_id("1")
+
+        assert "hostId" in captured["fields"]
+        assert "riskScore" in captured["fields"]
+        assert "operatingSystem" in captured["fields"]
+        assert asset["hostId"] == "99"
+
+    def test_returns_none_when_not_found(self):
+        from qualys.api import get_asset_by_id
+        with patch("qualys.api.csam_search", return_value=[]):
+            assert get_asset_by_id("missing") is None
+
+
 class TestNewAggregators:
     def test_cloud_resources_v1_agg_shape(self):
         from qualys.aggregators import cloud_resources_v1_agg
