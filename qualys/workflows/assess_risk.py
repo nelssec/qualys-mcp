@@ -124,6 +124,32 @@ def _summarize(data):
                     risk_level = "low"
             findings.append(f"{crit} critical-risk assets ({crit/total*100:.1f}%), {high} high-risk ({high/total*100:.1f}%) out of {total} total")
             headline_parts.append(f"{total} assets, {crit} critical-risk, {high} high-risk")
+            over_800 = agg.get("criticalRisk_800plus")
+            if over_800:
+                stats["assetsTruRiskOver800"] = over_800
+
+        # Surface asset-level cuts inline so broad ranking/breakdown questions
+        # ("top riskiest assets", "risk by OS", "by business unit") are answered
+        # in a single call instead of forcing a follow-up.
+        top_assets = trs.get("topAssets") or []
+        if top_assets:
+            ranked = "; ".join(
+                f"{a.get('hostname') or a.get('ip') or a.get('assetId')} ({a.get('truriskScore')})"
+                for a in top_assets[:5]
+            )
+            findings.append(f"Top risk assets: {ranked}")
+            stats["topRiskAsset"] = (top_assets[0].get("hostname")
+                                     or top_assets[0].get("ip")
+                                     or top_assets[0].get("assetId"))
+        by_os = trs.get("byOS") or []
+        if by_os:
+            os_cut = ", ".join(f"{o['os']} (avg {o['avgTruRisk']}, {o['assetCount']})" for o in by_os[:4])
+            findings.append(f"Risk by OS: {os_cut}")
+        breakdown = trs.get("breakdown") or []
+        if breakdown:
+            tag_cut = ", ".join(f"{b['tag']} (avg {b['avgTruRisk']}, {b['assetCount']})" for b in breakdown[:4])
+            findings.append(f"Risk by tag/group: {tag_cut}")
+
         trend = trs.get("trend") or trs.get("truriskTrend") or {}
         if isinstance(trend, dict):
             direction = trend.get("direction", "stable")

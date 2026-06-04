@@ -5228,12 +5228,17 @@ def trurisk_score(days: int = 30, breakdown_by: str = "tag", detail: str = "stan
     concurrent = _run_concurrent(
         total=lambda: csam_count(),
         risk_900=lambda: csam_count([{"field": "asset.truRisk", "operator": "GREATER", "value": "900"}]),
+        risk_800=lambda: csam_count([{"field": "asset.truRisk", "operator": "GREATER", "value": "800"}]),
         risk_700=lambda: csam_count([{"field": "asset.truRisk", "operator": "GREATER", "value": "700"}]),
         risk_500=lambda: csam_count([{"field": "asset.truRisk", "operator": "GREATER", "value": "500"}]),
         risk_100=lambda: csam_count([{"field": "asset.truRisk", "operator": "GREATER", "value": "100"}]),
+        # Pull the highest-risk tier (>700) so the top-N ranking is genuinely the
+        # riskiest assets. Field must be 'riskScore' — 'truRisk' is the filter
+        # field name but the response key is riskScore (otherwise scores read 0).
         top_assets=lambda: csam_search(
-            [{"field": "asset.truRisk", "operator": "GREATER", "value": "500"}],
-            limit=100, fields="truRisk,tags,operatingSystem,tagList,vulnerabilities"
+            [{"field": "asset.truRisk", "operator": "GREATER", "value": "700"}],
+            limit=200,
+            fields="assetId,dnsName,address,operatingSystem,riskScore,tagList,vulnerabilities",
         ),
     )
 
@@ -5241,6 +5246,7 @@ def trurisk_score(days: int = 30, breakdown_by: str = "tag", detail: str = "stan
     result['aggregate'] = {
         'totalAssets': total,
         'criticalRisk_900plus': concurrent.get('risk_900') or 0,
+        'criticalRisk_800plus': concurrent.get('risk_800') or 0,
         'highRisk_700plus': concurrent.get('risk_700') or 0,
         'elevatedRisk_500plus': concurrent.get('risk_500') or 0,
         'anyRisk_100plus': concurrent.get('risk_100') or 0,
@@ -5335,8 +5341,24 @@ def trurisk_score(days: int = 30, breakdown_by: str = "tag", detail: str = "stan
         breakdown.sort(key=lambda x: -x['avgTruRisk'])
         result['breakdown'] = breakdown[:20]
 
+    # Always compute an OS breakdown — answers "risk by operating system" inline.
+    if top_assets:
+        os_scores = {}
+        for asset in top_assets:
+            score = int(asset.get('riskScore') or 0)
+            os_name = (asset.get('operatingSystem') or {}).get('osName', '') or 'Unknown'
+            os_scores.setdefault(os_name, []).append(score)
+        os_breakdown = [{
+            'os': name,
+            'assetCount': len(scores),
+            'avgTruRisk': round(sum(scores) / len(scores)),
+            'maxTruRisk': max(scores),
+        } for name, scores in os_scores.items()]
+        os_breakdown.sort(key=lambda x: -x['avgTruRisk'])
+        result['byOS'] = os_breakdown[:20]
+
     out = _with_meta(result, 'topAssets')
-    return _apply_detail_level(out, detail, list_keys=['topAssets', 'topQIDs', 'breakdown'])
+    return _apply_detail_level(out, detail, list_keys=['topAssets', 'topQIDs', 'breakdown', 'byOS'])
 
 
 # ---------------------------------------------------------------------------
