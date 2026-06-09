@@ -34,6 +34,25 @@ Set `QUALYS_POD` to your platform POD — the server derives the correct API and
 
 Requires [uv](https://docs.astral.sh/uv/): `brew install uv` or `curl -LsSf https://astral.sh/uv/install.sh | sh`
 
+### Updating
+
+`uvx` caches the resolved build, so a plain `uvx qualys-mcp` keeps running the
+version it first downloaded — it does **not** auto-upgrade when a new release
+ships. To move to the latest version, clear the cache and restart Claude Desktop:
+
+```bash
+uv cache clean qualys-mcp
+```
+
+To pin (and control) the version explicitly, set it in your config args:
+
+```json
+"args": ["qualys-mcp@0.2.7"]
+```
+
+`pip install -U qualys-mcp` only updates a pip-installed copy — it has no effect
+on the `uvx`-launched server.
+
 ### Alternative
 
 ```bash
