@@ -79,7 +79,7 @@ async def assess_risk(scope: str = "all", tag: str = "", asset_group: str = "",
     "expiring certificates", "EOL systems", "risk by business unit", "how's our security posture?"
 
     Parameters:
-        scope: "all" | "cloud" | "containers" | "web" | "certs" | "assets"
+        scope: "all" | "cloud" | "containers" | "web" | "certs" | "assets" | "fim" | "edr" | "infrastructure"
         tag: filter by tag/business group
         asset_group: filter by asset group
         asset_id: single asset deep-dive (skips broad queries)

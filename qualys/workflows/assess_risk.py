@@ -682,8 +682,24 @@ def assess_risk(
     Dispatches aggregators based on scope and parameter context, correlates
     cross-domain findings, and returns a unified risk envelope.
 
-    Scope values: "all", "assets", "cloud", "containers", "web", "certs"
+    Scope values: "all", "assets", "cloud", "containers", "web", "certs",
+    "fim", "edr", "infrastructure"
     """
+    _VALID_SCOPES = {"all", "assets", "cloud", "containers", "web", "certs",
+                     "fim", "edr", "infrastructure"}
+    scope = (scope or "all").lower().strip()
+    if scope not in _VALID_SCOPES:
+        return {
+            "workflow": "assess_risk",
+            "error": f"unknown scope '{scope}'",
+            "summary": {
+                "headline": f"Unknown scope '{scope}'. Valid scopes: {', '.join(sorted(_VALID_SCOPES))}.",
+                "risk_level": "unknown",
+                "key_findings": [],
+                "stats": {},
+            },
+        }
+
     plan = {}
 
     # ------------------------------------------------------------------

@@ -415,7 +415,8 @@ class TestAssessRiskScopeEdgeCases:
         assert "expiring_certs" not in plan
 
     def test_empty_scope_string(self):
-        """Empty scope string: no plan keys should trigger."""
+        """Empty scope string defaults to 'all' — broad queries dispatch
+        (silently-empty plans caused turn-burning no-data responses)."""
         captured = {}
 
         def fake_dispatch(plan, **kwargs):
@@ -431,9 +432,7 @@ class TestAssessRiskScopeEdgeCases:
             assess_risk(scope="")
 
         plan = captured.get("plan", {})
-        # Empty scope string is not "all" and not a named scope — no broad queries
-        assert "trurisk_score" not in plan
-        assert "cloud_risk" not in plan
+        assert "trurisk_score" in plan
 
 
 # ===========================================================================

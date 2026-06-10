@@ -202,3 +202,48 @@ class TestNewAggregators:
         with patch("qualys.aggregators.get_pm_remediation_insights", return_value={}):
             r = pm_remediation_insights_agg()
         assert r["totalPatches"] == 0
+
+
+class TestInvestigateScopeNormalization:
+    def _plan_keys(self, scope):
+        from qualys.workflows.investigate import investigate
+        captured = {}
+
+        def fake_dispatch(plan, timeout=None):
+            captured["keys"] = list(plan.keys())
+            return {}, 0
+
+        with patch("qualys.workflows.investigate._dispatch", side_effect=fake_dispatch):
+            investigate(target="10.1.2.3", depth="quick", scope=scope)
+        return captured.get("keys", [])
+
+    def test_string_scope_all_not_iterated_as_chars(self):
+        keys = self._plan_keys("all")
+        assert "investigate" in keys or "edr" in keys or "fim" in keys
+
+    def test_string_scope_edr_routes_edr(self):
+        keys = self._plan_keys("edr")
+        assert "edr" in keys
+
+    def test_comma_separated_scope(self):
+        keys = self._plan_keys("edr,fim")
+        assert "edr" in keys and "fim" in keys
+
+    def test_list_scope_still_works(self):
+        keys = self._plan_keys(["edr"])
+        assert "edr" in keys
+
+
+class TestAssessRiskScopeValidation:
+    def test_unknown_scope_returns_helpful_error(self):
+        from qualys.workflows.assess_risk import assess_risk
+        r = assess_risk(scope="bogus")
+        assert r.get("error")
+        assert "bogus" in r["summary"]["headline"]
+        assert "fim" in r["summary"]["headline"]
+
+    def test_scope_case_insensitive(self):
+        from qualys.workflows.assess_risk import assess_risk
+        with patch("qualys.workflows.assess_risk._dispatch", return_value=({}, 0)) as d:
+            assess_risk(scope="FIM")
+            assert "fim_posture" in d.call_args[0][0]

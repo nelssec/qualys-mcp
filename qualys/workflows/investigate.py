@@ -619,9 +619,13 @@ def investigate(
     if depth not in _VALID_DEPTHS:
         depth = "standard"
 
-    # Normalize scope
+    # Normalize scope — the MCP tool passes a string ("all" or "edr,fim");
+    # iterating a string directly would yield characters and silently break
+    # every scope check ("all" -> ['a','l','l']).
     if scope is None:
         scope = []
+    if isinstance(scope, str):
+        scope = [p for p in re.split(r"[,\s]+", scope) if p]
     scope = [s.lower().strip() for s in scope if s]
 
     # --- Target type detection ---
