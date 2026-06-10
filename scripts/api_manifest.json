@@ -1,8 +1,8 @@
 {
   "_meta": {
     "description": "Complete inventory of known Qualys API endpoints. Used for gap analysis against api.py.",
-    "lastUpdated": "2026-05-19",
-    "sources": "Qualys docs crawl + manual verification + release notes + US2 live testing"
+    "lastUpdated": "2026-06-09",
+    "sources": "Qualys docs crawl + manual verification + release notes through Platform 3.24 / CS 1.43 / TC 2.24 + US2 live testing"
   },
   "modules": {
     "CSAM": {
@@ -357,6 +357,36 @@
           "path": "/csapi/v1.3/centralizedPolicy",
           "status": "implemented",
           "description": "Centralized policies"
+        },
+        {
+          "method": "GET",
+          "path": "/csapi/v1.3/images/{imageSha}/compliance",
+          "status": "implemented",
+          "description": "Image compliance posture (CS 1.43)"
+        },
+        {
+          "method": "GET",
+          "path": "/csapi/v1.3/centralizedPolicy/{policyId}",
+          "status": "implemented",
+          "description": "Centralized policy detail by ID (CS 1.43)"
+        },
+        {
+          "method": "PUT",
+          "path": "/csapi/v1.3/tag/update",
+          "status": "not_needed",
+          "description": "Modify dynamic tag attributes (write, CS 1.43)"
+        },
+        {
+          "method": "DELETE",
+          "path": "/csapi/v1.3/tag/delete",
+          "status": "not_needed",
+          "description": "Remove tag (write, CS 1.43)"
+        },
+        {
+          "method": "POST",
+          "path": "/csapi/v1.3/reports/schedule",
+          "status": "not_needed",
+          "description": "Schedule report generation (write, CS 1.43)"
         }
       ]
     },
@@ -681,6 +711,30 @@
           "path": "/sdr/api/custom/controls/update/{cID}",
           "status": "not_needed",
           "description": "Update control (write)"
+        }
+      ]
+    },
+    "CloudAgent": {
+      "baseUrl": "BASE/caui + qps",
+      "auth": "basic",
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/caui/v1/activation-keys/manage/activation-key",
+          "status": "not_needed",
+          "description": "Create activation keys w/ PAF and ID modules (write, Platform 3.24)"
+        },
+        {
+          "method": "POST",
+          "path": "/qps/rest/2.0/activate/am/asset",
+          "status": "not_needed",
+          "description": "Activate PAF/ID modules on agents (write, Platform 3.24)"
+        },
+        {
+          "method": "POST",
+          "path": "/qps/rest/2.0/deactivate/am/asset",
+          "status": "not_needed",
+          "description": "Deactivate PAF/ID modules on agents (write, Platform 3.24)"
         }
       ]
     }

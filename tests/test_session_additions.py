@@ -247,3 +247,62 @@ class TestAssessRiskScopeValidation:
         with patch("qualys.workflows.assess_risk._dispatch", return_value=({}, 0)) as d:
             assess_risk(scope="FIM")
             assert "fim_posture" in d.call_args[0][0]
+
+
+class TestQidAndThreatsRouting:
+    def _plan(self, target, scope="all"):
+        from qualys.workflows.investigate import investigate
+        captured = {}
+
+        def fake_dispatch(plan, timeout=None):
+            captured["keys"] = list(plan.keys())
+            return {}, 0
+
+        with patch("qualys.workflows.investigate._dispatch", side_effect=fake_dispatch):
+            investigate(target=target, depth="quick", scope=scope)
+        return captured.get("keys", [])
+
+    @pytest.mark.parametrize("target", ["QID 38906", "qid:38906", "38906", "QID-38906"])
+    def test_qid_targets_route_to_qid_detail(self, target):
+        keys = self._plan(target)
+        assert "qid_detail" in keys
+        assert "exposure" in keys
+        assert "investigate" not in keys
+
+    def test_qid_detection(self):
+        from qualys.workflows.investigate import _detect_target_type, _extract_qid
+        assert _detect_target_type("QID 38906") == "qid"
+        assert _detect_target_type("38906") == "qid"
+        assert _extract_qid("qid: 38906") == "38906"
+        assert _detect_target_type("10.0.0.1") == "ip"
+        assert _detect_target_type("CVE-2024-6387") == "cve"
+        assert _detect_target_type("123") == "general"
+
+    def test_threats_scope_dispatches_get_threats(self):
+        keys = self._plan("anything suspicious", scope="threats")
+        assert "threats" in keys
+
+    def test_workspace_keywords_route_cloud_resources(self):
+        keys = self._plan("show me our AWS workspaces")
+        assert "cloud_resources" in keys
+
+    def test_vmss_keywords_route_cloud_resources(self):
+        keys = self._plan("azure vmss inventory")
+        assert "cloud_resources" in keys
+
+
+class TestRemediationPmInsights:
+    def test_patches_scope_includes_pm_insights(self):
+        from qualys.workflows.remediation import _build_plan
+        plan = _build_plan(scope="patches", tag="", asset_group="", platform="",
+                           severity="", status="", qids=None, cves=None,
+                           limit=20, detail="standard")
+        assert "pm_insights" in plan
+
+
+class TestAssessRiskOciWiring:
+    def test_oci_provider_adds_oci_resources(self):
+        from qualys.workflows.assess_risk import assess_risk
+        with patch("qualys.workflows.assess_risk._dispatch", return_value=({}, 0)) as d:
+            assess_risk(scope="cloud", provider="oci")
+            assert "oci_resources" in d.call_args[0][0]

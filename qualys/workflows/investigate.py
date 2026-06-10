@@ -101,6 +101,13 @@ def _resolve_actor_tags(key: str) -> list[str] | None:
 _CVE_PATTERN = re.compile(r"^CVE-\d{4}-\d{4,}$", re.IGNORECASE)
 _IP_PATTERN = re.compile(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
 _UUID_PATTERN = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
+# Qualys QID: "QID 38906", "qid:38906", or a bare 4-8 digit number
+_QID_PATTERN = re.compile(r"^(?:qid[\s:#-]*)?(\d{4,8})$", re.IGNORECASE)
+
+
+def _extract_qid(target: str) -> str:
+    m = _QID_PATTERN.match(target.strip())
+    return m.group(1) if m else ""
 
 # Vulnerability-listing intent: queries like "list exploitable vulnerabilities",
 # "top sev 5 QIDs", "what's actively exploited" want a vulnerability LIST, not a
@@ -156,6 +163,10 @@ def _detect_target_type(target: str) -> str:
     if _UUID_PATTERN.match(t):
         return "cs_vuln_uuid"
 
+    # Qualys QID ("QID 38906" or a bare numeric id)
+    if _QID_PATTERN.match(t):
+        return "qid"
+
     # Threat actor / nation / industry
     if _resolve_actor_tags(t) is not None:
         return "threat_actor"
@@ -195,10 +206,15 @@ def _build_plan(
         totalai_summary,
         cs_vulnerability_detail_agg,
         assess_exposure,
+        qid_details,
+        get_threats,
+        cloud_resources_v1_agg,
     )
     from qualys.api import module_available, prewarm_modules
 
     AI_KEYWORDS = {"ai", "llm", "gpt", "totalai", "jailbreak", "owasp llm", "model detection", "ai security", "ai risk", "ai vulnerability"}
+    WORKSPACE_KEYWORDS = {"workspace", "workspaces", "aws workspace"}
+    VMSS_KEYWORDS = {"vmss", "scale set", "scale sets", "azure vmss"}
 
     plan: dict[str, Any] = {}
     has_investigate_agg = False
@@ -211,9 +227,26 @@ def _build_plan(
     if any(kw in target.lower() for kw in AI_KEYWORDS) and module_available("totalai"):
         plan["totalai"] = lambda: totalai_summary(detail=detail)
 
+    # TotalCloud 2.24 inventory types — workspace/scale-set questions get the
+    # v1 resource listing directly.
+    if module_available("totalcloud"):
+        if any(kw in target.lower() for kw in WORKSPACE_KEYWORDS):
+            plan["cloud_resources"] = lambda: cloud_resources_v1_agg(
+                provider="aws", resource_type="WORKSPACE", limit=limit, detail=detail,
+            )
+        elif any(kw in target.lower() for kw in VMSS_KEYWORDS):
+            plan["cloud_resources"] = lambda: cloud_resources_v1_agg(
+                provider="azure", resource_type="VIRTUAL_MACHINE_SCALE_SET", limit=limit, detail=detail,
+            )
+
     if target_type == "cve":
         plan["cve_deep"] = lambda: investigate_cve_agg(target, detail=detail)
         plan["exposure"] = lambda: assess_exposure(cve=target, detail=detail)
+
+    elif target_type == "qid":
+        qid_num = _extract_qid(target)
+        plan["qid_detail"] = lambda q=qid_num: qid_details(qids=q, detail=detail)
+        plan["exposure"] = lambda q=qid_num: assess_exposure(qid=int(q), detail=detail)
 
     elif target_type == "cs_vuln_uuid":
         plan["cs_vuln_detail"] = lambda: cs_vulnerability_detail_agg(target, detail=detail)
@@ -266,6 +299,11 @@ def _build_plan(
             detail=detail,
         )
 
+    # scope="threats" — combined FIM + EDR + CDR threat view (documented in the
+    # tool docstring; previously promised but never dispatched).
+    if "threats" in scope and "threats" not in plan:
+        plan["threats"] = lambda: get_threats(days=days, limit=limit)
+
     if ("vulns" in scope or software or threat_type) and target_type != "cve":
         if "vulns" not in plan:
             plan["vulns"] = lambda: search_vulns_agg(
@@ -298,7 +336,7 @@ def _build_plan(
     # environment snapshot for pure vulnerability-listing queries — the KB vuln
     # search above is the answer, and skipping the snapshot keeps it fast.
     scope_all = "all" in scope or scope == []
-    needs_general = target_type == "general" or (scope_all and not has_investigate_agg and "investigate" not in plan and target_type not in ("cve", "threat_actor"))
+    needs_general = target_type == "general" or (scope_all and not has_investigate_agg and "investigate" not in plan and target_type not in ("cve", "threat_actor", "qid", "cs_vuln_uuid"))
     if needs_general and "investigate" not in plan and not is_vuln_listing:
         plan["investigate"] = lambda: investigate_agg(
             topic=target,
@@ -342,6 +380,36 @@ def _summarize(data: dict) -> str:
         if asset_count:
             desc += f", {asset_count} potentially affected assets"
         parts.append(desc)
+
+    qid_detail = data.get("qid_detail") or {}
+    if isinstance(qid_detail, dict) and qid_detail.get("qids"):
+        q = qid_detail["qids"][0]
+        desc = (f"QID {q.get('qid')}: {q.get('title', '')} — severity {q.get('severity')}/5, "
+                f"QDS {q.get('qds')}")
+        if q.get("cves"):
+            desc += f", CVEs: {', '.join(q['cves'][:4])}"
+        if q.get("patchAvailable"):
+            desc += ", patch available"
+        if q.get("has_exploit"):
+            desc += ", known exploit"
+        parts.insert(0, desc)
+        stats["qid"] = q.get("qid")
+
+    threats = data.get("threats") or {}
+    if isinstance(threats, dict) and threats.get("stats"):
+        ts = threats["stats"]
+        parts.append(
+            f"Threat view ({threats.get('days', 7)}d): {ts.get('fim', 0)} FIM, "
+            f"{ts.get('edr', 0)} EDR, {ts.get('cdr', 0)} CDR events "
+            f"({ts.get('critical', 0)} critical, {ts.get('high', 0)} high)"
+        )
+        stats["threatEvents"] = ts.get("fim", 0) + ts.get("edr", 0) + ts.get("cdr", 0)
+
+    cloud_res = data.get("cloud_resources") or {}
+    if isinstance(cloud_res, dict) and cloud_res.get("summary"):
+        parts.append(str(cloud_res["summary"]))
+        if cloud_res.get("totalResources"):
+            stats["cloudResources"] = cloud_res["totalResources"]
 
     exposure = data.get("exposure")
     if isinstance(exposure, dict):
@@ -409,9 +477,11 @@ def _summarize(data: dict) -> str:
 
     risk = "unknown"
     cve_deep = data.get("cve_deep") or {}
-    if isinstance(cve_deep, dict):
-        sev = cve_deep.get("severity", 0)
-        ransomware = cve_deep.get("ransomware", False)
+    qid_first = (data.get("qid_detail") or {}).get("qids") or [{}]
+    sev_src = cve_deep if isinstance(cve_deep, dict) and cve_deep else qid_first[0]
+    if isinstance(sev_src, dict):
+        sev = sev_src.get("severity", 0)
+        ransomware = sev_src.get("ransomware", False)
         if ransomware or sev >= 5:
             risk = "critical"
         elif sev >= 4:

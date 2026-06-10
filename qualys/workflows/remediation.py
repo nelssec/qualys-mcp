@@ -9,6 +9,7 @@ from qualys.aggregators import (
     eliminate_status,
     outstanding_patches,
     patch_status,
+    pm_remediation_insights_agg,
     recommendations,
 )
 from qualys.workflows import _apply_detail, _build_envelope, _dispatch
@@ -34,6 +35,7 @@ def _build_plan(scope, tag, asset_group, platform, severity, status,
     if scope in ("all", "patches"):
         plan["patch_status"] = lambda: patch_status(limit=limit, tag=tag, asset_group=asset_group, detail=detail)
         plan["outstanding_patches"] = lambda: outstanding_patches(platform=platform, severity=severity, top_n=limit, detail=detail)
+        plan["pm_insights"] = lambda: pm_remediation_insights_agg(platform=platform or "Windows", limit=limit, detail=detail)
 
     if scope == "all":
         plan["eliminate_status"] = lambda: eliminate_status(detail=detail, status=status)

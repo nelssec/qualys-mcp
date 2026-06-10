@@ -23,6 +23,7 @@ from qualys.aggregators import (
     asset_detail,
     saasdr_controls_agg,
     totalai_summary,
+    oci_resources_agg,
     fim_posture,
     edr_posture,
     cloud_reports_agg,
@@ -806,6 +807,8 @@ def assess_risk(
             )
         if module_available("saasdr"):
             plan["saasdr_controls"] = lambda: saasdr_controls_agg(limit=limit, detail=detail)
+        if provider.lower() == "oci" and module_available("totalcloud"):
+            plan["oci_resources"] = lambda: oci_resources_agg(limit=limit, detail=detail)
 
     # ------------------------------------------------------------------
     # Containers (scope "all" or "containers", or image_id set)

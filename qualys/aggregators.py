@@ -2780,7 +2780,13 @@ def cve_details(cves: str, detail: str = "standard") -> dict:
     return _apply_detail_level(result, detail, list_keys=['cves'])
 
 
-def qid_details(qids: str, detail: str = "standard") -> dict:
+def qid_details(qids: str, detail: str = "standard", enrich_qds: bool = False) -> dict:
+    """KB detail for one or more QIDs.
+
+    enrich_qds=True adds detection-based QDS via the slow VMDR host-detection
+    API (>60s on large subscriptions); the default uses the KB's own QDS so
+    interactive lookups stay inside dispatch timeouts.
+    """
     qid_list = []
     for q in qids.split(','):
         q = q.strip()
@@ -2793,7 +2799,7 @@ def qid_details(qids: str, detail: str = "standard") -> dict:
 
     concurrent = _run_concurrent(
         kb=lambda: get_kb_batch(qid_list[:50]),
-        qds=lambda: get_qds_for_qids(qid_list[:50]),
+        qds=lambda: get_qds_for_qids(qid_list[:50]) if enrich_qds else {},
     )
     kb_data = concurrent.get('kb') or {}
     qds_scores = concurrent.get('qds') or {}
@@ -3529,10 +3535,24 @@ def image_vulns(image_id: str, limit: int = 50, detail: str = "standard") -> dic
     concurrent = _run_concurrent(
         img=lambda: get_image_details(image_id),
         vulns=lambda: get_image_vulns_api(image_id),
+        compliance=lambda: get_image_compliance(image_id),
+        software=lambda: get_image_software(image_id),
+        vuln_count=lambda: get_image_vuln_count(image_id),
     )
 
     img = concurrent.get('img')
     vulns = concurrent.get('vulns') or []
+    compliance = concurrent.get('compliance')
+    if isinstance(compliance, dict) and compliance:
+        result['compliance'] = compliance
+    sw_raw = concurrent.get('software')
+    sw_list = sw_raw if isinstance(sw_raw, list) else (sw_raw or {}).get('data', []) if isinstance(sw_raw, dict) else []
+    if sw_list:
+        result['softwareCount'] = len(sw_list)
+        result['software'] = [{'name': s.get('name', ''), 'version': s.get('version', '')} for s in sw_list[:20] if isinstance(s, dict)]
+    vc = concurrent.get('vuln_count')
+    if isinstance(vc, dict) and vc:
+        result['vulnCounts'] = vc
 
     if not img and not vulns:
         empty = _container_empty_response('image data')
@@ -6061,6 +6081,7 @@ def fim_posture(days: int = 7, limit: int = 50, detail: str = "standard") -> dic
         categories=lambda: get_fim_categories(),
         alert_rules=lambda: get_fim_alert_rules(page_size=50),
         alert_activities=lambda: get_fim_alert_activities(page_size=20),
+        incidents=lambda: get_fim_incidents(page_size=20),
     )
 
     events_data = concurrent.get('events') or {}
@@ -6102,6 +6123,9 @@ def fim_posture(days: int = 7, limit: int = 50, detail: str = "standard") -> dic
         'alertRuleCount': len(alert_rules) if isinstance(alert_rules, list) else 0,
         'recentAlerts': len(alert_activities) if isinstance(alert_activities, list) else 0,
     }
+    raw_incidents = concurrent.get('incidents') or {}
+    incidents = raw_incidents if isinstance(raw_incidents, list) else raw_incidents.get('data', []) if isinstance(raw_incidents, dict) else []
+    result['recentIncidents'] = len(incidents) if isinstance(incidents, list) else 0
 
     ev_summary = events_data.get('summary', {}) if isinstance(events_data, dict) else {}
     ev_total = ev_summary.get('total', 0) if isinstance(ev_summary, dict) else 0

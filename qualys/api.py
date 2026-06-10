@@ -2617,6 +2617,30 @@ def get_cs_centralized_policies(page_size=50):
         return {'data': []}
 
 
+def get_cs_centralized_policy(policy_id):
+    """Get a single container security centralized policy by ID (CS 1.43)."""
+    url = f"{GATEWAY_URL}/csapi/v1.3/centralizedPolicy/{policy_id}"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if not data:
+        return None
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return None
+
+
+def get_image_compliance(image_sha):
+    """Get compliance posture for a container image (CS 1.43)."""
+    url = f"{GATEWAY_URL}/csapi/v1.3/images/{image_sha}/compliance"
+    data = api_get(url, gateway=True, not_found_ok=True)
+    if not data:
+        return None
+    try:
+        return json.loads(data)
+    except (json.JSONDecodeError, TypeError):
+        return None
+
+
 def get_image_vuln_count(image_id):
     """Get vulnerability count breakdown for a container image."""
     url = f"{GATEWAY_URL}/csapi/v1.3/images/{image_id}/vuln/count"
