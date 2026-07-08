@@ -1,0 +1,16 @@
+services:
+  qualys-mcp:
+    build: .
+    image: qualys-mcp:latest
+    env_file: .env
+    # Loopback-only by default; port follows MCP_PORT from .env (default 8000).
+    # To serve beyond this machine, drop the "127.0.0.1:" prefix AND set
+    # MCP_AUTH_TOKEN in .env — this server proxies your Qualys credentials.
+    ports:
+      - "127.0.0.1:${MCP_PORT:-8000}:${MCP_PORT:-8000}"
+    volumes:
+      - qualys-cache:/data/cache
+    restart: unless-stopped
+
+volumes:
+  qualys-cache:

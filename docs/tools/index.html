@@ -47,7 +47,7 @@
           <thead><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
           <tbody>
             <tr><td><code>target</code></td><td>str</td><td>(required)</td><td>CVE ID, threat actor/nation, hostname, IP address, or free-text topic</td></tr>
-            <tr><td><code>depth</code></td><td>str</td><td>"standard"</td><td>"quick" (~10s) | "standard" (~20s) | "deep" (~45s, all sources + summary)</td></tr>
+            <tr><td><code>depth</code></td><td>str</td><td>"standard"</td><td>"quick" (~10s) | "standard" (~20s) | "deep" (up to ~4 min on cold caches, all sources + summary)</td></tr>
             <tr><td><code>scope</code></td><td>str</td><td>"all"</td><td>"all" | "vulns" | "threats" | "assets" | "edr" | "fim"</td></tr>
             <tr><td><code>tag</code></td><td>str</td><td>""</td><td>Filter affected assets by tag</td></tr>
             <tr><td><code>asset_group</code></td><td>str</td><td>""</td><td>Filter by asset group</td></tr>

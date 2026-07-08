@@ -1071,19 +1071,28 @@ def investigate_agg(topic: str, depth: str = "standard", prior_context: str = ""
 
     elif inv_type == 'asset':
         asset_query = topic_lower.replace('asset:', '').strip()
-        findings['asset'] = _safe_call('get_asset', lambda: asset_detail(asset_query, detail_level='full'))
 
-        if depth in ('standard', 'deep'):
-            findings['etm_findings'] = _safe_call('get_etm_findings', lambda: etm_findings())
-
+        # NOTE (issue #229): do NOT call subscription-wide etm_findings() here.
+        # Cold, it fetches every sev 3-5 detection in the subscription
+        # (minutes on large tenants), exceeding the workflow dispatch budget
+        # so the entire per-asset investigation was dropped and the tool
+        # returned no detection data. asset_detail(detail_level='full')
+        # already includes this asset's ETM findings and VMDR detections.
+        #
+        # All calls run in ONE concurrent batch: a cold per-host VMDR fetch
+        # inside asset_detail is ~60-90s, so serial phases here also blew the
+        # dispatch budget.
+        tasks = {
+            'asset': lambda: _safe_call('get_asset', lambda: asset_detail(asset_query, detail_level='full')),
+        }
         if depth == 'deep':
-            deep_tasks = {
-                'patch_status': lambda: _safe_call('get_patch_status', lambda: patch_status()),
-                'vuln_exceptions': lambda: _safe_call('get_vuln_exceptions', lambda: vuln_exceptions()),
-            }
-            deep_results = _run_concurrent(**deep_tasks)
-            findings['patch_status'] = deep_results.get('patch_status')
-            findings['vuln_exceptions'] = deep_results.get('vuln_exceptions')
+            tasks['patch_status'] = lambda: _safe_call('get_patch_status', lambda: patch_status())
+            tasks['vuln_exceptions'] = lambda: _safe_call('get_vuln_exceptions', lambda: vuln_exceptions())
+        results = _run_concurrent(**tasks)
+        findings['asset'] = results.get('asset')
+        if depth == 'deep':
+            findings['patch_status'] = results.get('patch_status')
+            findings['vuln_exceptions'] = results.get('vuln_exceptions')
 
     elif inv_type == 'risk_spike':
         tasks = {
@@ -1277,6 +1286,7 @@ def investigate_agg(topic: str, depth: str = "standard", prior_context: str = ""
 
     elif inv_type == 'asset':
         asset = findings.get('asset') or {}
+        csam = asset.get('csam') or {}
         risk_score_val = asset.get('riskScore', 0)
         if risk_score_val >= 900:
             risk_level = 'critical'
@@ -1285,10 +1295,25 @@ def investigate_agg(topic: str, depth: str = "standard", prior_context: str = ""
         elif risk_score_val >= 400:
             risk_level = 'medium'
         key_facts.append(f"Asset TruRisk: {risk_score_val}")
-        key_facts.append(f"Hostname: {asset.get('hostname', '?')}, OS: {asset.get('os', '?')}")
-        vuln_count = len(asset.get('vulns', []))
-        if vuln_count:
-            key_facts.append(f"{vuln_count} vulnerabilities detected")
+        hostname_val = csam.get('hostname') or asset.get('hostname') or '?'
+        os_val = csam.get('os') or asset.get('os') or '?'
+        key_facts.append(f"Hostname: {hostname_val}, OS: {os_val}")
+        # asset_detail(detail_level='full') returns detections under
+        # 'vmdrDetections'; the summary path uses 'vulns'. Reading only
+        # 'vulns' here left per-asset investigations with no detection data
+        # in their summary (issue #229).
+        dets = asset.get('vmdrDetections') or asset.get('vulns') or []
+        if dets:
+            key_facts.append(f"{asset.get('vulnCount') or len(dets)} vulnerabilities detected")
+            for d in dets[:2]:
+                fact = f"QID {d.get('qid')} severity {d.get('severity')}"
+                title = (d.get('title') or '').strip()
+                if title:
+                    fact += f" — {title[:60]}"
+                cve_list = d.get('cves') or []
+                if cve_list:
+                    fact += f" ({', '.join(cve_list[:3])})"
+                key_facts.append(fact)
         recommended_actions.append("Patch critical vulnerabilities on this asset")
         followups.append("investigate_cve() on top CVEs affecting this asset")
 

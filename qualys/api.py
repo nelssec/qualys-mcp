@@ -4,6 +4,7 @@ All pure data-fetching functions live here. No business logic or aggregation.
 """
 
 import os
+import re
 import sys
 import json
 import ssl
@@ -1266,19 +1267,45 @@ def csam_search(filters=None, limit=100, fields=None, fetch_all=False):
         return result
 
 
+_ASSET_LOOKUP_FIELDS = ("assetId,address,dnsName,operatingSystem,riskScore,criticality,"
+                        "lastModifiedDate,hostId,softwareListData,tagList")
+_IPV4_LOOKUP_RE = re.compile(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
+
+
 def get_asset_by_id(asset_id):
-    """Get a single asset by ID using CSAM v2 (fast, targeted).
+    """Resolve a single asset by numeric CSAM id, IPv4 address, or hostname.
 
     Must request an explicit field set — csam_search defaults to a minimal
     projection (tagList only), which omits hostId/riskScore/software and
     silently breaks per-asset vulnerability detail (issue #229).
+
+    Identifier routing (issue #229): the CSAM filter `asset.id EQUALS <value>`
+    returns HTTP 400 for non-numeric values, so hostname/IP targets were never
+    found and the VMDR detection fetch never ran. Verified live on US2:
+    hostnames resolve via `asset.name EQUALS`, IPs via
+    `interfaces.address EQUALS` (asset.address/dnsName filter fields are
+    rejected by the API).
     """
-    assets = csam_search(
-        filters=[{"field": "asset.id", "operator": "EQUALS", "value": str(asset_id)}],
-        limit=1,
-        fields="assetId,address,dnsName,operatingSystem,riskScore,criticality,"
-               "lastModifiedDate,hostId,softwareListData,tagList",
-    )
+    ident = str(asset_id or "").strip()
+    if not ident:
+        return None
+
+    def _lookup(field, value):
+        return csam_search(
+            filters=[{"field": field, "operator": "EQUALS", "value": value}],
+            limit=1,
+            fields=_ASSET_LOOKUP_FIELDS,
+        )
+
+    if ident.isdigit():
+        assets = _lookup("asset.id", ident)
+    elif _IPV4_LOOKUP_RE.match(ident):
+        assets = _lookup("interfaces.address", ident)
+    else:
+        assets = _lookup("asset.name", ident)
+        if not assets and "." in ident:
+            # FQDN — CSAM asset names are often the short hostname.
+            assets = _lookup("asset.name", ident.split(".")[0])
     return assets[0] if assets else None
 
 
