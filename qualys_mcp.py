@@ -3,6 +3,7 @@
 
 import asyncio
 import json
+import os
 from threading import Thread
 from fastmcp import FastMCP
 from qualys.api import BASE_URL, GATEWAY_URL, _resolved_pod, _log, _warmup_vmdr_cache, CACHE_MODE
@@ -14,7 +15,32 @@ from qualys.workflows.overview import security_overview as security_overview_wf
 from qualys.aggregators import reports_agg, cache_status_agg, aws_org_connectors_agg
 from qualys.workflows import _envelope_to_markdown
 
-mcp = FastMCP("qualys-mcp")
+def _transport_config(env=None):
+    """Resolve transport settings from env: (transport, host, port, token)."""
+    env = os.environ if env is None else env
+    transport = env.get("MCP_TRANSPORT", "stdio").strip().lower()
+    host = env.get("MCP_HOST", "127.0.0.1").strip()
+    port_raw = env.get("MCP_PORT", "8000")
+    try:
+        port = int(port_raw)
+    except ValueError:
+        _log(f"invalid MCP_PORT {port_raw!r} — falling back to 8000")
+        port = 8000
+    token = env.get("MCP_AUTH_TOKEN", "").strip()
+    return transport, host, port, token
+
+
+def _build_auth(token):
+    """Bearer-token verifier for HTTP mode; empty token means no auth."""
+    if not token:
+        return None
+    from fastmcp.server.auth.providers.jwt import StaticTokenVerifier
+    return StaticTokenVerifier(tokens={token: {"client_id": "qualys-mcp", "scopes": []}})
+
+
+_TRANSPORT, _HOST, _PORT, _AUTH_TOKEN = _transport_config()
+
+mcp = FastMCP("qualys-mcp", auth=_build_auth(_AUTH_TOKEN) if _TRANSPORT == "http" else None)
 
 
 def _to_text(result):
@@ -41,7 +67,7 @@ async def investigate(target: str, depth: str = "standard", scope: str = "all",
 
     Parameters:
         target: CVE ID, threat actor/nation, hostname, IP address, or free-text topic
-        depth: "quick" (~10s, 2 sources) | "standard" (~20s, 4 sources) | "deep" (~45s, all sources + summary)
+        depth: "quick" (~10s, 2 sources) | "standard" (~20s, 4 sources) | "deep" (up to ~4 min on cold caches, all sources + summary)
         scope: "all" | "vulns" | "threats" | "assets" | "edr" | "fim"
         tag: filter affected assets by tag
         asset_group: filter by asset group
@@ -261,14 +287,21 @@ def main():
             "QUALYS_BASE_URL and QUALYS_GATEWAY_URL environment variables."
         )
     if _resolved_pod:
-        _log(f"qualys-mcp v0.2.8 — POD={_resolved_pod}  BASE_URL={BASE_URL}  GATEWAY_URL={GATEWAY_URL}")
+        _log(f"qualys-mcp v0.2.9 — POD={_resolved_pod}  BASE_URL={BASE_URL}  GATEWAY_URL={GATEWAY_URL}")
     else:
-        _log(f"qualys-mcp v0.2.8 — BASE_URL={BASE_URL}  GATEWAY_URL={GATEWAY_URL}")
+        _log(f"qualys-mcp v0.2.9 — BASE_URL={BASE_URL}  GATEWAY_URL={GATEWAY_URL}")
     _log("8 tools: investigate, assess_risk, check_compliance, plan_remediation, security_overview, reports, cache_status, aws_org_connectors")
     if CACHE_MODE == "aggressive":
         warmup = Thread(target=_warmup_vmdr_cache, daemon=True, name="vmdr-cache-warmup")
         warmup.start()
-    mcp.run()
+    if _TRANSPORT == "http":
+        _log(
+            f"transport=streamable-http  http://{_HOST}:{_PORT}/mcp/  "
+            f"auth={'bearer' if _AUTH_TOKEN else 'none'}"
+        )
+        mcp.run(transport="http", host=_HOST, port=_PORT)
+    else:
+        mcp.run()
 
 
 if __name__ == "__main__":

@@ -29,6 +29,7 @@ devclaw/
 discovery/
 docs/superpowers/
 *.yaml
+!compose.yaml
 *.yml
 !.github/**/*.yml
 

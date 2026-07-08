@@ -6,6 +6,12 @@ An MCP server that connects AI assistants to Qualys security data. **7 workflow 
 
 **📖 [Full documentation →](https://qualys-mcp.netlify.app/)**
 
+## What's new in v0.2.9
+
+- Streamable HTTP + Docker support — run the server as a persistent, network-reachable container instead of stdio-only (see [Run with Docker](#run-with-docker-streamable-http) below).
+- Fixed per-asset detections in issue #229.
+- **Breaking:** now requires Python ≥3.10 and `fastmcp` ≥2.11 — Python 3.9 installs are no longer supported.
+
 ## Setup
 
 Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
@@ -63,6 +69,20 @@ qualys-mcp
 ### Self-Signed Certificates
 
 For environments with self-signed certs, add `"QUALYS_SSL_VERIFY": "false"` to the env block.
+
+## Run with Docker (Streamable HTTP)
+
+Prefer a persistent, network-reachable server over the `uvx` stdio setup above? Run it as a container instead:
+
+```bash
+docker build -t qualys-mcp:latest .
+cp .env.example .env
+$EDITOR .env                      # set your Qualys credentials
+docker compose up -d
+claude mcp add --transport http qualys http://127.0.0.1:8000/mcp/
+```
+
+See **[docs/DOCKER.md](docs/DOCKER.md)** for the full guide: environment variables, connecting other MCP clients, security notes, and troubleshooting.
 
 ## Tools
 

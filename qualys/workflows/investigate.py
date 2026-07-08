@@ -444,6 +444,12 @@ def _summarize(data: dict) -> str:
         inv_summary = investigate.get("summary", "")
         if inv_summary and isinstance(inv_summary, str):
             parts.append(inv_summary)
+        # Propagate the aggregator's key facts — for per-asset investigations
+        # these carry the actual detection data (QID/severity/CVE); dropping
+        # them left the rendered output with no detections (issue #229).
+        for fact in (investigate.get("key_facts") or []):
+            if isinstance(fact, str) and fact and fact not in parts:
+                parts.append(fact)
 
     edr = data.get("edr") or {}
     if edr and isinstance(edr, dict):
@@ -497,6 +503,15 @@ def _summarize(data: dict) -> str:
             risk = "high" if risk == "unknown" else risk
         elif threat_actor.get("totalInKB", -1) == 0:
             risk = "low" if risk == "unknown" else risk
+
+    # Adopt the investigate aggregator's computed risk (e.g. per-asset TruRisk)
+    # when nothing more specific set one — a TruRisk-1000 asset must not
+    # surface as "low"/"unknown" (issue #229 follow-on).
+    investigate = data.get("investigate") or {}
+    if isinstance(investigate, dict) and risk == "unknown":
+        inv_risk = investigate.get("risk_level", "")
+        if inv_risk in ("critical", "high", "medium", "low"):
+            risk = inv_risk
 
     totalai = data.get("totalai") or {}
     if isinstance(totalai, dict) and totalai.get("totalDetections", 0) > 0:
@@ -720,7 +735,10 @@ def investigate(
     aggregators_called = list(plan.keys())
 
     # --- Dispatch ---
-    inv_timeout = 30 if depth == "quick" else 60 if depth == "standard" else 120
+    # Deep budget must cover a cold per-host VMDR detection fetch (~60-90s on
+    # large subscriptions) plus KB enrichment; 120s was routinely exceeded,
+    # dropping every per-asset finding (issue #229).
+    inv_timeout = 30 if depth == "quick" else 60 if depth == "standard" else 240
     results, elapsed_ms = _dispatch(plan, timeout=inv_timeout)
     results["_target"] = target
 
